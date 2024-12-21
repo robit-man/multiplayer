@@ -1,0 +1,7 @@
+[build]
+  publish = "dist"
+
+[[headers]]
+  for = "/Xbot.glb" # Ensure the .glb file is accessible
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
