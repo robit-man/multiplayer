@@ -43,9 +43,11 @@ window.listener = listener; // Optional: Attach to window for global access
 
 let localStream = null;          // MediaStream from user's microphone
 let audioContext = null;         // AudioContext for processing audio
-let mediaStreamSource = null;    // MediaStreamSource node
-let processor = null;            // ScriptProcessorNode for capturing audio data
+let workletNode = null;          // AudioWorkletNode for capturing audio
 const remoteAudioStreams = {};   // Map to keep track of remote audio streams by ID
+
+let mediaStreamSource = null;    // MediaStreamSource from the microphone
+let processor = null;            // ScriptProcessorNode for capturing audio data
 
 
 const walkSpeed = 2;
@@ -54,7 +56,6 @@ const rotateSpeed = Math.PI / 2;
 const loadingPlayers = new Set(); // Track players being loaded
 const players = {};
 let myId = null;
-
 
 // Mountainscape variables
 let terrainPoints;
@@ -112,6 +113,9 @@ function init() {
     };
 
     document.body.appendChild(VRButton.createButton(renderer, sessionInit));
+    // === Initialize AudioContext Upon User Interaction ===
+    document.addEventListener('click', handleUserInteraction, { once: true });
+    document.addEventListener('keydown', handleUserInteraction, { once: true });
 
     // Clock
     clock = new THREE.Clock();
@@ -533,6 +537,16 @@ function onKeyUp(event) {
     }
 }
 
+// === Initialize AudioContext Upon User Interaction ===
+function handleUserInteraction() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('AudioContext initialized on user interaction.');
+    }
+    // Remove event listeners after initialization to prevent redundant calls
+    document.removeEventListener('click', handleUserInteraction);
+    document.removeEventListener('keydown', handleUserInteraction);
+}
 
 
 
@@ -647,11 +661,7 @@ async function startBroadcast() {
         // Request microphone access
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-        // Initialize AudioContext if not already initialized
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-
+        // Create a MediaStreamSource from the microphone
         mediaStreamSource = audioContext.createMediaStreamSource(localStream);
 
         // Create a ScriptProcessorNode to capture audio data
@@ -682,6 +692,7 @@ async function startBroadcast() {
     }
 }
 
+
 function stopBroadcast() {
     if (!localStream) return; // Not broadcasting
 
@@ -695,10 +706,12 @@ function stopBroadcast() {
         mediaStreamSource.disconnect();
         mediaStreamSource = null;
     }
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-    }
+
+    // Do not close audioContext here if it's used for remote audio
+    // if (audioContext) {
+    //     audioContext.close();
+    //     audioContext = null;
+    // }
 
     // Stop all tracks in the MediaStream
     localStream.getTracks().forEach(track => track.stop());
@@ -712,6 +725,11 @@ function stopBroadcast() {
 
 
 function addRemoteAudioStream(id) {
+    if (!audioContext) {
+        console.warn('AudioContext not initialized. Cannot add remote audio stream.');
+        return;
+    }
+
     const player = players[id];
     if (!player) {
         console.warn(`Player with ID ${id} not found.`);
@@ -723,22 +741,18 @@ function addRemoteAudioStream(id) {
     // Create a PositionalAudio object and attach it to the remote player
     const positionalAudio = new THREE.PositionalAudio(listener);
     positionalAudio.setRefDistance(20); // Adjust based on scene scale
-
-    // Create a MediaStreamAudioSourceNode from a MediaStream
-    const remoteStream = new MediaStream();
-    const mediaStreamSourceNode = audioContext.createMediaStreamSource(remoteStream);
-    positionalAudio.setMediaStreamSource(remoteStream);
-
-    // Attach the audio to the player's model
+    positionalAudio.setVolume(1.0); // Optional: Adjust volume as needed
     player.model.add(positionalAudio);
     positionalAudio.play();
 
     // Store the PositionalAudio object for later use
     remoteAudioStreams[id] = {
         positionalAudio,
-        remoteStream
     };
 }
+
+
+
 
 function removeRemoteAudioStream(id) {
     const remoteAudio = remoteAudioStreams[id];
@@ -752,6 +766,11 @@ function removeRemoteAudioStream(id) {
 }
 
 function receiveAudioStream(id, audioBuffer) {
+    if (!audioContext) {
+        console.warn('AudioContext not initialized. Cannot receive audio stream.');
+        return;
+    }
+
     const remoteAudio = remoteAudioStreams[id];
     if (!remoteAudio) {
         // Audio stream not started yet
@@ -759,22 +778,30 @@ function receiveAudioStream(id, audioBuffer) {
         return;
     }
 
-    // Decode the incoming audio data
-    audioContext.decodeAudioData(audioBuffer, (decodedData) => {
-        // Create a BufferSource and set the buffer
-        const bufferSource = audioContext.createBufferSource();
-        bufferSource.buffer = decodedData;
-        bufferSource.connect(remoteAudio.positionalAudio.gain);
-        bufferSource.start();
+    // Convert Int16Array back to Float32Array
+    const int16 = new Int16Array(audioBuffer);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / 32767;
+    }
 
-        // Optional: Clean up after playback
-        bufferSource.onended = () => {
-            bufferSource.disconnect();
-        };
-    }, (error) => {
-        console.error('Error decoding audio data:', error);
-    });
+    // Create an AudioBuffer and copy the float32 data
+    const buffer = audioContext.createBuffer(1, float32.length, audioContext.sampleRate);
+    buffer.copyToChannel(float32, 0, 0);
+
+    // Create a BufferSource and set the buffer
+    const bufferSource = audioContext.createBufferSource();
+    bufferSource.buffer = buffer;
+    bufferSource.connect(remoteAudio.positionalAudio.gain);
+    bufferSource.start();
+
+    // Optional: Clean up after playback
+    bufferSource.onended = () => {
+        bufferSource.disconnect();
+    };
 }
+
+
 
 
 function isEqual(obj1, obj2) {
