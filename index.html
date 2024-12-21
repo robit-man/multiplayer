@@ -37,6 +37,7 @@
         width: 20%;
         height: 20%;
         background: rgba(255, 255, 255, 0.2);
+        box-shadow: 0px 0px 10px 10px rgba(255, 255, 255, 0.2);
         border-radius: 50%;
         opacity: 0;
         pointer-events: none;
@@ -92,7 +93,9 @@
     </div>
 
     <script>
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      // Check if screen size indicates mobile
+      const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
+
       const touchControls = document.getElementById("touchControls");
 
       if (isMobile) {
