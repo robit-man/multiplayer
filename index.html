@@ -1,107 +1,139 @@
-<!DOCTYPE html>
-<html>
-<head>
-      <link rel="icon" type="image/svg+xml" href="/three.svg" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/three.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multiplayer Threejs</title>
-</head>
-<body>
-    <h1>Device Motion Example</h1>
-    <p id="acceleration">Acceleration Data: Not available</p>
-    <p id="accelerationIncludingGravity">Acceleration (Including Gravity): Not available</p>
-    <p id="rotationRate">Rotation Rate: Not available</p>
-    <p id="interval">Interval: Not available</p>
-    <p id="fallback">Fallback Status: Using alternative controls.</p>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        position: relative;
+      }
+
+      #app {
+        width: 100vw;
+        height: 100vh;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+      }
+
+      .touch-controls {
+        display: none;
+        position: absolute;
+        width: 100vw;
+        height: 100vh;
+        top: 0;
+        left: 0;
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      .touch-control {
+        position: absolute;
+        width: 20%;
+        height: 20%;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+
+      .touch-controls.active .touch-control {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .forward {
+        top: 10%;
+        left: 40%;
+      }
+
+      .left {
+        top: 40%;
+        left: 10%;
+      }
+
+      .right {
+        top: 40%;
+        left: 70%;
+      }
+
+      .backward {
+        top: 70%;
+        left: 40%;
+      }
+
+      .forward-left {
+        top: 10%;
+        left: 10%;
+      }
+
+      .forward-right {
+        top: 10%;
+        left: 70%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div class="touch-controls" id="touchControls">
+      <div class="touch-control forward"></div>
+      <div class="touch-control left"></div>
+      <div class="touch-control right"></div>
+      <div class="touch-control backward"></div>
+      <div class="touch-control forward-left"></div>
+      <div class="touch-control forward-right"></div>
+    </div>
 
     <script>
-        function initDeviceMotion() {
-            if ('DeviceMotionEvent' in window) {
-                if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                    // Request permission on iOS
-                    DeviceMotionEvent.requestPermission()
-                        .then(permissionState => {
-                            if (permissionState === 'granted') {
-                                enableDeviceMotion();
-                            } else {
-                                console.log('Device Motion permission denied. Falling back to alternative controls.');
-                                showFallbackMessage();
-                                enableFallbackControls();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error requesting Device Motion permission:', error);
-                            showFallbackMessage();
-                            enableFallbackControls();
-                        });
-                } else {
-                    // Non-iOS browsers
-                    enableDeviceMotion();
-                }
-            } else {
-                console.log('Device Motion not supported. Falling back to alternative controls.');
-                showFallbackMessage();
-                enableFallbackControls();
-            }
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const touchControls = document.getElementById("touchControls");
+
+      if (isMobile) {
+        // Show controls when screen is touched
+        document.body.addEventListener("touchstart", () => {
+          touchControls.classList.add("active");
+        });
+
+        // Hide controls when screen is not touched
+        document.body.addEventListener("touchend", () => {
+          touchControls.classList.remove("active");
+        });
+
+        // Handle touch input
+        touchControls.addEventListener("touchstart", handleTouchStart, false);
+        touchControls.addEventListener("touchend", handleTouchEnd, false);
+      }
+
+      const touchRegions = [
+        { className: "forward", action: () => console.log("Move Forward") },
+        { className: "backward", action: () => console.log("Move Backward") },
+        { className: "left", action: () => console.log("Move Left") },
+        { className: "right", action: () => console.log("Move Right") },
+        { className: "forward-left", action: () => console.log("Move Forward + Left") },
+        { className: "forward-right", action: () => console.log("Move Forward + Right") },
+      ];
+
+      function handleTouchStart(event) {
+        const touches = event.touches;
+        for (const touch of touches) {
+          const target = touch.target;
+          const region = touchRegions.find(r => target.classList.contains(r.className));
+          if (region) {
+            region.action(); // Trigger the action
+          }
         }
+      }
 
-        function enableDeviceMotion() {
-            console.log('Device Motion enabled.');
-            document.getElementById('fallback').innerText = 'Fallback Status: Device Motion enabled.';
-            window.addEventListener('devicemotion', handleDeviceMotion);
-        }
-
-        function handleDeviceMotion(event) {
-            const acc = event.acceleration || {};
-            const accG = event.accelerationIncludingGravity || {};
-            const rot = event.rotationRate || {};
-            const interval = event.interval || 'Unknown';
-
-            document.getElementById('acceleration').innerText = 
-                `Acceleration - X: ${acc.x || 0}, Y: ${acc.y || 0}, Z: ${acc.z || 0}`;
-            document.getElementById('accelerationIncludingGravity').innerText = 
-                `Acceleration (Including Gravity) - X: ${accG.x || 0}, Y: ${accG.y || 0}, Z: ${accG.z || 0}`;
-            document.getElementById('rotationRate').innerText = 
-                `Rotation Rate - Alpha: ${rot.alpha || 0}, Beta: ${rot.beta || 0}, Gamma: ${rot.gamma || 0}`;
-            document.getElementById('interval').innerText = `Interval: ${interval} ms`;
-        }
-
-        function enableFallbackControls() {
-            console.log('Enabling fallback controls...');
-            const status = document.getElementById('fallback');
-            status.innerText = 'Fallback Status: Using alternative touch-based controls.';
-            document.body.addEventListener('touchstart', handleTouchControls);
-        }
-
-        function handleTouchControls(event) {
-            const touch = event.touches[0];
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-
-            if (touch.clientY < height / 2) {
-                if (touch.clientX < width / 3) {
-                    console.log('Move: Forward + Left');
-                } else if (touch.clientX > (2 * width) / 3) {
-                    console.log('Move: Forward + Right');
-                } else {
-                    console.log('Move: Forward');
-                }
-            } else {
-                if (touch.clientX < width / 3) {
-                    console.log('Move: Backward + Left');
-                } else if (touch.clientX > (2 * width) / 3) {
-                    console.log('Move: Backward + Right');
-                } else {
-                    console.log('Move: Backward');
-                }
-            }
-        }
-
-        function showFallbackMessage() {
-            document.getElementById('fallback').innerText = 'Fallback Status: Device Motion not available. Using touch controls.';
-        }
-
-        // Initialize
-        initDeviceMotion();
+      function handleTouchEnd() {
+        console.log("Stop Movement");
+      }
     </script>
     <script type="module" src="/src/app.js"></script>
   </body>
