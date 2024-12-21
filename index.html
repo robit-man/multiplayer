@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image" href="/nc.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>NOCLIP MULTI USER DEMO</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
@@ -18,6 +18,11 @@
       /* Disable long-press menu */
       -webkit-tap-highlight-color: transparent;
       /* Remove tap highlight */
+      overflow: hidden;
+      touch-action: manipulation;
+      /* Prevents zooming */
+      overscroll-behavior: none;
+      /* Prevents elastic scrolling */
     }
 
     body {
@@ -27,6 +32,7 @@
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
+      overflow: hidden;
       -webkit-user-select: none;
       /* Disable text selection */
       user-select: none;
@@ -35,6 +41,10 @@
       /* Disable long-press menu */
       -webkit-tap-highlight-color: transparent;
       /* Remove tap highlight */
+      touch-action: manipulation;
+      /* Prevents zooming */
+      overscroll-behavior: none;
+      /* Prevents elastic scrolling */
     }
 
     #app {
@@ -44,6 +54,7 @@
       top: 0;
       left: 0;
       z-index: 1;
+      overflow: hidden;
       user-select: none;
     }
 
@@ -235,6 +246,15 @@
       touchControls.addEventListener("touchstart", handleTouchStart, false);
       touchControls.addEventListener("touchend", handleTouchEnd, false);
     }
+    document.addEventListener('gesturestart', function (event) {
+      event.preventDefault();
+    });
+    document.addEventListener('gesturechange', function (event) {
+      event.preventDefault();
+    });
+    document.addEventListener('gestureend', function (event) {
+      event.preventDefault();
+    });
 
     const keyMap = {
       forward: "w",
