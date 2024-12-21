@@ -111,28 +111,47 @@
         touchControls.addEventListener("touchend", handleTouchEnd, false);
       }
 
-      const touchRegions = [
-        { className: "forward", action: () => console.log("Move Forward") },
-        { className: "backward", action: () => console.log("Move Backward") },
-        { className: "left", action: () => console.log("Move Left") },
-        { className: "right", action: () => console.log("Move Right") },
-        { className: "forward-left", action: () => console.log("Move Forward + Left") },
-        { className: "forward-right", action: () => console.log("Move Forward + Right") },
-      ];
+      const keyMap = {
+        forward: "w",
+        backward: "s",
+        left: "a",
+        right: "d",
+        "forward-left": ["w", "a"],
+        "forward-right": ["w", "d"],
+      };
+
+      const activeKeys = new Set();
+
+      function triggerKeyEvent(key, eventType) {
+        const event = new KeyboardEvent(eventType, { key });
+        document.dispatchEvent(event);
+      }
 
       function handleTouchStart(event) {
         const touches = event.touches;
         for (const touch of touches) {
           const target = touch.target;
-          const region = touchRegions.find(r => target.classList.contains(r.className));
-          if (region) {
-            region.action(); // Trigger the action
+          for (const className in keyMap) {
+            if (target.classList.contains(className)) {
+              const keys = Array.isArray(keyMap[className])
+                ? keyMap[className]
+                : [keyMap[className]];
+              keys.forEach((key) => {
+                if (!activeKeys.has(key)) {
+                  activeKeys.add(key);
+                  triggerKeyEvent(key, "keydown");
+                }
+              });
+            }
           }
         }
       }
 
-      function handleTouchEnd() {
-        console.log("Stop Movement");
+      function handleTouchEnd(event) {
+        activeKeys.forEach((key) => {
+          triggerKeyEvent(key, "keyup");
+        });
+        activeKeys.clear();
       }
     </script>
     <script type="module" src="/src/app.js"></script>
