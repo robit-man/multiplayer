@@ -8,22 +8,71 @@
     <style>
       body {
         margin: 0;
-        overflow: hidden; /* Prevent scrolling when tilting */
+        overflow: hidden; /* Prevent scrolling */
       }
       #app {
+        position: relative;
         width: 100vw;
         height: 100vh;
-        position: relative;
       }
       canvas {
         display: block;
       }
+      .controls {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: auto;
+      }
+      .control-button {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        border-radius: 50%;
+        border: 1px solid white;
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+        pointer-events: auto;
+      }
+      #up {
+        top: 10%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      #down {
+        bottom: 10%;
+        left: 50%;
+        transform: translate(-50%, 50%);
+      }
+      #left {
+        left: 10%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+      }
+      #right {
+        right: 10%;
+        top: 50%;
+        transform: translate(50%, -50%);
+      }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="controls">
+        <div id="up" class="control-button">W</div>
+        <div id="down" class="control-button">S</div>
+        <div id="left" class="control-button">A</div>
+        <div id="right" class="control-button">D</div>
+      </div>
+    </div>
     <script type="module">
-      // Define key states for motion
       const keyStates = {
         w: false,
         a: false,
@@ -31,63 +80,36 @@
         d: false,
       };
 
-      // Sensitivity thresholds for acceleration changes
-      const tiltThreshold = 1.5; // Adjust sensitivity (m/s²)
+      // Add touchstart and touchend listeners for each button
+      const buttons = {
+        w: document.getElementById('up'),
+        a: document.getElementById('left'),
+        s: document.getElementById('down'),
+        d: document.getElementById('right'),
+      };
 
-      // Function to set key states
-      function setKeyState(key, value) {
-        if (keyStates[key] !== value) {
-          keyStates[key] = value;
-          console.log(`${key} is now ${value ? 'pressed' : 'released'}`);
-          handleKeyStates(); // Trigger motion updates
-        }
+      for (const [key, button] of Object.entries(buttons)) {
+        button.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          keyStates[key] = true;
+          handleKeyStates();
+        });
+        button.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          keyStates[key] = false;
+          handleKeyStates();
+        });
       }
 
-      // Motion event handler
-      function handleMotion(event) {
-        const { accelerationIncludingGravity } = event;
-        if (!accelerationIncludingGravity) return;
-
-        const { x, y, z } = accelerationIncludingGravity;
-
-        // Interpret tilt based on accelerometer data
-        if (y > tiltThreshold) {
-          setKeyState('w', true); // Tilt forward
-          setKeyState('s', false);
-        } else if (y < -tiltThreshold) {
-          setKeyState('s', true); // Tilt backward
-          setKeyState('w', false);
-        } else {
-          setKeyState('w', false);
-          setKeyState('s', false);
-        }
-
-        if (x > tiltThreshold) {
-          setKeyState('d', true); // Tilt right
-          setKeyState('a', false);
-        } else if (x < -tiltThreshold) {
-          setKeyState('a', true); // Tilt left
-          setKeyState('d', false);
-        } else {
-          setKeyState('a', false);
-          setKeyState('d', false);
-        }
-      }
-
-      // Attach motion event listener
-      if (window.DeviceMotionEvent) {
-        window.addEventListener('devicemotion', handleMotion);
-      } else {
-        console.error('DeviceMotionEvent is not supported on this device.');
-      }
-
-      // WASD logic (example implementation; replace with your existing function)
+      // Handle key states for WASD movement
       function handleKeyStates() {
-        // Example WASD handling logic
-        if (keyStates['w']) console.log('Move Forward');
-        if (keyStates['a']) console.log('Move Left');
-        if (keyStates['s']) console.log('Move Backward');
-        if (keyStates['d']) console.log('Move Right');
+        // Replace with your WASD handling logic
+        console.log('Current Key States:', keyStates);
+
+        if (keyStates.w) console.log('Move Forward');
+        if (keyStates.a) console.log('Move Left');
+        if (keyStates.s) console.log('Move Backward');
+        if (keyStates.d) console.log('Move Right');
       }
 
     </script>
