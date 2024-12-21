@@ -9,14 +9,32 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
 
+    * {
+      -webkit-user-select: none;
+      /* Disable text selection */
+      user-select: none;
+      /* Standard */
+      -webkit-touch-callout: none;
+      /* Disable long-press menu */
+      -webkit-tap-highlight-color: transparent;
+      /* Remove tap highlight */
+    }
+
     body {
       margin: 0;
       overflow: hidden;
       position: relative;
-      user-select: none;
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
+      -webkit-user-select: none;
+      /* Disable text selection */
+      user-select: none;
+      /* Standard */
+      -webkit-touch-callout: none;
+      /* Disable long-press menu */
+      -webkit-tap-highlight-color: transparent;
+      /* Remove tap highlight */
     }
 
     #app {
@@ -63,7 +81,7 @@
       display: flex;
       flex-flow: column;
       justify-content: center;
-      color:#ffffff44;
+      color: #ffffff44;
     }
 
     .forward {
