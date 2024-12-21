@@ -2,16 +2,16 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   root: './', // Project root directory
-  publicDir: 'public', // Serve static assets from 'public' directory
+  publicDir: 'public', // Static assets directory
   build: {
-    outDir: 'dist', // Directory for build output
-    emptyOutDir: true, // Clean the build directory before output
+    outDir: 'dist', // Output directory
+    emptyOutDir: true, // Clean before build
     rollupOptions: {
-      external: ['fsevents'], // Exclude 'fsevents' to avoid build issues
+      external: ['node:fs', 'node:path', 'node:url'], // Externalize problematic modules
     },
   },
   server: {
-    port: 3000, // Local development server port
-    open: true, // Automatically open browser
+    port: 3000, // Dev server port
+    open: true, // Open in browser
   },
 });
