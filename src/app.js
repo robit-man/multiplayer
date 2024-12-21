@@ -42,12 +42,12 @@ const keyStates = {
 window.listener = listener; // Optional: Attach to window for global access
 
 let localStream = null;          // MediaStream from user's microphone
-let audioContext = null;         // AudioContext for processing audio
 let workletNode = null;          // AudioWorkletNode for capturing audio
 const remoteAudioStreams = {};   // Map to keep track of remote audio streams by ID
 
 let mediaStreamSource = null;    // MediaStreamSource from the microphone
 let processor = null;            // ScriptProcessorNode for capturing audio data
+
 
 
 const walkSpeed = 2;
@@ -539,14 +539,18 @@ function onKeyUp(event) {
 
 // === Initialize AudioContext Upon User Interaction ===
 function handleUserInteraction() {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        console.log('AudioContext initialized on user interaction.');
+    if (listener.context.state === 'suspended') {
+        listener.context.resume().then(() => {
+            console.log('AudioContext resumed on user interaction.');
+        }).catch((err) => {
+            console.error('Error resuming AudioContext:', err);
+        });
     }
     // Remove event listeners after initialization to prevent redundant calls
     document.removeEventListener('click', handleUserInteraction);
     document.removeEventListener('keydown', handleUserInteraction);
 }
+
 
 
 
@@ -661,15 +665,15 @@ async function startBroadcast() {
         // Request microphone access
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-        // Create a MediaStreamSource from the microphone
-        mediaStreamSource = audioContext.createMediaStreamSource(localStream);
+        // Create a MediaStreamSource from the microphone using Three.js's AudioContext
+        mediaStreamSource = listener.context.createMediaStreamSource(localStream);
 
         // Create a ScriptProcessorNode to capture audio data
-        processor = audioContext.createScriptProcessor(4096, 1, 1);
+        processor = listener.context.createScriptProcessor(4096, 1, 1);
 
         // Connect the nodes
         mediaStreamSource.connect(processor);
-        processor.connect(audioContext.destination);
+        processor.connect(listener.context.destination);
 
         // Handle audio processing
         processor.onaudioprocess = (e) => {
@@ -725,7 +729,7 @@ function stopBroadcast() {
 
 
 function addRemoteAudioStream(id) {
-    if (!audioContext) {
+    if (!listener.context) {
         console.warn('AudioContext not initialized. Cannot add remote audio stream.');
         return;
     }
@@ -754,6 +758,7 @@ function addRemoteAudioStream(id) {
 
 
 
+
 function removeRemoteAudioStream(id) {
     const remoteAudio = remoteAudioStreams[id];
     if (remoteAudio) {
@@ -766,7 +771,7 @@ function removeRemoteAudioStream(id) {
 }
 
 function receiveAudioStream(id, audioBuffer) {
-    if (!audioContext) {
+    if (!listener.context) {
         console.warn('AudioContext not initialized. Cannot receive audio stream.');
         return;
     }
@@ -786,11 +791,11 @@ function receiveAudioStream(id, audioBuffer) {
     }
 
     // Create an AudioBuffer and copy the float32 data
-    const buffer = audioContext.createBuffer(1, float32.length, audioContext.sampleRate);
+    const buffer = listener.context.createBuffer(1, float32.length, listener.context.sampleRate);
     buffer.copyToChannel(float32, 0, 0);
 
     // Create a BufferSource and set the buffer
-    const bufferSource = audioContext.createBufferSource();
+    const bufferSource = listener.context.createBufferSource();
     bufferSource.buffer = buffer;
     bufferSource.connect(remoteAudio.positionalAudio.gain);
     bufferSource.start();
@@ -800,6 +805,7 @@ function receiveAudioStream(id, audioBuffer) {
         bufferSource.disconnect();
     };
 }
+
 
 
 
