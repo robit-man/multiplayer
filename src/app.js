@@ -15,10 +15,13 @@ if (window.location.pathname.includes('/public/')) {
 console.log(`Model Path: ${modelPath}`); // For debugging purposes
 
 const socket = io('https://full-canary-chokeberry.glitch.me/');
+
 const simplex = new SimplexNoise();
 
+// Store the listener globally for later use
 
-let scene, camera, renderer, clock;
+
+let scene, camera, renderer, clock, listener;
 let localModel, localMixer;
 let currentAction = 'idle';
 let localActions = {};
@@ -34,7 +37,16 @@ const keyStates = {
     s: false,
     d: false,
     Shift: false,
+    r: false, // Added 'r' key
 };
+window.listener = listener; // Optional: Attach to window for global access
+
+let localStream = null;       // MediaStream from user's microphone
+let audioContext = null;      // AudioContext for processing audio
+let mediaStreamSource = null; // MediaStreamSource node
+let processor = null;         // ScriptProcessorNode for capturing audio data
+const remoteAudioStreams = {}; // Map to keep track of remote audio streams by ID
+
 const walkSpeed = 2;
 const runSpeed = 5; // Higher speed for running
 const rotateSpeed = Math.PI / 2;
@@ -66,6 +78,11 @@ function init() {
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100);
     camera.position.set(0, 2, -5);
 
+    // Add an AudioListener to the camera
+    listener = new THREE.AudioListener();
+    camera.add(listener);
+
+
     // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -92,7 +109,7 @@ function init() {
     const sessionInit = {
         requiredFeatures: ['hand-tracking']
     };
-    
+
     document.body.appendChild(VRButton.createButton(renderer, sessionInit));
 
     // Clock
@@ -163,13 +180,9 @@ function setupSocketEvents() {
     });
 
     socket.on('state_update_all', (data) => {
-
-
-        // Update players and set the last state
         updatePlayers(data);
-        lastState = { ...data }; // Clone the new state
+        lastState = { ...data };
     });
-
 
     socket.on('new_player', (data) => {
         console.log('New Player data:', data);
@@ -189,7 +202,26 @@ function setupSocketEvents() {
         console.log('Player Disconnected:', id);
         removeRemotePlayer(id);
     });
+
+    // Handle 'start_audio' from other clients
+    socket.on('start_audio', (id) => {
+        console.log(`User ${id} started broadcasting audio.`);
+        addRemoteAudioStream(id);
+    });
+
+    // Handle 'stop_audio' from other clients
+    socket.on('stop_audio', (id) => {
+        console.log(`User ${id} stopped broadcasting audio.`);
+        removeRemoteAudioStream(id);
+    });
+
+    // Handle 'audio_stream' events from other clients
+    socket.on('audio_stream', (data) => {
+        const { id, audio } = data;
+        receiveAudioStream(id, audio);
+    });
 }
+
 
 function setRemoteAction(id) {
     const player = players[id];
@@ -231,6 +263,10 @@ function updateRemotePlayer(id, data) {
     player.model.position.lerp(player.position, 0.1); // Smooth position update
     player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1); // Smooth rotation update
 
+    // Update the position of the remote player's audio if it exists
+    if (remoteAudioStreams[id]) {
+        remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
+    }
     // Detect movement
     const distanceMoved = player.position.distanceTo(player.model.position); // Measure distance moved
     const isMoving = distanceMoved > 0.01; // Threshold for motion detection
@@ -467,20 +503,34 @@ function removeRemotePlayer(id) {
         scene.remove(players[id].model);
         delete players[id];
     }
+    removeRemoteAudioStream(id);
 }
+
 function onKeyDown(event) {
     if (event.key in keyStates) {
-        keyStates[event.key] = true; // Mark key as pressed
-        handleKeyStates(); // Reevaluate key states
+        if (!keyStates[event.key]) { // Prevent repeat events
+            keyStates[event.key] = true; // Mark key as pressed
+            if (event.key === 'r') {
+                startBroadcast(); // Start broadcasting audio
+            }
+            handleKeyStates(); // Handle movement and other keys
+        }
     }
 }
 
 function onKeyUp(event) {
     if (event.key in keyStates) {
         keyStates[event.key] = false; // Mark key as released
-        handleKeyStates(); // Reevaluate key states
+        if (event.key === 'r') {
+            stopBroadcast(); // Stop broadcasting audio
+        }
+        handleKeyStates(); // Handle movement and other keys
     }
 }
+
+
+
+
 
 function handleKeyStates() {
     // Detect movement keys
@@ -584,6 +634,144 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+async function startBroadcast() {
+    if (localStream) return; // Already broadcasting
+
+    try {
+        // Request microphone access
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        
+        // Initialize AudioContext if not already
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        mediaStreamSource = audioContext.createMediaStreamSource(localStream);
+
+        // Create a ScriptProcessorNode to capture audio data
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        // Connect the nodes
+        mediaStreamSource.connect(processor);
+        processor.connect(audioContext.destination);
+
+        // Handle audio processing
+        processor.onaudioprocess = (e) => {
+            const inputData = e.inputBuffer.getChannelData(0);
+            // Convert Float32Array to Int16Array for transmission
+            const buffer = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+                buffer[i] = inputData[i] * 32767;
+            }
+            // Emit the audio data to the server
+            socket.emit('audio_stream', buffer.buffer);
+        };
+
+        // Notify server to start broadcasting audio
+        socket.emit('start_audio');
+
+        console.log('Started broadcasting audio.');
+    } catch (err) {
+        console.error('Error accessing microphone:', err);
+    }
+}
+
+
+function stopBroadcast() {
+    if (!localStream) return; // Not broadcasting
+
+    // Disconnect and close the audio nodes
+    if (processor) {
+        processor.disconnect();
+        processor.onaudioprocess = null;
+        processor = null;
+    }
+    if (mediaStreamSource) {
+        mediaStreamSource.disconnect();
+        mediaStreamSource = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+
+    // Stop all tracks in the MediaStream
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+
+    // Notify server to stop broadcasting audio
+    socket.emit('stop_audio');
+
+    console.log('Stopped broadcasting audio.');
+}
+
+
+function addRemoteAudioStream(id) {
+    const player = players[id];
+    if (!player) {
+        console.warn(`Player with ID ${id} not found.`);
+        return;
+    }
+
+    if (remoteAudioStreams[id]) return; // Already has an audio stream
+
+    // Create a PositionalAudio object and attach it to the remote player
+    const positionalAudio = new THREE.PositionalAudio(listener);
+    positionalAudio.setRefDistance(20); // Adjust based on scene scale
+
+    // Create a MediaStreamAudioSourceNode from a MediaStream
+    const remoteStream = new MediaStream();
+    const mediaStreamSourceNode = audioContext.createMediaStreamSource(remoteStream);
+    positionalAudio.setMediaStreamSource(remoteStream);
+
+    // Attach the audio to the player's model
+    player.model.add(positionalAudio);
+    positionalAudio.play();
+
+    // Store the PositionalAudio object for later use
+    remoteAudioStreams[id] = {
+        positionalAudio,
+        remoteStream
+    };
+}
+
+function removeRemoteAudioStream(id) {
+    const remoteAudio = remoteAudioStreams[id];
+    if (remoteAudio) {
+        remoteAudio.positionalAudio.stop();
+        remoteAudio.positionalAudio.disconnect();
+        remoteAudio.positionalAudio = null;
+        remoteAudio.remoteStream = null;
+        delete remoteAudioStreams[id];
+    }
+}
+
+function receiveAudioStream(id, audioBuffer) {
+    const remoteAudio = remoteAudioStreams[id];
+    if (!remoteAudio) {
+        // Audio stream not started yet
+        console.warn(`Received audio data from ${id} before audio stream started.`);
+        return;
+    }
+
+    // Decode the incoming audio data
+    audioContext.decodeAudioData(audioBuffer, (decodedData) => {
+        // Create a BufferSource and set the buffer
+        const bufferSource = audioContext.createBufferSource();
+        bufferSource.buffer = decodedData;
+        bufferSource.connect(remoteAudio.positionalAudio.gain);
+        bufferSource.start();
+
+        // Optional: Clean up after playback
+        bufferSource.onended = () => {
+            bufferSource.disconnect();
+        };
+    }, (error) => {
+        console.error('Error decoding audio data:', error);
+    });
+}
+
 
 function isEqual(obj1, obj2) {
     if (obj1 === obj2) return true;
