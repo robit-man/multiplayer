@@ -14,8 +14,17 @@ let moveForward = false;
 let moveBackward = false;
 let rotateLeft = false;
 let rotateRight = false;
-let lastState = {}; // Track the last known state
+let isRunning = false; // Track if the player is running
+let lastState = {};
+const keyStates = {
+    w: false,
+    a: false,
+    s: false,
+    d: false,
+    Shift: false,
+};
 const walkSpeed = 2;
+const runSpeed = 5; // Higher speed for running
 const rotateSpeed = Math.PI / 2;
 const loadingPlayers = new Set(); // Track players being loaded
 const players = {};
@@ -46,11 +55,12 @@ function init() {
     hemiLight.position.set(0, 50, 0);
     scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
     dirLight.position.set(10, 50, 10);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(2048, 2048);
+    dirLight.shadow.mapSize.set(1024, 1024); // Reduced resolution
     scene.add(dirLight);
+
 
     // Grid Ground
     const ground = new THREE.Mesh(
@@ -88,8 +98,10 @@ function loadLocalModel() {
     loader.load(
         modelPath,
         (gltf) => {
+            const spawnPoint = getRandomSpawnPoint();
             localModel = gltf.scene;
-            localModel.position.set(0, 0, 0);
+            localModel.position.set(spawnPoint.x, 0, spawnPoint.z);
+            localModel.rotation.y = spawnPoint.rotation;
             localModel.castShadow = true;
             scene.add(localModel);
 
@@ -97,10 +109,7 @@ function loadLocalModel() {
                 if (object.isMesh) object.castShadow = true;
             });
 
-            localModel.add(camera);
-            camera.position.set(0, 2, -5);
-            camera.lookAt(new THREE.Vector3(0, 2, 0));
-
+            // Initialize animation mixer
             localMixer = new THREE.AnimationMixer(localModel);
             gltf.animations.forEach((clip) => {
                 const action = localMixer.clipAction(clip);
@@ -111,7 +120,13 @@ function loadLocalModel() {
                 }
             });
 
-            socket.emit('player_joined', { x: 0, z: 0, rotation: 0, action: 'idle' });
+            // Notify server about the new player
+            socket.emit('player_joined', {
+                x: spawnPoint.x,
+                z: spawnPoint.z,
+                rotation: spawnPoint.rotation,
+                action: 'idle',
+            });
         },
         undefined,
         (error) => console.error('Error loading local model:', error)
@@ -126,12 +141,12 @@ function setupSocketEvents() {
     });
 
     socket.on('state_update_all', (data) => {
-  
 
-    // Update players and set the last state
-    updatePlayers(data);
-    lastState = { ...data }; // Clone the new state
-});
+
+        // Update players and set the last state
+        updatePlayers(data);
+        lastState = { ...data }; // Clone the new state
+    });
 
 
     socket.on('new_player', (data) => {
@@ -191,15 +206,28 @@ function updateRemotePlayer(id, data) {
     player.rotation = data.rotation;
 
     // Interpolate position and rotation
-    player.model.position.lerp(player.position, 0.1);
-    player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1);
+    player.model.position.lerp(player.position, 0.1); // Smooth position update
+    player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1); // Smooth rotation update
 
-    // Update animation state based on motion
-    setRemoteAction(id);
+    // Detect movement
+    const distanceMoved = player.position.distanceTo(player.model.position); // Measure distance moved
+    const isMoving = distanceMoved > 0.01; // Threshold for motion detection
 
-    // Update animation mixer
-    player.mixer.update(clock.getDelta());
+    // Determine action based on movement
+    const action = isMoving ? (distanceMoved > 0.5 ? 'run' : 'walk') : 'idle'; // "run" if moving fast, "walk" if slow
+
+    // Update animation state only if changed
+    if (player.currentAction !== action) {
+        if (player.actions[player.currentAction]) {
+            player.actions[player.currentAction].fadeOut(0.5); // Smoothly fade out current animation
+        }
+        if (player.actions[action]) {
+            player.actions[action].reset().fadeIn(0.5).play(); // Smoothly fade in new animation
+        }
+        player.currentAction = action; // Update current action state
+    }
 }
+
 
 function createRemotePlayer(id, data) {
     if (players[id] || loadingPlayers.has(id)) {
@@ -272,64 +300,109 @@ function removeRemotePlayer(id) {
         delete players[id];
     }
 }
-
 function onKeyDown(event) {
-    switch (event.key) {
-        case 'w':
-            moveForward = true;
-            setLocalAction('walk');
-            break;
-        case 's':
-            moveBackward = true;
-            setLocalAction('walk');
-            break;
-        case 'a':
-            rotateLeft = true;
-            break;
-        case 'd':
-            rotateRight = true;
-            break;
+    if (event.key in keyStates) {
+        keyStates[event.key] = true; // Mark key as pressed
+        handleKeyStates(); // Reevaluate key states
     }
 }
 
 function onKeyUp(event) {
-    switch (event.key) {
-        case 'w':
-        case 's':
-            moveForward = moveBackward = false;
-            setLocalAction('idle');
-            break;
-        case 'a':
-            rotateLeft = false;
-            break;
-        case 'd':
-            rotateRight = false;
-            break;
+    if (event.key in keyStates) {
+        keyStates[event.key] = false; // Mark key as released
+        handleKeyStates(); // Reevaluate key states
+    }
+}
+
+function handleKeyStates() {
+    // Detect movement keys
+    moveForward = keyStates['w'];
+    moveBackward = keyStates['s'];
+    rotateLeft = keyStates['a'];
+    rotateRight = keyStates['d'];
+
+    // Determine running state: Shift modifies W or S behavior
+    isRunning = keyStates['Shift'] && (moveForward || moveBackward);
+
+    // Explicitly check key combinations for animation state
+    if (moveForward && isRunning) {
+        setLocalAction('run'); // Running forward
+    } else if (moveForward) {
+        setLocalAction('walk'); // Walking forward
+    } else if (moveBackward) {
+        setLocalAction('walk'); // Walking backward (no running backward)
+    } else {
+        setLocalAction('idle'); // Default to idle if no movement keys are active
+    }
+
+    // Handle rotation (independent of W/S/Shift states)
+    if (rotateLeft) {
+        rotateLocalCharacter(-1, clock.getDelta());
+    } else if (rotateRight) {
+        rotateLocalCharacter(1, clock.getDelta());
     }
 }
 
 function setLocalAction(name) {
     if (currentAction !== name) {
-        if (localActions[currentAction]) localActions[currentAction].fadeOut(0.5);
-        if (localActions[name]) localActions[name].reset().fadeIn(0.5).play();
-        currentAction = name;
+        if (localActions[currentAction]) {
+            localActions[currentAction].fadeOut(0.5); // Smoothly transition out
+        }
+        if (localActions[name]) {
+            localActions[name].reset().fadeIn(0.5).play(); // Smoothly transition in
+        }
+        currentAction = name; // Update current action
     }
 }
+
+function moveLocalCharacter(direction, delta) {
+    const speed = isRunning ? runSpeed : walkSpeed; // Use run speed if running
+    const forward = new THREE.Vector3(0, 0, direction);
+    forward.applyQuaternion(localModel.quaternion);
+    localModel.position.add(forward.multiplyScalar(speed * delta));
+    socket.emit('move', {
+        x: localModel.position.x,
+        z: localModel.position.z,
+        rotation: localModel.rotation.y,
+        action: currentAction,
+    });
+}
+
+function rotateLocalCharacter(direction, delta) {
+    const rotationSpeed = isRunning ? rotateSpeed * 1.2 : rotateSpeed; // Faster rotation when running
+    localModel.rotation.y += direction * rotationSpeed * delta;
+    socket.emit('move', {
+        x: localModel.position.x,
+        z: localModel.position.z,
+        rotation: localModel.rotation.y,
+        action: currentAction,
+    });
+}
+
 
 function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
 
+    // Update animations
     if (localMixer) localMixer.update(delta);
 
+    // Handle local player movement
     if (localModel) {
         if (moveForward) moveLocalCharacter(1, delta);
         if (moveBackward) moveLocalCharacter(-1, delta);
         if (rotateLeft) rotateLocalCharacter(1, delta);
         if (rotateRight) rotateLocalCharacter(-1, delta);
+
+        // Update camera position dynamically
+        const cameraOffset = new THREE.Vector3(0, 2, -5); // Offset relative to the model
+        cameraOffset.applyQuaternion(localModel.quaternion); // Rotate offset by model's rotation
+        camera.position.copy(localModel.position.clone().add(cameraOffset)); // Add offset to model position
+        camera.lookAt(localModel.position.clone().add(new THREE.Vector3(0, 1, 0))); // Look slightly above the model
     }
 
+    // Update remote players
     Object.values(players).forEach((player) => {
         player.mixer.update(delta);
     });
@@ -337,17 +410,6 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-function moveLocalCharacter(direction, delta) {
-    const forward = new THREE.Vector3(0, 0, direction);
-    forward.applyQuaternion(localModel.quaternion);
-    localModel.position.add(forward.multiplyScalar(walkSpeed * delta));
-    socket.emit('move', { x: localModel.position.x, z: localModel.position.z, rotation: localModel.rotation.y, action: currentAction });
-}
-
-function rotateLocalCharacter(direction, delta) {
-    localModel.rotation.y += direction * rotateSpeed * delta;
-    socket.emit('move', { x: localModel.position.x, z: localModel.position.z, rotation: localModel.rotation.y, action: currentAction });
-}
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -384,3 +446,9 @@ function areAllEqual(objects) {
     return true;
 }
 
+function getRandomSpawnPoint() {
+    const x = (Math.random() - 0.5) * 50; // Random x between -25 and 25
+    const z = (Math.random() - 0.5) * 50; // Random z between -25 and 25
+    const rotation = Math.random() * Math.PI * 2; // Random rotation between 0 and 2π
+    return { x, z, rotation };
+}
