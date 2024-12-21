@@ -41,11 +41,12 @@ const keyStates = {
 };
 window.listener = listener; // Optional: Attach to window for global access
 
-let localStream = null;       // MediaStream from user's microphone
-let audioContext = null;      // AudioContext for processing audio
-let mediaStreamSource = null; // MediaStreamSource node
-let processor = null;         // ScriptProcessorNode for capturing audio data
-const remoteAudioStreams = {}; // Map to keep track of remote audio streams by ID
+let localStream = null;          // MediaStream from user's microphone
+let audioContext = null;         // AudioContext for processing audio
+let mediaStreamSource = null;    // MediaStreamSource node
+let processor = null;            // ScriptProcessorNode for capturing audio data
+const remoteAudioStreams = {};   // Map to keep track of remote audio streams by ID
+
 
 const walkSpeed = 2;
 const runSpeed = 5; // Higher speed for running
@@ -78,7 +79,7 @@ function init() {
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100);
     camera.position.set(0, 2, -5);
 
-    // Add an AudioListener to the camera
+    
     listener = new THREE.AudioListener();
     camera.add(listener);
 
@@ -251,6 +252,8 @@ function addOrUpdatePlayer(id, data) {
         updateRemotePlayer(id, data);
     }
 }
+
+
 function updateRemotePlayer(id, data) {
     const player = players[id];
     if (!player) return;
@@ -259,14 +262,15 @@ function updateRemotePlayer(id, data) {
     player.position.set(data.x, 0, data.z);
     player.rotation = data.rotation;
 
-    // Interpolate position and rotation
-    player.model.position.lerp(player.position, 0.1); // Smooth position update
-    player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1); // Smooth rotation update
+    // Interpolate position and rotation for smooth movement
+    player.model.position.lerp(player.position, 0.1);
+    player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1);
 
     // Update the position of the remote player's audio if it exists
     if (remoteAudioStreams[id]) {
         remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
     }
+
     // Detect movement
     const distanceMoved = player.position.distanceTo(player.model.position); // Measure distance moved
     const isMoving = distanceMoved > 0.01; // Threshold for motion detection
@@ -285,6 +289,7 @@ function updateRemotePlayer(id, data) {
         player.currentAction = action; // Update current action state
     }
 }
+
 
 
 function generateTerrain() {    // First, define 'size' and related variables
@@ -641,8 +646,8 @@ async function startBroadcast() {
     try {
         // Request microphone access
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        
-        // Initialize AudioContext if not already
+
+        // Initialize AudioContext if not already initialized
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
@@ -676,7 +681,6 @@ async function startBroadcast() {
         console.error('Error accessing microphone:', err);
     }
 }
-
 
 function stopBroadcast() {
     if (!localStream) return; // Not broadcasting
