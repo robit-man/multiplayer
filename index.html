@@ -7,15 +7,23 @@
     <title>Multiplayer Threejs</title>
     <style>
       body {
-        margin: unset;
-        overflow: hidden; /* Prevent scrolling when swiping */
+        margin: 0;
+        overflow: hidden; /* Prevent scrolling when tilting */
+      }
+      #app {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+      }
+      canvas {
+        display: block;
       }
     </style>
   </head>
   <body>
     <div id="app"></div>
     <script type="module">
-      // Define key states for touch simulation
+      // Define key states for motion
       const keyStates = {
         w: false,
         a: false,
@@ -23,60 +31,53 @@
         d: false,
       };
 
-      // Function to handle key changes
+      // Sensitivity thresholds for orientation changes
+      const tiltThreshold = 10; // Degrees
+
+      // Function to set key states
       function setKeyState(key, value) {
         if (keyStates[key] !== value) {
           keyStates[key] = value;
           console.log(`${key} is now ${value ? 'pressed' : 'released'}`);
-          handleKeyStates(); // Ensure WASD logic updates
+          handleKeyStates(); // Trigger motion updates
         }
       }
 
-      // Function to handle touch events
-      function handleTouch(event) {
-        const touch = event.touches[0];a
-        const { clientX, clientY } = touch;
-        const { innerWidth, innerHeight } = window;
+      // Orientation event handler
+      function handleOrientation(event) {
+        const { beta, gamma } = event; // beta: front-back tilt, gamma: left-right tilt
 
-        const isUpperHalf = clientY < innerHeight / 2;
-        const isLeft = clientX < innerWidth / 3;
-        const isRight = clientX > (2 * innerWidth) / 3;
-        const isMiddle = !isLeft && !isRight;
-
-        // Determine the key states based on touch area
-        if (isUpperHalf) {
-          setKeyState('w', true);
-          setKeyState('s', false); // Disable 's' if touching the upper half
-          if (isLeft) {
-            setKeyState('a', true);
-            setKeyState('d', false);
-          } else if (isRight) {
-            setKeyState('d', true);
-            setKeyState('a', false);
-          } else if (isMiddle) {
-            setKeyState('a', false);
-            setKeyState('d', false);
-          }
+        // Forward and backward tilt (beta)
+        if (beta > tiltThreshold) {
+          setKeyState('w', true); // Tilt forward
+          setKeyState('s', false);
+        } else if (beta < -tiltThreshold) {
+          setKeyState('s', true); // Tilt backward
+          setKeyState('w', false);
         } else {
           setKeyState('w', false);
-          setKeyState('s', true); // Only trigger 's' when touching the lower half
+          setKeyState('s', false);
+        }
+
+        // Left and right tilt (gamma)
+        if (gamma > tiltThreshold) {
+          setKeyState('d', true); // Tilt right
+          setKeyState('a', false);
+        } else if (gamma < -tiltThreshold) {
+          setKeyState('a', true); // Tilt left
+          setKeyState('d', false);
+        } else {
           setKeyState('a', false);
           setKeyState('d', false);
         }
       }
 
-      // Clear key states on touch end
-      function clearTouch() {
-        setKeyState('w', false);
-        setKeyState('a', false);
-        setKeyState('s', false);
-        setKeyState('d', false);
+      // Attach orientation event listener
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', handleOrientation);
+      } else {
+        console.error('DeviceOrientation is not supported on this device.');
       }
-
-      // Attach touch event listeners to the window
-      window.addEventListener('touchstart', handleTouch);
-      window.addEventListener('touchmove', handleTouch);
-      window.addEventListener('touchend', clearTouch);
 
       // WASD logic (example implementation; replace with your existing function)
       function handleKeyStates() {
