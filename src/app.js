@@ -2,7 +2,15 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js';
 
-const modelPath = '/public/Xbot.glb'; // Replace with your model path
+let modelPath;
+
+if (window.location.pathname.includes('/public/')) {
+    modelPath = '/public/Xbot.glb';
+} else {
+    modelPath = '/Xbot.glb';
+}
+
+console.log(`Model Path: ${modelPath}`); // For debugging purposes
 
 const socket = io('https://full-canary-chokeberry.glitch.me/');
 
