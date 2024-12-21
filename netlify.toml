@@ -2,9 +2,6 @@
   command = "npm run build"
   publish = "dist"
 
-[build.environment]
-  NODE_VERSION = "22" # Explicitly set Node.js version
-
 [[redirects]]
   from = "/*"
   to = "/index.html"
