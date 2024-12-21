@@ -5,9 +5,88 @@
     <link rel="icon" type="image/svg+xml" href="/three.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multiplayer Threejs</title>
+    <style>
+      body {
+        margin: unset;
+        overflow: hidden; /* Prevent scrolling when swiping */
+      }
+    </style>
   </head>
-  <body style="margin:unset;">
+  <body>
     <div id="app"></div>
+    <script type="module">
+      // Define key states for touch simulation
+      const keyStates = {
+        w: false,
+        a: false,
+        s: false,
+        d: false,
+      };
+
+      // Function to handle key changes
+      function setKeyState(key, value) {
+        if (keyStates[key] !== value) {
+          keyStates[key] = value;
+          console.log(`${key} is now ${value ? 'pressed' : 'released'}`);
+          handleKeyStates(); // Ensure WASD logic updates
+        }
+      }
+
+      // Function to handle touch events
+      function handleTouch(event) {
+        const touch = event.touches[0];a
+        const { clientX, clientY } = touch;
+        const { innerWidth, innerHeight } = window;
+
+        const isUpperHalf = clientY < innerHeight / 2;
+        const isLeft = clientX < innerWidth / 3;
+        const isRight = clientX > (2 * innerWidth) / 3;
+        const isMiddle = !isLeft && !isRight;
+
+        // Determine the key states based on touch area
+        if (isUpperHalf) {
+          setKeyState('w', true);
+          setKeyState('s', false); // Disable 's' if touching the upper half
+          if (isLeft) {
+            setKeyState('a', true);
+            setKeyState('d', false);
+          } else if (isRight) {
+            setKeyState('d', true);
+            setKeyState('a', false);
+          } else if (isMiddle) {
+            setKeyState('a', false);
+            setKeyState('d', false);
+          }
+        } else {
+          setKeyState('w', false);
+          setKeyState('s', true); // Only trigger 's' when touching the lower half
+          setKeyState('a', false);
+          setKeyState('d', false);
+        }
+      }
+
+      // Clear key states on touch end
+      function clearTouch() {
+        setKeyState('w', false);
+        setKeyState('a', false);
+        setKeyState('s', false);
+        setKeyState('d', false);
+      }
+
+      // Attach touch event listeners to the window
+      window.addEventListener('touchstart', handleTouch);
+      window.addEventListener('touchmove', handleTouch);
+      window.addEventListener('touchend', clearTouch);
+
+      // WASD logic (example implementation; replace with your existing function)
+      function handleKeyStates() {
+        // Example WASD handling logic
+        if (keyStates['w']) console.log('Move Forward');
+        if (keyStates['a']) console.log('Move Left');
+        if (keyStates['s']) console.log('Move Backward');
+        if (keyStates['d']) console.log('Move Right');
+      }
+    </script>
     <script type="module" src="/src/app.js"></script>
   </body>
 </html>
