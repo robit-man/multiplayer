@@ -31,8 +31,8 @@
         d: false,
       };
 
-      // Sensitivity thresholds for orientation changes
-      const tiltThreshold = 10; // Degrees
+      // Sensitivity thresholds for acceleration changes
+      const tiltThreshold = 1.5; // Adjust sensitivity (m/s²)
 
       // Function to set key states
       function setKeyState(key, value) {
@@ -43,15 +43,18 @@
         }
       }
 
-      // Orientation event handler
-      function handleOrientation(event) {
-        const { beta, gamma } = event; // beta: front-back tilt, gamma: left-right tilt
+      // Motion event handler
+      function handleMotion(event) {
+        const { accelerationIncludingGravity } = event;
+        if (!accelerationIncludingGravity) return;
 
-        // Forward and backward tilt (beta)
-        if (beta > tiltThreshold) {
+        const { x, y, z } = accelerationIncludingGravity;
+
+        // Interpret tilt based on accelerometer data
+        if (y > tiltThreshold) {
           setKeyState('w', true); // Tilt forward
           setKeyState('s', false);
-        } else if (beta < -tiltThreshold) {
+        } else if (y < -tiltThreshold) {
           setKeyState('s', true); // Tilt backward
           setKeyState('w', false);
         } else {
@@ -59,11 +62,10 @@
           setKeyState('s', false);
         }
 
-        // Left and right tilt (gamma)
-        if (gamma > tiltThreshold) {
+        if (x > tiltThreshold) {
           setKeyState('d', true); // Tilt right
           setKeyState('a', false);
-        } else if (gamma < -tiltThreshold) {
+        } else if (x < -tiltThreshold) {
           setKeyState('a', true); // Tilt left
           setKeyState('d', false);
         } else {
@@ -72,11 +74,11 @@
         }
       }
 
-      // Attach orientation event listener
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', handleOrientation);
+      // Attach motion event listener
+      if (window.DeviceMotionEvent) {
+        window.addEventListener('devicemotion', handleMotion);
       } else {
-        console.error('DeviceOrientation is not supported on this device.');
+        console.error('DeviceMotionEvent is not supported on this device.');
       }
 
       // WASD logic (example implementation; replace with your existing function)
@@ -87,6 +89,7 @@
         if (keyStates['s']) console.log('Move Backward');
         if (keyStates['d']) console.log('Move Right');
       }
+
     </script>
     <script type="module" src="/src/app.js"></script>
   </body>
