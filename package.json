@@ -1,0 +1,21 @@
+{
+    "name": "vite-netlify-project",
+    "version": "1.0.0",
+    "description": "A basic Vite project for deployment on Netlify.",
+    "main": "index.html",
+    "scripts": {
+      "dev": "vite",
+      "build": "vite build",
+      "preview": "vite preview"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+      "vite": "^4.5.0"
+    },
+    "dependencies": {
+      "netlify": "^13.0.0"  
+    }
+  }
+  
