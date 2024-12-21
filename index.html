@@ -10,6 +10,7 @@
         margin: 0;
         overflow: hidden;
         position: relative;
+        user-select:none;
       }
 
       #app {
@@ -19,6 +20,7 @@
         top: 0;
         left: 0;
         z-index: 1;
+        user-select:none;
       }
 
       .touch-controls {
@@ -30,23 +32,24 @@
         left: 0;
         z-index: 2;
         pointer-events: none;
+        user-select:none;
+        transition: opacity 0.3s ease;
+        opacity: 0;
+      }
+
+      .touch-controls.active {
+        opacity: 1;
+        pointer-events: auto;
       }
 
       .touch-control {
+        user-select:none;
         position: absolute;
         width: 20%;
         height: 20%;
         background: rgba(255, 255, 255, 0.2);
         box-shadow: 0px 0px 10px 10px rgba(255, 255, 255, 0.2);
         border-radius: 50%;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s ease;
-      }
-
-      .touch-controls.active .touch-control {
-        opacity: 1;
-        pointer-events: auto;
       }
 
       .forward {
@@ -93,20 +96,16 @@
     </div>
 
     <script>
-      // Check if screen size indicates mobile
       const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
 
       const touchControls = document.getElementById("touchControls");
+      let visibilityTimeout;
 
       if (isMobile) {
-        // Show controls when screen is touched
+        // Show controls and reset visibility timeout when the screen is touched
         document.body.addEventListener("touchstart", () => {
-          touchControls.classList.add("active");
-        });
-
-        // Hide controls when screen is not touched
-        document.body.addEventListener("touchend", () => {
-          touchControls.classList.remove("active");
+          showControls();
+          resetVisibilityTimeout();
         });
 
         // Handle touch input
@@ -125,12 +124,28 @@
 
       const activeKeys = new Set();
 
+      function showControls() {
+        touchControls.classList.add("active");
+      }
+
+      function hideControls() {
+        touchControls.classList.remove("active");
+      }
+
+      function resetVisibilityTimeout() {
+        if (visibilityTimeout) {
+          clearTimeout(visibilityTimeout);
+        }
+        visibilityTimeout = setTimeout(hideControls, 10000); // Hide controls after 10 seconds of inactivity
+      }
+
       function triggerKeyEvent(key, eventType) {
         const event = new KeyboardEvent(eventType, { key });
         document.dispatchEvent(event);
       }
 
       function handleTouchStart(event) {
+        resetVisibilityTimeout(); // Reset timeout on touch interaction
         const touches = event.touches;
         for (const touch of touches) {
           const target = touch.target;

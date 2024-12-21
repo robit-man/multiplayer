@@ -3,6 +3,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js';
 
 let modelPath;
+let eggPath;
+
+if (window.location.pathname.includes('/public/')) {
+    modelPath = '/public/Xbot.glb';
+} else {
+    modelPath = '/Xbot.glb';
+}
 
 if (window.location.pathname.includes('/public/')) {
     modelPath = '/public/Xbot.glb';
