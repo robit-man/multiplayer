@@ -171,23 +171,31 @@ function isEggPlacementValid(position) {
 }
 
 function placeEgg() {
-    if (localModel && canPlaceEgg) {
+    if (localModel && canPlaceEgg && !localEgg) {
         const eggPosition = localModel.position.clone();
+        eggPosition.y += 0.25; // Offset upward slightly
+
         if (isEggPlacementValid(eggPosition)) {
+            canPlaceEgg = false;
             createLocalEgg(eggPosition);
 
             socket.emit('create_egg', {
                 x: eggPosition.x,
+                y: eggPosition.y, // Include y-coordinate
                 z: eggPosition.z,
                 rotation: localModel.rotation.y,
             });
 
-            canPlaceEgg = false; // Prevent further egg creation
+            console.log('Egg successfully placed.');
         } else {
             console.warn('Invalid egg placement.');
         }
+    } else if (localEgg) {
+        console.warn('Egg already placed.');
     }
 }
+
+
 
 
 function createLocalEgg(position) {
@@ -236,6 +244,30 @@ function setupSocketEvents() {
         addOrUpdatePlayer(data.id, data);
     });
 
+    socket.on('create_egg', (data) => {
+        if (!eggs[socket.id]) {
+            // Store the egg data for this user
+            eggs[socket.id] = {
+                x: data.x,
+                y: data.y,
+                z: data.z,
+                rotation: data.rotation,
+            };
+    
+            // Broadcast the new egg to other clients
+            socket.broadcast.emit('new_egg', {
+                id: socket.id,
+                ...eggs[socket.id],
+            });
+    
+            console.log(`Egg created by ${socket.id} at (${data.x}, ${data.y}, ${data.z})`);
+        } else {
+            console.warn(`Duplicate egg creation attempt by ${socket.id}`);
+        }
+    });
+    
+    
+    
     socket.on('new_egg', (data) => {
         console.log('New Egg data:', data);
         addOrUpdateEgg(data.id, data);
@@ -290,9 +322,9 @@ function setupSocketEvents() {
 
 function addOrUpdateEgg(id, data) {
     if (!eggs[id]) {
-        createRemoteEgg(id, data); // Create if doesn't exist
+        createRemoteEgg(id, data); // Create if it doesn't exist
     } else {
-        updateRemoteEgg(id, data); // Update if it exists
+        console.warn(`Egg with ID ${id} already exists. Skipping duplicate.`);
     }
 }
 
@@ -312,15 +344,13 @@ function updateRemoteEgg(id, data) {
     const egg = eggs[id];
     if (!egg) return;
 
-    // Update target position and rotation
-    egg.position.set(data.x, 0, data.z);
-    egg.rotation = data.rotation;
+    egg.position.set(data.x, data.y || 0, data.z); // Ensure y-coordinate is used
+    egg.rotation = data.rotation || 0;
 
-    // Interpolate position and rotation
     egg.model.position.lerp(egg.position, 0.1); // Smooth position update
     egg.model.rotation.y = THREE.MathUtils.lerp(egg.model.rotation.y, egg.rotation, 0.1); // Smooth rotation update
-
 }
+
 
 function createRemoteEgg(id, data) {
     if (eggs[id] || loadingEggs.has(id)) {
@@ -335,14 +365,14 @@ function createRemoteEgg(id, data) {
         eggPath,
         (gltf) => {
             const remoteModel = gltf.scene;
-            remoteModel.position.set(data.x, 0, data.z);
-            remoteModel.rotation.y = data.rotation;
+            remoteModel.position.set(data.x, data.y || 0, data.z); // Ensure y-coordinate is used, default to 0 if missing
+            remoteModel.rotation.y = data.rotation || 0;
             remoteModel.castShadow = true;
 
             eggs[id] = {
                 model: remoteModel,
-                position: new THREE.Vector3(data.x, 0, data.z),
-                rotation: data.rotation,
+                position: new THREE.Vector3(data.x, data.y || 0, data.z), // Ensure y-coordinate is stored
+                rotation: data.rotation || 0,
                 ownerId: data.ownerId || null, // Track egg owner
             };
 
@@ -356,6 +386,7 @@ function createRemoteEgg(id, data) {
         }
     );
 }
+
 
 
 
