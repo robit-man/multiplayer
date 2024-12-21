@@ -1,4 +1,3 @@
-import './style.css'
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
@@ -6,6 +5,7 @@ import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.min.js';
 import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 
 // Initialize Socket.io client
 const socket = io('https://full-canary-chokeberry.glitch.me/'); // Replace with your signaling server URL
