@@ -12,9 +12,9 @@ if (window.location.pathname.includes('/public/')) {
 }
 
 if (window.location.pathname.includes('/public/')) {
-    modelPath = '/public/Xbot.glb';
+    eggPath = '/public/egg.glb';
 } else {
-    modelPath = '/Xbot.glb';
+    eggPath = '/egg.glb';
 }
 
 console.log(`Model Path: ${modelPath}`); // For debugging purposes
@@ -42,7 +42,11 @@ const walkSpeed = 2;
 const runSpeed = 5; // Higher speed for running
 const rotateSpeed = Math.PI / 2;
 const loadingPlayers = new Set(); // Track players being loaded
+const loadingEggs = new Set(); // Track eggs currently being loaded
 const players = {};
+let localEgg = null; // To track the local egg
+let canPlaceEgg = true; // Ensure only one egg per user
+let eggs = {}; // Track all remote eggs
 let myId = null;
 
 init();
@@ -148,25 +152,102 @@ function loadLocalModel() {
     );
 }
 
+function isEggPlacementValid(position) {
+    // Example collision detection logic
+    const buffer = 1; // Minimum distance between eggs or players
+    for (const id in eggs) {
+        const egg = eggs[id];
+        if (egg.position.distanceTo(position) < buffer) {
+            return false; // Too close to another egg
+        }
+    }
+    for (const id in players) {
+        const player = players[id];
+        if (player.position.distanceTo(position) < buffer) {
+            return false; // Too close to a player
+        }
+    }
+    return true;
+}
+
+function placeEgg() {
+    if (localModel && canPlaceEgg) {
+        const eggPosition = localModel.position.clone();
+        if (isEggPlacementValid(eggPosition)) {
+            createLocalEgg(eggPosition);
+
+            socket.emit('create_egg', {
+                x: eggPosition.x,
+                z: eggPosition.z,
+                rotation: localModel.rotation.y,
+            });
+
+            canPlaceEgg = false; // Prevent further egg creation
+        } else {
+            console.warn('Invalid egg placement.');
+        }
+    }
+}
+
+
+function createLocalEgg(position) {
+    const loader = new GLTFLoader();
+    loader.load(
+        eggPath,
+        (gltf) => {
+            const eggModel = gltf.scene;
+            eggModel.position.copy(position);
+            eggModel.rotation.y = localModel.rotation.y;
+            eggModel.castShadow = true;
+
+            localEgg = {
+                model: eggModel,
+                position: position.clone(),
+                rotation: localModel.rotation.y,
+            };
+
+            scene.add(eggModel); // Add egg to the scene
+        },
+        undefined,
+        (error) => console.error('Error loading local egg:', error)
+    );
+}
+
+function updateState(data) {
+    updatePlayers(data.players || {});
+    updateEggs(data.eggs || {});
+}
+
 function setupSocketEvents() {
     socket.on('init', (data) => {
         console.log('Init data:', data);
         myId = data.id;
         updatePlayers(data.players);
+        updateEggs(data.eggs); // Initialize existing eggs
     });
 
+    // Server emits a combined state update
     socket.on('state_update_all', (data) => {
-
-
-        // Update players and set the last state
-        updatePlayers(data);
-        lastState = { ...data }; // Clone the new state
+        updateState(data);
     });
-
 
     socket.on('new_player', (data) => {
         console.log('New Player data:', data);
         addOrUpdatePlayer(data.id, data);
+    });
+
+    socket.on('new_egg', (data) => {
+        console.log('New Egg data:', data);
+        addOrUpdateEgg(data.id, data);
+    });
+
+    socket.on('state_update_eggs', (data) => {
+        updateEggs(data); // Update the eggs' state dynamically
+    });
+
+    socket.on('egg_disconnected', (id) => {
+        console.log('Egg Disconnected:', id);
+        removeRemoteEgg(id); // Remove the egg associated with the given ID
     });
 
     socket.on('state_update', (data) => {
@@ -181,27 +262,40 @@ function setupSocketEvents() {
     socket.on('player_disconnected', (id) => {
         console.log('Player Disconnected:', id);
         removeRemotePlayer(id);
+        removeRemoteEgg(id); // Remove any egg placed by the disconnected player
+    });
+
+    socket.on('update_egg', (data) => {
+        console.log('Egg Update:', data);
+        addOrUpdateEgg(data.id, data); // Update the position or state of the egg
+    });
+    
+    socket.on('disconnect', () => {
+        console.log(`User disconnected: ${socket.id}`);
+
+        // Remove the player from the players object
+        delete players[socket.id];
+
+        // Remove the egg associated with the player
+        delete eggs[socket.id];
+
+        // Notify remaining clients about the disconnection
+        socket.broadcast.emit('player_disconnected', socket.id);
+
+        // Notify remaining clients to remove the player's egg
+        socket.broadcast.emit('egg_disconnected', socket.id);
     });
 }
 
-function setRemoteAction(id) {
-    const player = players[id];
-    if (!player) return;
 
-    // Determine action based on motion
-    const isMoving = player.position.distanceTo(player.model.position) > 0.01;
-    const action = isMoving ? 'walk' : 'idle';
-
-    if (player.currentAction !== action) {
-        if (player.actions[player.currentAction]) {
-            player.actions[player.currentAction].fadeOut(0.5);
-        }
-        if (player.actions[action]) {
-            player.actions[action].reset().fadeIn(0.5).play();
-        }
-        player.currentAction = action;
+function addOrUpdateEgg(id, data) {
+    if (!eggs[id]) {
+        createRemoteEgg(id, data); // Create if doesn't exist
+    } else {
+        updateRemoteEgg(id, data); // Update if it exists
     }
 }
+
 
 function addOrUpdatePlayer(id, data) {
     if (!players[id]) {
@@ -212,6 +306,59 @@ function addOrUpdatePlayer(id, data) {
         updateRemotePlayer(id, data);
     }
 }
+
+
+function updateRemoteEgg(id, data) {
+    const egg = eggs[id];
+    if (!egg) return;
+
+    // Update target position and rotation
+    egg.position.set(data.x, 0, data.z);
+    egg.rotation = data.rotation;
+
+    // Interpolate position and rotation
+    egg.model.position.lerp(egg.position, 0.1); // Smooth position update
+    egg.model.rotation.y = THREE.MathUtils.lerp(egg.model.rotation.y, egg.rotation, 0.1); // Smooth rotation update
+
+}
+
+function createRemoteEgg(id, data) {
+    if (eggs[id] || loadingEggs.has(id)) {
+        console.warn(`Skipping creation for egg ${id}. Already exists or is loading.`);
+        return;
+    }
+
+    loadingEggs.add(id); // Mark as loading
+
+    const loader = new GLTFLoader();
+    loader.load(
+        eggPath,
+        (gltf) => {
+            const remoteModel = gltf.scene;
+            remoteModel.position.set(data.x, 0, data.z);
+            remoteModel.rotation.y = data.rotation;
+            remoteModel.castShadow = true;
+
+            eggs[id] = {
+                model: remoteModel,
+                position: new THREE.Vector3(data.x, 0, data.z),
+                rotation: data.rotation,
+                ownerId: data.ownerId || null, // Track egg owner
+            };
+
+            scene.add(remoteModel);
+            loadingEggs.delete(id);
+        },
+        undefined,
+        (error) => {
+            console.error(`Error loading model for egg ${id}:`, error);
+            loadingEggs.delete(id);
+        }
+    );
+}
+
+
+
 function updateRemotePlayer(id, data) {
     const player = players[id];
     if (!player) return;
@@ -307,6 +454,26 @@ function updatePlayers(playersData) {
     });
 }
 
+function updateEggs(eggsData) {
+    Object.keys(eggsData).forEach((id) => {
+        addOrUpdateEgg(id, eggsData[id]); // Add or update each egg
+    });
+
+    Object.keys(eggs).forEach((id) => {
+        if (!eggsData[id]) {
+            removeRemoteEgg(id); // Remove eggs that are no longer in the update
+        }
+    });
+}
+
+
+
+function removeRemoteEgg(id) {
+    if (eggs[id]) {
+        scene.remove(eggs[id].model); // Remove model from scene
+        delete eggs[id]; // Delete from tracking object
+    }
+}
 
 
 function removeRemotePlayer(id) {
@@ -314,11 +481,19 @@ function removeRemotePlayer(id) {
         scene.remove(players[id].model);
         delete players[id];
     }
+    removeRemoteEgg(id);
 }
+
 function onKeyDown(event) {
+
     if (event.key in keyStates) {
         keyStates[event.key] = true; // Mark key as pressed
         handleKeyStates(); // Reevaluate key states
+    }
+
+    // Handle 'E' key for egg creation
+    if (event.key === 'e' && canPlaceEgg) {
+        placeEgg(); // Create the egg
     }
 }
 
