@@ -1,177 +1,277 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/three.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multiplayer Threejs</title>
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-        position: relative;
-        user-select:none;
-      }
 
-      #app {
-        width: 100vw;
-        height: 100vh;
-        position: absolute;
-        top: 0;
-        left: 0;
-        z-index: 1;
-        user-select:none;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/three.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiplayer Threejs</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
 
-      .touch-controls {
+    body {
+      margin: 0;
+      overflow: hidden;
+      position: relative;
+      user-select: none;
+      font-family: "Rajdhani", serif;
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    #app {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      user-select: none;
+    }
+
+
+    .touch-controls {
+      display: flex;
+      position: absolute;
+      width: 100vw;
+      height: 100vh;
+      top: 0;
+      left: 0;
+      z-index: 2;
+      pointer-events: none;
+      user-select: none;
+      transition: opacity 0.3s ease;
+      opacity: 0;
+    }
+
+    .touch-controls.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .touch-control {
+      user-select: none;
+      position: absolute;
+      width: 20vw;
+      height: 20vw;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0px 0px 10px 10px rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      text-align: center;
+    }
+
+    .forward {
+      top: 10%;
+      left: 40%;
+    }
+
+    .left {
+      top: 40%;
+      left: 10%;
+    }
+
+    .right {
+      top: 40%;
+      left: 70%;
+    }
+
+    .mic {
+      top: 70%;
+      left: 70%;
+      background: rgba(255, 0, 0, 0.1);
+      box-shadow: 0px 0px 10px 10px rgba(255, 0, 0, 0.1);
+    }
+
+    .egg {
+      top: 70%;
+      left: 10%;
+    }
+
+    .backward {
+      top: 70%;
+      left: 40%;
+    }
+
+    .forward-left {
+      top: 10%;
+      left: 10%;
+    }
+
+    .forward-right {
+      top: 10%;
+      left: 70%;
+    }
+
+    .text {
+      text-align: left;
+      color: white;
+      font-size: calc(1.5vw + 1.5vh);
+      position: relative;
+      width: max-content;
+      margin: auto;
+    }
+
+    .info {
+      display: flex;
+      flex-flow: column;
+      justify-content: center;
+      animation: instruct 5s ease-out 1;
+      z-index: -10;
+      position: fixed;
+      height: 100vh;
+      width: 100vw;
+      left: 0px;
+      top: 0px;
+    }
+
+    @keyframes instruct {
+      0% {
         display: flex;
-        position: absolute;
-        width: 100vw;
-        height: 100vh;
-        top: 0;
-        left: 0;
-        z-index: 2;
-        pointer-events: none;
-        user-select:none;
-        transition: opacity 0.3s ease;
-        opacity: 0;
-      }
-
-      .touch-controls.active {
+        backdrop-filter: blur(20px)brightness(0);
         opacity: 1;
-        pointer-events: auto;
+        z-index: 99;
+
       }
 
-      .touch-control {
-        user-select:none;
-        position: absolute;
-        width: 20%;
-        height: 20%;
-        background: rgba(255, 255, 255, 0.2);
-        box-shadow: 0px 0px 10px 10px rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
+      80% {
+        display: flex;
+        backdrop-filter: blur(15px);
+        opacity: 1;
+        z-index: 99;
+
       }
 
-      .forward {
-        top: 10%;
-        left: 40%;
-      }
+      100% {
+        display: flex;
+        backdrop-filter: blur(10px);
+        opacity: 0;
+        z-index: 99;
 
-      .left {
-        top: 40%;
-        left: 10%;
       }
+    }
+  </style>
+</head>
 
-      .right {
-        top: 40%;
-        left: 70%;
-      }
+<body>
+  <div class="info">
+    <div class="text">
 
-      .backward {
-        top: 70%;
-        left: 40%;
-      }
+      <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
+      <br>
+      MULTI USER DEMO
+      <br>
+      <br>
+      W - FORWARD
+      <br>
+      A - LEFT
+      <br>
+      S - BACKWARD
+      <br>
+      D - RIGHT
+      <br>
+      SHIFT - RUN
+      <br> <br>
+      R - SPEAK
+      <br> <br>
+      BUTTONS ON MOBILE
+      <br>
+      <i style="color:gray;">[WORK IN PROGRESS]</i>
 
-      .forward-left {
-        top: 10%;
-        left: 10%;
-      }
-
-      .forward-right {
-        top: 10%;
-        left: 70%;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app"></div>
-
-    <div class="touch-controls" id="touchControls">
-      <div class="touch-control forward"></div>
-      <div class="touch-control left"></div>
-      <div class="touch-control right"></div>
-      <div class="touch-control backward"></div>
-      <div class="touch-control forward-left"></div>
-      <div class="touch-control forward-right"></div>
     </div>
+  </div>
+  <div id="app"></div>
 
-    <script>
-      const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
+  <div class="touch-controls" id="touchControls">
+    <div class="touch-control forward">W</div>
+    <div class="touch-control left">A</div>
+    <div class="touch-control right">D</div>
+    <div class="touch-control mic">MIC</div>
+    <div class="touch-control egg"></div>
+    <div class="touch-control backward">S</div>
+    <div class="touch-control forward-left">W+A</div>
+    <div class="touch-control forward-right">W+D</div>
+  </div>
 
-      const touchControls = document.getElementById("touchControls");
-      let visibilityTimeout;
+  <script>
+    const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
 
-      if (isMobile) {
-        // Show controls and reset visibility timeout when the screen is touched
-        document.body.addEventListener("touchstart", () => {
-          showControls();
-          resetVisibilityTimeout();
-        });
+    const touchControls = document.getElementById("touchControls");
+    let visibilityTimeout;
 
-        // Handle touch input
-        touchControls.addEventListener("touchstart", handleTouchStart, false);
-        touchControls.addEventListener("touchend", handleTouchEnd, false);
+    if (isMobile) {
+      // Show controls and reset visibility timeout when the screen is touched
+      document.body.addEventListener("touchstart", () => {
+        showControls();
+        resetVisibilityTimeout();
+      });
+
+      // Handle touch input
+      touchControls.addEventListener("touchstart", handleTouchStart, false);
+      touchControls.addEventListener("touchend", handleTouchEnd, false);
+    }
+
+    const keyMap = {
+      forward: "w",
+      backward: "s",
+      left: "a",
+      right: "d",
+      mic: "r",
+      egg: "e",
+      "forward-left": ["w", "a"],
+      "forward-right": ["w", "d"],
+    };
+
+    const activeKeys = new Set();
+
+    function showControls() {
+      touchControls.classList.add("active");
+    }
+
+    function hideControls() {
+      touchControls.classList.remove("active");
+    }
+
+    function resetVisibilityTimeout() {
+      if (visibilityTimeout) {
+        clearTimeout(visibilityTimeout);
       }
+      visibilityTimeout = setTimeout(hideControls, 10000); // Hide controls after 10 seconds of inactivity
+    }
 
-      const keyMap = {
-        forward: "w",
-        backward: "s",
-        left: "a",
-        right: "d",
-        "forward-left": ["w", "a"],
-        "forward-right": ["w", "d"],
-      };
+    function triggerKeyEvent(key, eventType) {
+      const event = new KeyboardEvent(eventType, { key });
+      document.dispatchEvent(event);
+    }
 
-      const activeKeys = new Set();
-
-      function showControls() {
-        touchControls.classList.add("active");
-      }
-
-      function hideControls() {
-        touchControls.classList.remove("active");
-      }
-
-      function resetVisibilityTimeout() {
-        if (visibilityTimeout) {
-          clearTimeout(visibilityTimeout);
-        }
-        visibilityTimeout = setTimeout(hideControls, 10000); // Hide controls after 10 seconds of inactivity
-      }
-
-      function triggerKeyEvent(key, eventType) {
-        const event = new KeyboardEvent(eventType, { key });
-        document.dispatchEvent(event);
-      }
-
-      function handleTouchStart(event) {
-        resetVisibilityTimeout(); // Reset timeout on touch interaction
-        const touches = event.touches;
-        for (const touch of touches) {
-          const target = touch.target;
-          for (const className in keyMap) {
-            if (target.classList.contains(className)) {
-              const keys = Array.isArray(keyMap[className])
-                ? keyMap[className]
-                : [keyMap[className]];
-              keys.forEach((key) => {
-                if (!activeKeys.has(key)) {
-                  activeKeys.add(key);
-                  triggerKeyEvent(key, "keydown");
-                }
-              });
-            }
+    function handleTouchStart(event) {
+      resetVisibilityTimeout(); // Reset timeout on touch interaction
+      const touches = event.touches;
+      for (const touch of touches) {
+        const target = touch.target;
+        for (const className in keyMap) {
+          if (target.classList.contains(className)) {
+            const keys = Array.isArray(keyMap[className])
+              ? keyMap[className]
+              : [keyMap[className]];
+            keys.forEach((key) => {
+              if (!activeKeys.has(key)) {
+                activeKeys.add(key);
+                triggerKeyEvent(key, "keydown");
+              }
+            });
           }
         }
       }
+    }
 
-      function handleTouchEnd(event) {
-        activeKeys.forEach((key) => {
-          triggerKeyEvent(key, "keyup");
-        });
-        activeKeys.clear();
-      }
-    </script>
-    <script type="module" src="/src/app.js"></script>
-  </body>
+    function handleTouchEnd(event) {
+      activeKeys.forEach((key) => {
+        triggerKeyEvent(key, "keyup");
+      });
+      activeKeys.clear();
+    }
+  </script>
+  <script type="module" src="/src/app.js"></script>
+</body>
+
 </html>
