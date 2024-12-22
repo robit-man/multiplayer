@@ -137,8 +137,6 @@ function init() {
     setupSocketEvents();
 }
 
-
-
 function loadLocalModel() {
     const loader = new GLTFLoader();
     loader.load(
@@ -244,6 +242,14 @@ function updateRemotePlayer(id, data) {
     const player = players[id];
     if (!player) return;
 
+    if (!player.initialized) {
+        // Directly set position and rotation on the first update
+        player.model.position.set(data.x, 0, data.z);
+        player.model.rotation.y = data.rotation;
+        player.initialized = true; // Mark as initialized
+        return; // No interpolation needed for the first update
+    }
+
     // Update target position and rotation
     player.position.set(data.x, 0, data.z);
     player.rotation = data.rotation;
@@ -275,19 +281,17 @@ function updateRemotePlayer(id, data) {
             player.actions[player.currentAction].fadeOut(0.5); // Smoothly fade out current animation
         }
         if (player.actions[action]) {
-            player.actions[action].reset().fadeIn(0.5).play(); // Smoothly fade in new animation
+            player.actions[action].reset().fadeIn(0.5).play();
 
             // Adjust timeScale for walking animation based on direction
-            if (action === 'walk') {
-                player.actions[action].timeScale = isMovingForward ? 1 : -1;
-            }
-            if (action === 'run') {
+            if (action === 'walk' || action === 'run') {
                 player.actions[action].timeScale = isMovingForward ? 1 : -1;
             }
         }
         player.currentAction = action; // Update current action state
     }
 }
+
 
 
 function generateTerrain() {    // First, define 'size' and related variables
@@ -449,8 +453,8 @@ function createRemotePlayer(id, data) {
         modelPath,
         (gltf) => {
             const remoteModel = gltf.scene;
-            remoteModel.position.set(data.x, 0, data.z);
-            remoteModel.rotation.y = data.rotation;
+            remoteModel.position.set(data.x, 0, data.z); // Set initial position
+            remoteModel.rotation.y = data.rotation;     // Set initial rotation
             remoteModel.castShadow = true;
 
             const remoteMixer = new THREE.AnimationMixer(remoteModel);
@@ -468,9 +472,10 @@ function createRemotePlayer(id, data) {
                 model: remoteModel,
                 mixer: remoteMixer,
                 actions: remoteActions,
-                position: new THREE.Vector3(data.x, 0, data.z),
-                rotation: data.rotation,
+                position: new THREE.Vector3(data.x, 0, data.z), // Set target position
+                rotation: data.rotation,                      // Set target rotation
                 currentAction: 'idle', // Track current animation
+                initialized: true,     // Mark as initialized
             };
 
             scene.add(remoteModel);
@@ -483,6 +488,7 @@ function createRemotePlayer(id, data) {
         }
     );
 }
+
 
 
 function updatePlayers(playersData) {
