@@ -137,6 +137,8 @@ function init() {
     setupSocketEvents();
 }
 
+
+
 function loadLocalModel() {
     const loader = new GLTFLoader();
     loader.load(
@@ -157,6 +159,7 @@ function loadLocalModel() {
             localMixer = new THREE.AnimationMixer(localModel);
             gltf.animations.forEach((clip) => {
                 const action = localMixer.clipAction(clip);
+                action.loop = THREE.LoopRepeat; // Ensure the animation loops
                 localActions[clip.name] = action;
 
                 if (clip.name === 'idle') {
@@ -227,26 +230,6 @@ function setupSocketEvents() {
     });
 }
 
-
-function setRemoteAction(id) {
-    const player = players[id];
-    if (!player) return;
-
-    // Determine action based on motion
-    const isMoving = player.position.distanceTo(player.model.position) > 0.01;
-    const action = isMoving ? 'walk' : 'idle';
-
-    if (player.currentAction !== action) {
-        if (player.actions[player.currentAction]) {
-            player.actions[player.currentAction].fadeOut(0.5);
-        }
-        if (player.actions[action]) {
-            player.actions[action].reset().fadeIn(0.5).play();
-        }
-        player.currentAction = action;
-    }
-}
-
 function addOrUpdatePlayer(id, data) {
     if (!players[id]) {
         // Create a new remote player
@@ -256,7 +239,6 @@ function addOrUpdatePlayer(id, data) {
         updateRemotePlayer(id, data);
     }
 }
-
 
 function updateRemotePlayer(id, data) {
     const player = players[id];
@@ -279,6 +261,11 @@ function updateRemotePlayer(id, data) {
     const distanceMoved = player.position.distanceTo(player.model.position); // Measure distance moved
     const isMoving = distanceMoved > 0.01; // Threshold for motion detection
 
+    // Determine if moving forward or backward
+    const movementDirection = player.position.clone().sub(player.model.position).normalize(); // Direction vector
+    const forwardDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion); // Player's forward vector
+    const isMovingForward = movementDirection.dot(forwardDirection) > 0; // Dot product determines forward/backward
+
     // Determine action based on movement
     const action = isMoving ? (distanceMoved > 0.5 ? 'run' : 'walk') : 'idle'; // "run" if moving fast, "walk" if slow
 
@@ -289,11 +276,18 @@ function updateRemotePlayer(id, data) {
         }
         if (player.actions[action]) {
             player.actions[action].reset().fadeIn(0.5).play(); // Smoothly fade in new animation
+
+            // Adjust timeScale for walking animation based on direction
+            if (action === 'walk') {
+                player.actions[action].timeScale = isMovingForward ? 1 : -1;
+            }
+            if (action === 'run') {
+                player.actions[action].timeScale = isMovingForward ? 1 : -1;
+            }
         }
         player.currentAction = action; // Update current action state
     }
 }
-
 
 
 function generateTerrain() {    // First, define 'size' and related variables
@@ -551,10 +545,6 @@ function handleUserInteraction() {
     document.removeEventListener('keydown', handleUserInteraction);
 }
 
-
-
-
-
 function handleKeyStates() {
     // Detect movement keys
     moveForward = keyStates['w'];
@@ -565,15 +555,30 @@ function handleKeyStates() {
     // Determine running state: Shift modifies W or S behavior
     isRunning = keyStates['Shift'] && (moveForward || moveBackward);
 
-    // Explicitly check key combinations for animation state
+    // Determine movement direction
+    let movementDirection = null; // 'forward' or 'backward'
+    let action = 'idle'; // Default action
+
     if (moveForward && isRunning) {
-        setLocalAction('run'); // Running forward
+        action = 'run';
+        movementDirection = 'forward';
     } else if (moveForward) {
-        setLocalAction('walk'); // Walking forward
+        action = 'walk';
+        movementDirection = 'forward';
+    } else if (moveBackward && isRunning) {
+        action = 'run';
+        movementDirection = 'backward';
     } else if (moveBackward) {
-        setLocalAction('walk'); // Walking backward (no running backward)
+        action = 'walk';
+        movementDirection = 'backward';
     } else {
-        setLocalAction('idle'); // Default to idle if no movement keys are active
+        action = 'idle';
+    }
+
+    if (action !== 'idle') {
+        setLocalAction(action, movementDirection);
+    } else {
+        setLocalAction('idle');
     }
 
     // Handle rotation (independent of W/S/Shift states)
@@ -584,15 +589,46 @@ function handleKeyStates() {
     }
 }
 
-function setLocalAction(name) {
+
+function setLocalAction(name, direction = 'forward') {
     if (currentAction !== name) {
+        // Fade out the current action
         if (localActions[currentAction]) {
-            localActions[currentAction].fadeOut(0.5); // Smoothly transition out
+            localActions[currentAction].fadeOut(0.5);
         }
+
+        // Fade in the new action
         if (localActions[name]) {
-            localActions[name].reset().fadeIn(0.5).play(); // Smoothly transition in
+            localActions[name].reset().fadeIn(0.5).play();
+
+            // Set timeScale based on direction
+            if (name === 'walk' || name === 'run') {
+                localActions[name].timeScale = direction === 'forward' ? 1 : -1;
+
+                if (direction === 'backward') {
+                    // Start the animation from the end if playing backward
+                    localActions[name].time = localActions[name].getClip().duration;
+                } else {
+                    // Start from the beginning if playing forward
+                    localActions[name].time = 0;
+                }
+            } else {
+                // For other actions like 'idle', ensure timeScale is normal
+                localActions[name].timeScale = 1;
+            }
         }
+
         currentAction = name; // Update current action
+    } else {
+        // If the action is the same, just update the timeScale if it's 'walk' or 'run'
+        if (name === 'walk' || name === 'run') {
+            localActions[name].timeScale = direction === 'forward' ? 1 : -1;
+
+            if (direction === 'backward') {
+                // Adjust the time to play backward smoothly
+                localActions[name].time = localActions[name].getClip().duration - localActions[name].time;
+            }
+        }
     }
 }
 
@@ -608,6 +644,7 @@ function moveLocalCharacter(direction, delta) {
         action: currentAction,
     });
 }
+
 
 function rotateLocalCharacter(direction, delta) {
     const rotationSpeed = isRunning ? rotateSpeed * 1.2 : rotateSpeed; // Faster rotation when running
