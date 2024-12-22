@@ -230,7 +230,16 @@
     <div class="touch-control forward-left">W+A</div>
     <div class="touch-control forward-right">W+D</div>
   </div>
-
+  <script>
+    let lastTouchTime = 0;
+    document.addEventListener('touchend', function (event) {
+      const currentTime = Date.now();
+      if (currentTime - lastTouchTime < 300) { // 300ms threshold for double-tap
+        event.preventDefault();
+      }
+      lastTouchTime = currentTime;
+    }, false);
+  </script>
   <script>
     const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
 
