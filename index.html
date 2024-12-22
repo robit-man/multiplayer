@@ -74,7 +74,7 @@
     }
 
     .touch-controls.active {
-      opacity: 1;
+      opacity: 0.5;
       pointer-events: auto;
       user-select: none;
 
@@ -86,14 +86,16 @@
       width: 20vw;
       height: 20vw;
       background: rgba(255, 255, 255, 0.1);
-      box-shadow: 0px 0px 10px 10px rgba(255, 255, 255, 0.1);
+      box-shadow: 0px 0px 40px 10px rgba(255, 255, 255, 0.1);
       border-radius: 50%;
       text-align: center;
       display: flex;
       flex-flow: column;
       justify-content: center;
       color: #ffffff44;
+      filter: brightness(1);
     }
+
 
     .forward {
       top: 10%;
