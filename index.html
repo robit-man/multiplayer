@@ -63,7 +63,7 @@
       display: flex;
       position: absolute;
       width: 100vw;
-      height: 10rem;
+      height: 100vh;
       bottom: 0;
       left: 0;
       z-index: 2;
@@ -230,7 +230,7 @@
     <div class="touch-control egg"></div>
     <div class="touch-control forward-right">W+D</div>-->
   </div>
-  
+
   <script>
     let lastTouchTime = 0;
     document.addEventListener('touchend', function (event) {
@@ -257,8 +257,16 @@
         }
       });
 
-      // Prevent context menu on touch controls
+      // Prevent context menu on touch controls container and individual controls
+      const touchControlsContainer = document.querySelector('.touch-controls');
       const touchControlsElements = document.querySelectorAll('.touch-control');
+
+      // Prevent context menu on the touch-controls container
+      if (touchControlsContainer) {
+        touchControlsContainer.addEventListener('contextmenu', (e) => e.preventDefault());
+      }
+
+      // Prevent context menu on each touch-control element
       touchControlsElements.forEach(element => {
         element.addEventListener('contextmenu', (e) => e.preventDefault());
       });
@@ -281,6 +289,8 @@
       // Handle touch input
       touchControls.addEventListener("touchstart", handleTouchStart, false);
       touchControls.addEventListener("touchend", handleTouchEnd, false);
+      touchControls.addEventListener("touchmove", handleTouchMove, false);
+      touchControls.addEventListener("touchcancel", handleTouchCancel, false);
     }
     document.addEventListener('gesturestart', function (event) {
       event.preventDefault();
