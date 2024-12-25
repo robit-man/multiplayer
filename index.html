@@ -255,6 +255,12 @@
             aTag.remove(); // Remove the <a> tag from the DOM
           }, 5000); // Timeout in milliseconds
         }
+        if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
+          // Set a timeout to remove the element after 5 seconds (5000ms)
+          setTimeout(() => {
+            aTag.remove(); // Remove the <a> tag from the DOM
+          }, 5000); // Timeout in milliseconds
+        }
       });
 
       // Prevent context menu on touch controls container and individual controls
