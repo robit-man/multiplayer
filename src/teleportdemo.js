@@ -2,54 +2,35 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-
 import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js';
 import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.min.js';
 
-// ------------------------------
-// Model path (public vs root)
-// ------------------------------
 let modelPath;
 if (window.location.pathname.includes('/public/')) {
     modelPath = '/public/Xbot.glb';
 } else {
     modelPath = '/Xbot.glb';
 }
-console.log(`Model Path: ${modelPath}`);
 
-// ------------------------------
-// Socket and Noise
-// ------------------------------
+console.log(`Model Path: ${modelPath}`); // For debugging purposes
+
 const socket = io('https://full-canary-chokeberry.glitch.me/');
 const simplex = new SimplexNoise();
 
-// ------------------------------
-// Scene / Camera / Renderer
-// ------------------------------
-let scene, camera, renderer, clock, controls;
-let listener;
-
-// Local player model + animations
+// Scene objects
+let scene, camera, renderer, clock, listener;
 let localModel, localMixer;
 let currentAction = 'idle';
 let localActions = {};
 
-// Desktop movement + keys
+// Desktop movement flags
 let moveForward = false;
 let moveBackward = false;
-let strafeLeft = false;
-let strafeRight = false;
-let isRunning = false;
+let rotateLeft = false;
+let rotateRight = false;
+let isRunning = false; // Shift modifies speed
 
-// Mouse look
-let yaw = 0;
-let pitch = 0;
-const mouseSensitivity = 0.002;
-const pitchMin = -Math.PI / 2 + 0.01;
-const pitchMax =  Math.PI / 2 - 0.01;
-
-// VR Teleport
+// VR Teleport + ReferenceSpace
 let baseReferenceSpace = null;
 let floorMesh, markerMesh;
 let INTERSECTION = null;
@@ -62,65 +43,52 @@ const keyStates = {
     s: false,
     d: false,
     Shift: false,
-    r: false,
+    r: false, // microphone broadcast toggling
 };
 
-window.listener = listener; // optional for debug
+window.listener = listener; // Optional: Attach to window for global access
 
-// Audio
+// Audio streaming
 let localStream = null;
+let workletNode = null;
 let mediaStreamSource = null;
 let processor = null;
 const remoteAudioStreams = {};
 
-// Multiplayer (remote players)
+// Player data
 const loadingPlayers = new Set();
 const players = {};
 let myId = null;
 let lastState = {};
 
-// Speed
+// Movement speeds
 const walkSpeed = 2;
 const runSpeed = 5;
+const rotateSpeed = Math.PI / 2; // Desktop rotate
+const smoothTurnSpeed = 1.5;     // VR joystick rotate speed
 
-// Terrain
+// Terrain config
 const terrainSize = 100;
 const terrainSegments = 100;
 
-// Local storage keys
-const LS_ID_KEY = 'myUniquePlayerID';
-const LS_POS_KEY = 'myLastPosition';
-
-// ------------------------------
-// Initialize + Animate
-// ------------------------------
 init();
 animate();
 
-// ------------------------------
-// init()
-// ------------------------------
+// ----------------------------------------------------
+// Initialization
+// ----------------------------------------------------
+
 function init() {
 
-    // 1) Ensure localStorage ID
-    let storedID = localStorage.getItem(LS_ID_KEY);
-    if (!storedID) {
-        storedID = `user-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-        localStorage.setItem(LS_ID_KEY, storedID);
-    }
-    myId = storedID;
-    console.log('Using localStorage ID:', myId);
-
-    // Scene
+    // Scene + camera
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x454545);
     scene.fog = new THREE.Fog(0x454545, 10, 50);
 
-    // Camera
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100);
-    camera.position.set(0, 1.7, 0);
+    camera.position.set(0, 2, -5);
 
-    // Audio listener
+    // Listener for audio
     listener = new THREE.AudioListener();
     camera.add(listener);
 
@@ -128,12 +96,14 @@ function init() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.xr.enabled = true;
+    renderer.xr.enabled = true; // Enable WebXR
     document.body.appendChild(renderer.domElement);
 
     // VR Button
     const sessionInit = { requiredFeatures: ['hand-tracking'] };
     document.body.appendChild(VRButton.createButton(renderer, sessionInit));
+
+    // Once the session starts, save a reference to the base XRReferenceSpace
     renderer.xr.addEventListener('sessionstart', () => {
         baseReferenceSpace = renderer.xr.getReferenceSpace();
     });
@@ -149,7 +119,7 @@ function init() {
     dirLight.shadow.mapSize.set(1024, 1024);
     scene.add(dirLight);
 
-    // Floor (teleport)
+    // Floor for teleportation
     floorMesh = new THREE.Mesh(
         new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2),
         new THREE.MeshBasicMaterial({ color: 0x666666, transparent: true, opacity: 0.25 })
@@ -165,132 +135,70 @@ function init() {
     markerMesh.visible = false;
     scene.add(markerMesh);
 
-    controls = new PointerLockControls( camera, document.body );
-
-	const instructions = document.getElementById( 'app' );
-
-    instructions.addEventListener( 'click', function () {
-
-        controls.lock();
-
-    } );
-
-    scene.add( controls.object );
-
-    // VR controllers
+    // Set up VR controllers for teleporting + joystick rotation
     setupVRControllers();
 
-    // Generate terrain
+    // Additional geometry (optional; e.g. mountains)
     generateTerrain();
 
     // Load local avatar
     loadLocalModel();
 
-    // Keyboard events
+    // Desktop keyboard events
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
-    // Mouse pointer lock
-    enablePointerLock();
-
-    // Window resize
+    // Handle resizing
     window.addEventListener('resize', onWindowResize);
 
-    // Socket setup
+    // Setup Socket.io
     setupSocketEvents();
 
     // Clock
     clock = new THREE.Clock();
 
-    // Audio context on user interaction
+    // Initialize AudioContext upon user interaction
     document.addEventListener('click', handleUserInteraction, { once: true });
     document.addEventListener('keydown', handleUserInteraction, { once: true });
-
-    // Save local position on unload
-    window.addEventListener('beforeunload', savePositionToLocalStorage);
 }
 
-// ------------------------------
-// Save + Load local position
-// ------------------------------
-function savePositionToLocalStorage() {
-    if (!localModel) return;
-    const pos = {
-        x: localModel.position.x,
-        z: localModel.position.z,
-        rotation: localModel.rotation.y
-    };
-    localStorage.setItem(LS_POS_KEY, JSON.stringify(pos));
-}
-
-function loadPositionFromLocalStorage() {
-    const raw = localStorage.getItem(LS_POS_KEY);
-    if (!raw) return null;
-    try {
-        const data = JSON.parse(raw);
-        if (
-            typeof data.x === 'number' &&
-            typeof data.z === 'number' &&
-            typeof data.rotation === 'number'
-        ) {
-            return data;
-        }
-    } catch (e) {
-        console.warn('Error parsing position from LS:', e);
-    }
-    return null;
-}
-
-// ------------------------------
-// Pointer Lock for Desktop
-// ------------------------------
-function enablePointerLock() {
-    const canvas = renderer.domElement;
-
-    // On click, request pointer lock
-    canvas.addEventListener('click', () => {
-        if (!renderer.xr.isPresenting) {
-            canvas.requestPointerLock();
-        }
-    });
-
-    // Mouse movement => change yaw/pitch
-    document.addEventListener('mousemove', (e) => {
-        if (document.pointerLockElement === canvas && !renderer.xr.isPresenting) {
-            yaw -= e.movementX * mouseSensitivity;
-            pitch -= e.movementY * mouseSensitivity;
-            if (pitch < pitchMin) pitch = pitchMin;
-            if (pitch > pitchMax) pitch = pitchMax;
-        }
-    });
-}
-
-// ------------------------------
-// VR Controllers / Teleport
-// ------------------------------
 function setupVRControllers() {
+
+    // Create two controllers + grips
     const controller1 = renderer.xr.getController(0);
     const controller2 = renderer.xr.getController(1);
 
-    function onSelectStart() { this.userData.isSelecting = true; }
+    // Teleport events: "selectstart" / "selectend" for each
+    function onSelectStart() {
+        this.userData.isSelecting = true;
+    }
+
     function onSelectEnd() {
         this.userData.isSelecting = false;
-        if (!INTERSECTION || !baseReferenceSpace) return;
+        if (!INTERSECTION) return;
 
-        // offset-based XR ref
-        const offsetPosition = {
-            x: -INTERSECTION.x,
-            y: -INTERSECTION.y,
-            z: -INTERSECTION.z,
-            w: 1
-        };
-        const offsetRotation = new THREE.Quaternion();
-        const transform = new XRRigidTransform(offsetPosition, offsetRotation);
-        const teleportSpaceOffset = baseReferenceSpace.getOffsetReferenceSpace(transform);
-        renderer.xr.setReferenceSpace(teleportSpaceOffset);
+        // We do BOTH:
+        // 1) Move the XR ReferenceSpace (so the VR camera truly teleports).
+        // 2) Move the localModel, so the server sees the correct new position.
 
-        // Move localModel
+        if (baseReferenceSpace) {
+            // offset-based teleport for the camera
+            const offsetPosition = {
+                x: -INTERSECTION.x,
+                y: -INTERSECTION.y,
+                z: -INTERSECTION.z,
+                w: 1
+            };
+            const offsetRotation = new THREE.Quaternion();
+            const transform = new XRRigidTransform(offsetPosition, offsetRotation);
+            const teleportSpaceOffset = baseReferenceSpace.getOffsetReferenceSpace(transform);
+            renderer.xr.setReferenceSpace(teleportSpaceOffset);
+        }
+
+        // Also update localModel so it matches
         localModel.position.set(INTERSECTION.x, localModel.position.y, INTERSECTION.z);
+
+        // Broadcast new position to server
         socket.emit('move', {
             x: localModel.position.x,
             z: localModel.position.z,
@@ -301,25 +209,29 @@ function setupVRControllers() {
 
     controller1.addEventListener('selectstart', onSelectStart);
     controller1.addEventListener('selectend', onSelectEnd);
+
     controller2.addEventListener('selectstart', onSelectStart);
     controller2.addEventListener('selectend', onSelectEnd);
 
-    controller1.addEventListener('connected', function (evt) {
-        this.add(buildControllerRay(evt.data));
+    // Build a simple beam or ring to show which mode it's in
+    controller1.addEventListener('connected', function (event) {
+        this.add(buildControllerRay(event.data));
     });
     controller1.addEventListener('disconnected', function () {
         this.remove(this.children[0]);
     });
 
-    controller2.addEventListener('connected', function (evt) {
-        this.add(buildControllerRay(evt.data));
+    controller2.addEventListener('connected', function (event) {
+        this.add(buildControllerRay(event.data));
     });
     controller2.addEventListener('disconnected', function () {
         this.remove(this.children[0]);
     });
 
-    scene.add(controller1, controller2);
+    scene.add(controller1);
+    scene.add(controller2);
 
+    // Now the "Grips"
     const controllerModelFactory = new XRControllerModelFactory();
     const controllerGrip1 = renderer.xr.getControllerGrip(0);
     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
@@ -330,188 +242,223 @@ function setupVRControllers() {
     scene.add(controllerGrip2);
 }
 
+// Build the controller ray (visual pointer)
 function buildControllerRay(data) {
     let geometry, material;
     switch (data.targetRayMode) {
         case 'tracked-pointer':
+            // A line to show the pointer
             geometry = new THREE.BufferGeometry();
             geometry.setAttribute(
                 'position',
-                new THREE.Float32BufferAttribute([0,0,0, 0,0,-1], 3)
+                new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3)
             );
             geometry.setAttribute(
                 'color',
-                new THREE.Float32BufferAttribute([0.5,0.5,0.5, 0,0,0], 3)
+                new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3)
             );
             material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
             return new THREE.Line(geometry, material);
-
         case 'gaze':
-            geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0,0,-1);
+            // A ring
+            geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, -1);
             material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
             return new THREE.Mesh(geometry, material);
     }
-    return new THREE.Object3D();
 }
 
-// ------------------------------
-// Desktop Key Events
-// ------------------------------
-function onKeyDown(e) {
-    switch(e.code) {
-        case 'KeyW': keyStates.w = true; break;
-        case 'KeyS': keyStates.s = true; break;
-        case 'KeyA': keyStates.a = true; break;
-        case 'KeyD': keyStates.d = true; break;
-        case 'ShiftLeft':
-        case 'ShiftRight': keyStates.Shift = true; break;
-        case 'KeyR':
-            if (!keyStates.r) startBroadcast();
-            keyStates.r = true;
-            break;
+// ----------------------------------------------------
+// Desktop Keyboard Movement
+// ----------------------------------------------------
+
+function onKeyDown(event) {
+    if (event.key in keyStates) {
+        if (!keyStates[event.key]) {
+            keyStates[event.key] = true;
+            // 'r' = broadcast mic
+            if (event.key === 'r') {
+                startBroadcast();
+            }
+            handleKeyStates();
+        }
     }
-    handleKeyStates();
 }
 
-function onKeyUp(e) {
-    switch(e.code) {
-        case 'KeyW': keyStates.w = false; break;
-        case 'KeyS': keyStates.s = false; break;
-        case 'KeyA': keyStates.a = false; break;
-        case 'KeyD': keyStates.d = false; break;
-        case 'ShiftLeft':
-        case 'ShiftRight': keyStates.Shift = false; break;
-        case 'KeyR':
+function onKeyUp(event) {
+    if (event.key in keyStates) {
+        keyStates[event.key] = false;
+        if (event.key === 'r') {
             stopBroadcast();
-            keyStates.r = false;
-            break;
+        }
+        handleKeyStates();
     }
-    handleKeyStates();
 }
 
 function handleKeyStates() {
-    moveForward = keyStates.w;
-    moveBackward = keyStates.s;
-    strafeLeft = keyStates.a;
-    strafeRight = keyStates.d;
-    isRunning = keyStates.Shift && (moveForward || moveBackward || strafeLeft || strafeRight);
+    // Map pressed keys to booleans
+    moveForward = keyStates['w'];
+    moveBackward = keyStates['s'];
+    rotateLeft = keyStates['a'];
+    rotateRight = keyStates['d'];
+    isRunning = keyStates['Shift'] && (moveForward || moveBackward);
 
+    // Decide local animation state
+    let movementDirection = null;
     let action = 'idle';
-    if (moveForward || moveBackward || strafeLeft || strafeRight) {
-        action = isRunning ? 'run' : 'walk';
+
+    if (moveForward && isRunning) {
+        action = 'run';
+        movementDirection = 'forward';
+    } else if (moveForward) {
+        action = 'walk';
+        movementDirection = 'forward';
+    } else if (moveBackward && isRunning) {
+        action = 'run';
+        movementDirection = 'backward';
+    } else if (moveBackward) {
+        action = 'walk';
+        movementDirection = 'backward';
+    } else {
+        action = 'idle';
     }
-    setLocalAction(action);
+
+    if (action !== 'idle') {
+        setLocalAction(action, movementDirection);
+    } else {
+        setLocalAction('idle');
+    }
 }
 
-// ------------------------------
-// Desktop Movement + Mouse Look
-// ------------------------------
-function moveLocalCharacterDesktop(delta) {
+// ----------------------------------------------------
+// Desktop Movement Helpers
+// ----------------------------------------------------
+
+function moveLocalCharacter(direction, delta) {
     if (!localModel) return;
-
     const speed = isRunning ? runSpeed : walkSpeed;
-    const forwardVec = new THREE.Vector3();
-    const rightVec = new THREE.Vector3();
+    const forward = new THREE.Vector3(0, 0, direction);
+    forward.applyQuaternion(localModel.quaternion);
+    localModel.position.add(forward.multiplyScalar(speed * delta));
 
-    // Get the camera's yaw
-    const cameraYaw = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ').y;
-
-    // Compute forward and right movement vectors based on the camera's orientation
-    forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0)); // Forward relative to camera
-    rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0)); // Right relative to camera
-
-    // Initialize movement tracking
-    const movement = new THREE.Vector3();
-
-    // Check movement directions and update the movement vector
-    if (moveForward) {
-        movement.add(forwardVec); // Move forward
-    }
-    if (moveBackward) {
-        movement.sub(forwardVec); // Move backward
-    }
-    if (strafeLeft) {
-        movement.sub(rightVec); // Strafe left
-    }
-    if (strafeRight) {
-        movement.add(rightVec); // Strafe right
-    }
-
-    // If there's any movement, normalize it and scale by speed
-    if (movement.length() > 0) {
-        movement.normalize().multiplyScalar(speed * delta);
-
-        // Update the model's position in the scene
-        localModel.position.add(movement);
-
-        // Update the camera's position to follow the model
-        const cameraOffset = new THREE.Vector3(0, 1.7, 0); // Adjust as needed for desired camera height
-        camera.position.copy(localModel.position.clone().add(cameraOffset));
-    }
-
-    // Update the model's rotation to face the camera direction (adjusted by 180 degrees)
-    localModel.rotation.y = cameraYaw + Math.PI;
-
-    // Broadcast state to the server (position and rotation)
+    // Emit movement
     socket.emit('move', {
         x: localModel.position.x,
         z: localModel.position.z,
         rotation: localModel.rotation.y,
-        action: movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle',
+        action: currentAction,
     });
-
-    // Trigger animations based on movement state
-    const newAction = movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle';
-    if (currentAction !== newAction) {
-        setLocalAction(newAction); // Update local animation state
-        currentAction = newAction;
-    }
 }
 
+function rotateLocalCharacter(direction, delta) {
+    if (!localModel) return;
+    const rotationSpeed = isRunning ? rotateSpeed * 1.2 : rotateSpeed;
+    localModel.rotation.y += direction * rotationSpeed * delta;
 
+    // Emit movement
+    socket.emit('move', {
+        x: localModel.position.x,
+        z: localModel.position.z,
+        rotation: localModel.rotation.y,
+        action: currentAction,
+    });
+}
 
-// ------------------------------
-// VR Movement
-// ------------------------------
+// ----------------------------------------------------
+// VR Movement + Teleportation
+// ----------------------------------------------------
+
 function handleVRMovement(delta) {
     const session = renderer.xr.getSession();
     if (!session || !localModel) return;
 
     for (const source of session.inputSources) {
         if (!source.gamepad) continue;
+
+        // 1) LEFT joystick for forward/strafe
         if (source.handedness === 'left') {
-            const { axes } = source.gamepad;
-            const forwardVal = -axes[1];
+            const { axes, buttons } = source.gamepad;
+            const strafe = axes[0];
+            const forwardVal = -axes[1]; // push up is negative
+
+            // Basic deadzone
             const deadZone = 0.15;
+            const moveX = Math.abs(strafe) > deadZone ? strafe : 0;
             const moveZ = Math.abs(forwardVal) > deadZone ? forwardVal : 0;
 
-            if (moveZ !== 0) {
-                setLocalAction('walk');
-                const cameraDirection = new THREE.Vector3();
-                camera.getWorldDirection(cameraDirection);
-                cameraDirection.y = 0;
-                cameraDirection.normalize();
+            // Decide animation
+            const magnitude = Math.sqrt(moveX * moveX + moveZ * moveZ);
+            const threshold = 0.7;
+            if (magnitude > 0.01) {
+                if (magnitude > threshold) {
+                    setLocalAction('run');
+                } else {
+                    setLocalAction('walk');
+                }
+            } else {
+                setLocalAction('idle');
+            }
 
-                const curSpeed = isRunning ? runSpeed : walkSpeed;
-                localModel.position.addScaledVector(cameraDirection, moveZ * curSpeed * delta);
+            // You can incorporate run logic via a button check:
+            // e.g. isRunning = buttons[1].pressed
 
-                // keep camera with localModel
-                const cameraOffset = new THREE.Vector3(0, 1.7, 0);
-                camera.position.copy(localModel.position).add(cameraOffset);
+            const speed = isRunning ? runSpeed : walkSpeed;
 
+            // Move relative to camera direction
+            const cameraDirection = new THREE.Vector3();
+            camera.getWorldDirection(cameraDirection);
+            cameraDirection.y = 0;
+            cameraDirection.normalize();
+
+            const sideVector = new THREE.Vector3();
+            sideVector.crossVectors(new THREE.Vector3(0, 1, 0), cameraDirection).normalize();
+
+            const movement = new THREE.Vector3();
+            movement.addScaledVector(cameraDirection, moveZ * speed * delta);
+            movement.addScaledVector(sideVector, moveX * speed * delta);
+
+            // Move the local model
+            localModel.position.add(movement);
+
+            // Reposition camera above localModel if you want to keep them synced in VR
+            const cameraOffset = new THREE.Vector3(0, 2, 0);
+            camera.position.copy(localModel.position).add(cameraOffset);
+
+            // Broadcast
+            socket.emit('move', {
+                x: localModel.position.x,
+                z: localModel.position.z,
+                rotation: getCameraYaw(),
+                action: currentAction,
+            });
+        }
+
+        // 2) RIGHT joystick for turning left/right
+        if (source.handedness === 'right') {
+            const { axes } = source.gamepad;
+            // Typically axes[0] = X for horizontal turn
+            const turn = axes[0];
+            const deadZone = 0.2;
+            if (Math.abs(turn) > deadZone) {
+                // Smooth turn
+                const turnDirection = Math.sign(turn); // +1 or -1
+                const turnAmount = smoothTurnSpeed * turnDirection * delta;
+                // Rotate localModel
+                if (localModel) {
+                    localModel.rotation.y -= turnAmount;
+                }
+                // If you want to broadcast orientation:
                 socket.emit('move', {
                     x: localModel.position.x,
                     z: localModel.position.z,
-                    rotation: getCameraYaw(),
+                    rotation: localModel.rotation.y,
                     action: currentAction,
                 });
-            } else if (currentAction !== 'idle') {
-                setLocalAction('idle');
             }
         }
     }
 }
 
+// Teleport intersection + marker
 function checkTeleportIntersections() {
     INTERSECTION = null;
     markerMesh.visible = false;
@@ -519,19 +466,23 @@ function checkTeleportIntersections() {
     const session = renderer.xr.getSession();
     if (!session) return;
 
+    // For both controllers, if user isSelecting, cast a ray
     session.inputSources.forEach((source) => {
         if (source && source.targetRayMode === 'tracked-pointer' && source.gamepad) {
             const handedness = source.handedness;
+            // Grab the actual XRController object from Three.js
             const controller = handedness === 'left'
                 ? renderer.xr.getController(0)
                 : renderer.xr.getController(1);
 
             if (!controller.userData.isSelecting) return;
 
+            // Build a ray
             tempMatrix.identity().extractRotation(controller.matrixWorld);
             const rayOrigin = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
             const rayDirection = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
 
+            // Raycast
             const raycaster = new THREE.Raycaster(rayOrigin, rayDirection, 0, 100);
             const intersects = raycaster.intersectObject(floorMesh);
             if (intersects.length > 0) {
@@ -543,65 +494,71 @@ function checkTeleportIntersections() {
     });
 }
 
+// Grab the camera's yaw angle
 function getCameraYaw() {
     const euler = new THREE.Euler();
     euler.setFromQuaternion(camera.quaternion, 'YXZ');
     return euler.y;
 }
 
-// ------------------------------
-// Render loop
-// ------------------------------
+// ----------------------------------------------------
+// Main Render Loop
+// ----------------------------------------------------
+
 function animate() {
     renderer.setAnimationLoop(() => {
         const delta = clock.getDelta();
 
+        // 1) Update animations
         if (localMixer) localMixer.update(delta);
 
-        // VR or Desktop
+        // 2) VR logic or desktop logic
         if (renderer.xr.isPresenting) {
+            // VR: Poll joystick + do teleport intersections
             handleVRMovement(delta);
             checkTeleportIntersections();
         } else if (localModel) {
-            // Make the local model follow the camera
-            localModel.position.lerp(camera.position.clone().setY(0), 0.1); // Smoothly follow camera position
-            localModel.rotation.y = camera.rotation.y; // Align model's rotation to the camera's yaw
+            // Desktop movement
+            if (moveForward) moveLocalCharacter(1, delta);
+            if (moveBackward) moveLocalCharacter(-1, delta);
+            if (rotateLeft) rotateLocalCharacter(1, delta);
+            if (rotateRight) rotateLocalCharacter(-1, delta);
 
-            moveLocalCharacterDesktop(delta); // Optional, if movement logic depends on key states
+            // Keep camera behind localModel (desktop style)
+            const cameraOffset = new THREE.Vector3(0, 2, -5);
+            cameraOffset.applyQuaternion(localModel.quaternion);
+            camera.position.copy(localModel.position.clone().add(cameraOffset));
+            camera.lookAt(localModel.position.clone().add(new THREE.Vector3(0, 1, 0)));
         }
 
-        // Update remote players
-        Object.values(players).forEach((p) => {
-            p.mixer.update(delta);
+        // 3) Update remote players
+        Object.values(players).forEach((player) => {
+            player.mixer.update(delta);
         });
 
+        // 4) Render
         renderer.render(scene, camera);
     });
 }
 
+// ----------------------------------------------------
+// Avatar + Terrain
+// ----------------------------------------------------
 
-// ------------------------------
-// Load local model
-// ------------------------------
 function loadLocalModel() {
-    // read last position
-    let spawnData = loadPositionFromLocalStorage();
-    if (!spawnData) {
-        spawnData = getRandomSpawnPoint();
-    }
-
     const loader = new GLTFLoader();
     loader.load(
         modelPath,
         (gltf) => {
+            const spawnPoint = getRandomSpawnPoint();
             localModel = gltf.scene;
-            localModel.position.set(spawnData.x, 0, spawnData.z);
-            localModel.rotation.y = spawnData.rotation;
+            localModel.position.set(spawnPoint.x, 0, spawnPoint.z);
+            localModel.rotation.y = spawnPoint.rotation;
             localModel.castShadow = true;
             scene.add(localModel);
 
-            localModel.traverse((obj) => {
-                if (obj.isMesh) obj.castShadow = true;
+            localModel.traverse((object) => {
+                if (object.isMesh) object.castShadow = true;
             });
 
             localMixer = new THREE.AnimationMixer(localModel);
@@ -609,26 +566,24 @@ function loadLocalModel() {
                 const action = localMixer.clipAction(clip);
                 action.loop = THREE.LoopRepeat;
                 localActions[clip.name] = action;
-                if (clip.name === 'idle') action.play();
+                if (clip.name === 'idle') {
+                    action.play();
+                }
             });
 
-            // inform server
+            // Inform server
             socket.emit('player_joined', {
-                x: spawnData.x,
-                z: spawnData.z,
-                rotation: spawnData.rotation,
+                x: spawnPoint.x,
+                z: spawnPoint.z,
+                rotation: spawnPoint.rotation,
                 action: 'idle',
-                id: myId,
             });
         },
         undefined,
-        (err) => console.error('Error loading local model:', err)
+        (error) => console.error('Error loading local model:', error)
     );
 }
 
-// ------------------------------
-// Terrain
-// ------------------------------
 function generateTerrain() {
     const size = terrainSize;
     const segments = terrainSegments;
@@ -657,17 +612,21 @@ function generateTerrain() {
         for (let j = 0; j <= segments; j++) {
             const x = i * segmentSize - halfSize;
             const z = j * segmentSize - halfSize;
-            const dist = Math.sqrt(x * x + z * z);
+
+            const distance = Math.sqrt(x * x + z * z);
             let y = 0;
 
-            if (dist <= size * 0.5) {
-                if (dist > size * 0.3) {
-                    y = Math.pow((dist - size * 0.3) / (halfSize - size * 0.3), 1.5) * 2 * (Math.random() * 0.7 + 0.5);
+            if (distance <= size * 0.5) {
+                if (distance > size * 0.3) {
+                    y = Math.pow(
+                        (distance - size * 0.3) / (halfSize - size * 0.3),
+                        1.5
+                    ) * 2 * (Math.random() * 0.7 + 0.5);
                 }
 
                 let rangeIndex = distanceRanges.length - 1;
                 for (let k = 0; k < distanceRanges.length; k++) {
-                    if (dist >= distanceRanges[k].min && dist < distanceRanges[k].max) {
+                    if (distance >= distanceRanges[k].min && distance < distanceRanges[k].max) {
                         rangeIndex = k;
                         break;
                     }
@@ -675,7 +634,7 @@ function generateTerrain() {
                 pointsByRange[rangeIndex].push(x, y, z);
                 vertexIndices[i][j] = {
                     index: pointsByRange[rangeIndex].length / 3 - 1,
-                    rangeIndex
+                    rangeIndex,
                 };
             } else {
                 vertexIndices[i][j] = undefined;
@@ -686,29 +645,29 @@ function generateTerrain() {
     for (let i = 0; i < segments; i++) {
         for (let j = 0; j < segments; j++) {
             const currentVertex = vertexIndices[i][j];
-            if (!currentVertex) continue;
-
             const rightVertex = vertexIndices[i][j + 1];
             const bottomVertex = vertexIndices[i + 1] ? vertexIndices[i + 1][j] : undefined;
 
-            const baseIndex = currentVertex.index * 3;
-            const x0 = pointsByRange[currentVertex.rangeIndex][baseIndex + 0];
-            const y0 = pointsByRange[currentVertex.rangeIndex][baseIndex + 1];
-            const z0 = pointsByRange[currentVertex.rangeIndex][baseIndex + 2];
+            if (currentVertex !== undefined) {
+                const baseIndex = currentVertex.index * 3;
+                const x0 = pointsByRange[currentVertex.rangeIndex][baseIndex];
+                const y0 = pointsByRange[currentVertex.rangeIndex][baseIndex + 1];
+                const z0 = pointsByRange[currentVertex.rangeIndex][baseIndex + 2];
 
-            if (rightVertex && currentVertex.rangeIndex === rightVertex.rangeIndex) {
-                const baseRight = rightVertex.index * 3;
-                const x1 = pointsByRange[rightVertex.rangeIndex][baseRight + 0];
-                const y1 = pointsByRange[rightVertex.rangeIndex][baseRight + 1];
-                const z1 = pointsByRange[rightVertex.rangeIndex][baseRight + 2];
-                linesByRange[currentVertex.rangeIndex].push(x0,y0,z0, x1,y1,z1);
-            }
-            if (bottomVertex && currentVertex.rangeIndex === bottomVertex.rangeIndex) {
-                const baseDown = bottomVertex.index * 3;
-                const x2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 0];
-                const y2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 1];
-                const z2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 2];
-                linesByRange[currentVertex.rangeIndex].push(x0,y0,z0, x2,y2,z2);
+                if (rightVertex !== undefined && currentVertex.rangeIndex === rightVertex.rangeIndex) {
+                    const baseRight = rightVertex.index * 3;
+                    const x1 = pointsByRange[rightVertex.rangeIndex][baseRight];
+                    const y1 = pointsByRange[rightVertex.rangeIndex][baseRight + 1];
+                    const z1 = pointsByRange[rightVertex.rangeIndex][baseRight + 2];
+                    linesByRange[currentVertex.rangeIndex].push(x0, y0, z0, x1, y1, z1);
+                }
+                if (bottomVertex !== undefined && currentVertex.rangeIndex === bottomVertex.rangeIndex) {
+                    const baseDown = bottomVertex.index * 3;
+                    const x2 = pointsByRange[bottomVertex.rangeIndex][baseDown];
+                    const y2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 1];
+                    const z2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 2];
+                    linesByRange[currentVertex.rangeIndex].push(x0, y0, z0, x2, y2, z2);
+                }
             }
         }
     }
@@ -723,7 +682,7 @@ function generateTerrain() {
                 color: 0xffffff,
                 size: distanceRanges[k].pointSize,
                 transparent: true,
-                opacity: 1.0
+                opacity: 1.0,
             });
 
             const terrainPoints = new THREE.Points(terrainGeometry, terrainMaterial);
@@ -747,18 +706,22 @@ function generateTerrain() {
     }
 }
 
-// ------------------------------
-// setLocalAction: crossfade
-// ------------------------------
+// ----------------------------------------------------
+// Animation & Action Helpers
+// ----------------------------------------------------
+
 function setLocalAction(name, direction = 'forward') {
     if (currentAction !== name) {
+        // Crossfade out old
         if (localActions[currentAction]) {
             localActions[currentAction].fadeOut(0.5);
         }
+        // Fade in new
         if (localActions[name]) {
             localActions[name].reset().fadeIn(0.5).play();
+            // timeScale for forward/back
             if (name === 'walk' || name === 'run') {
-                localActions[name].timeScale = (direction === 'forward') ? 1 : -1;
+                localActions[name].timeScale = direction === 'forward' ? 1 : -1;
                 if (direction === 'backward') {
                     localActions[name].time = localActions[name].getClip().duration;
                 } else {
@@ -770,8 +733,9 @@ function setLocalAction(name, direction = 'forward') {
         }
         currentAction = name;
     } else {
+        // If same action, just update timeScale if walk/run
         if (name === 'walk' || name === 'run') {
-            localActions[name].timeScale = (direction === 'forward') ? 1 : -1;
+            localActions[name].timeScale = direction === 'forward' ? 1 : -1;
             if (direction === 'backward') {
                 localActions[name].time = localActions[name].getClip().duration - localActions[name].time;
             }
@@ -779,13 +743,14 @@ function setLocalAction(name, direction = 'forward') {
     }
 }
 
-// ------------------------------
-// Sockets
-// ------------------------------
+// ----------------------------------------------------
+// Socket.io Player Handling
+// ----------------------------------------------------
+
 function setupSocketEvents() {
     socket.on('init', (data) => {
         console.log('Init data:', data);
-        // Fill local knowledge
+        myId = data.id;
         updatePlayers(data.players);
     });
 
@@ -813,6 +778,7 @@ function setupSocketEvents() {
         removeRemotePlayer(id);
     });
 
+    // Audio streaming from others
     socket.on('start_audio', (id) => {
         console.log(`User ${id} started broadcasting audio.`);
         addRemoteAudioStream(id);
@@ -873,8 +839,8 @@ function createRemotePlayer(id, data) {
             loadingPlayers.delete(id);
         },
         undefined,
-        (err) => {
-            console.error(`Error loading model for player ${id}:`, err);
+        (error) => {
+            console.error(`Error loading model for player ${id}:`, error);
             loadingPlayers.delete(id);
         }
     );
@@ -894,25 +860,24 @@ function updateRemotePlayer(id, data) {
     player.position.set(data.x, 0, data.z);
     player.rotation = data.rotation;
 
-    // Smooth interpolation
+    // Smoothly move
     player.model.position.lerp(player.position, 0.1);
     player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1);
 
-    // Audio
+    // Positional audio
     if (remoteAudioStreams[id]) {
         remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
     }
 
-    // Determine if moving
-    const distMoved = player.position.distanceTo(player.model.position);
-    const isMoving = distMoved > 0.01;
-    const movementDir = player.position.clone().sub(player.model.position).normalize();
-    const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion);
-    const isForward = movementDir.dot(forwardDir) > 0;
+    const distanceMoved = player.position.distanceTo(player.model.position);
+    const isMoving = distanceMoved > 0.01;
+    const movementDirection = player.position.clone().sub(player.model.position).normalize();
+    const forwardDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion);
+    const isMovingForward = movementDirection.dot(forwardDirection) > 0;
 
     let action = 'idle';
     if (isMoving) {
-        action = distMoved > 0.5 ? 'run' : 'walk';
+        action = distanceMoved > 0.5 ? 'run' : 'walk';
     }
 
     if (player.currentAction !== action) {
@@ -922,7 +887,7 @@ function updateRemotePlayer(id, data) {
         if (player.actions[action]) {
             player.actions[action].reset().fadeIn(0.5).play();
             if (action === 'walk' || action === 'run') {
-                player.actions[action].timeScale = isForward ? 1 : -1;
+                player.actions[action].timeScale = isMovingForward ? 1 : -1;
             }
         }
         player.currentAction = action;
@@ -938,13 +903,11 @@ function removeRemotePlayer(id) {
 }
 
 function updatePlayers(playersData) {
-    // Compare local data vs server data
     Object.keys(playersData).forEach((id) => {
         if (id !== myId) {
             addOrUpdatePlayer(id, playersData[id]);
         }
     });
-    // Remove any players not in playersData
     Object.keys(players).forEach((id) => {
         if (!playersData[id]) {
             removeRemotePlayer(id);
@@ -952,9 +915,10 @@ function updatePlayers(playersData) {
     });
 }
 
-// ------------------------------
-// Audio streaming
-// ------------------------------
+// ----------------------------------------------------
+// Audio Streaming
+// ----------------------------------------------------
+
 function handleUserInteraction() {
     if (listener.context.state === 'suspended') {
         listener.context.resume().then(() => {
@@ -995,6 +959,7 @@ async function startBroadcast() {
 
 function stopBroadcast() {
     if (!localStream) return;
+
     if (processor) {
         processor.disconnect();
         processor.onaudioprocess = null;
@@ -1004,8 +969,10 @@ function stopBroadcast() {
         mediaStreamSource.disconnect();
         mediaStreamSource = null;
     }
+
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
+
     socket.emit('stop_audio');
     console.log('Stopped broadcasting audio.');
 }
@@ -1048,6 +1015,7 @@ function receiveAudioStream(id, audioBuffer) {
         console.warn('AudioContext not initialized. Cannot receive audio stream.');
         return;
     }
+
     const remoteAudio = remoteAudioStreams[id];
     if (!remoteAudio) {
         console.warn(`Received audio data from ${id} before audio stream started.`);
@@ -1059,6 +1027,7 @@ function receiveAudioStream(id, audioBuffer) {
     for (let i = 0; i < int16.length; i++) {
         float32[i] = int16[i] / 32767;
     }
+
     const buffer = listener.context.createBuffer(1, float32.length, listener.context.sampleRate);
     buffer.copyToChannel(float32, 0, 0);
 
@@ -1072,9 +1041,10 @@ function receiveAudioStream(id, audioBuffer) {
     };
 }
 
-// ------------------------------
+// ----------------------------------------------------
 // Utility
-// ------------------------------
+// ----------------------------------------------------
+
 function getRandomSpawnPoint() {
     const x = (Math.random() - 0.5) * 50;
     const z = (Math.random() - 0.5) * 50;
