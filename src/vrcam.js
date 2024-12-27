@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js';
 import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.min.js';
 
 let modelPath;
-
 if (window.location.pathname.includes('/public/')) {
     modelPath = '/public/Xbot.glb';
 } else {
@@ -15,21 +15,28 @@ if (window.location.pathname.includes('/public/')) {
 console.log(`Model Path: ${modelPath}`); // For debugging purposes
 
 const socket = io('https://full-canary-chokeberry.glitch.me/');
-
 const simplex = new SimplexNoise();
 
-// Store the listener globally for later use
+// Scene objects
 let scene, camera, renderer, clock, listener;
 let localModel, localMixer;
 let currentAction = 'idle';
 let localActions = {};
+
+// Desktop movement flags
 let moveForward = false;
 let moveBackward = false;
 let rotateLeft = false;
 let rotateRight = false;
-let isRunning = false; // Track if the player is running
-let lastState = {};
+let isRunning = false; // Shift modifies speed
 
+// VR Teleport + ReferenceSpace
+let baseReferenceSpace = null;
+let floorMesh, markerMesh;
+let INTERSECTION = null;
+const tempMatrix = new THREE.Matrix4();
+
+// Key states
 const keyStates = {
     w: false,
     a: false,
@@ -41,38 +48,47 @@ const keyStates = {
 
 window.listener = listener; // Optional: Attach to window for global access
 
-let localStream = null;          // MediaStream from user's microphone
-let workletNode = null;          // AudioWorkletNode for capturing audio
-const remoteAudioStreams = {};   // Map to keep track of remote audio streams by ID
+// Audio streaming
+let localStream = null;
+let workletNode = null;
+let mediaStreamSource = null;
+let processor = null;
+const remoteAudioStreams = {};
 
-let mediaStreamSource = null;    // MediaStreamSource from the microphone
-let processor = null;            // ScriptProcessorNode for capturing audio data
-
-const walkSpeed = 2;
-const runSpeed = 5; // Higher speed for running
-const rotateSpeed = Math.PI / 2;
-const loadingPlayers = new Set(); // Track players being loaded
+// Player data
+const loadingPlayers = new Set();
 const players = {};
 let myId = null;
+let lastState = {};
 
-// Mountainscape variables
+// Movement speeds
+const walkSpeed = 2;
+const runSpeed = 5; 
+const rotateSpeed = Math.PI / 2; // Desktop rotate
+const smoothTurnSpeed = 1.5;     // VR joystick rotate speed
+
+// Terrain config
 const terrainSize = 100;
 const terrainSegments = 100;
 
 init();
 animate();
 
+// ----------------------------------------------------
+// Initialization
+// ----------------------------------------------------
+
 function init() {
-    // Scene setup
+
+    // Scene + camera
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x454545);
     scene.fog = new THREE.Fog(0x454545, 10, 50);
 
-    // Camera
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100);
     camera.position.set(0, 2, -5);
 
-    // Audio listener
+    // Listener for audio
     listener = new THREE.AudioListener();
     camera.add(listener);
 
@@ -80,14 +96,16 @@ function init() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.xr.enabled = true;         // Enable WebXR
+    renderer.xr.enabled = true; // Enable WebXR
     document.body.appendChild(renderer.domElement);
 
-    // Add VR Button (including hand-tracking, as in your original)
-    const sessionInit = {
-        requiredFeatures: ['hand-tracking']
-    };
+    // VR Button
+    const sessionInit = { requiredFeatures: ['hand-tracking'] };
     document.body.appendChild(VRButton.createButton(renderer, sessionInit));
+
+    renderer.xr.addEventListener('sessionstart', () => {
+        baseReferenceSpace = renderer.xr.getReferenceSpace();
+    });
 
     // Lights
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
@@ -97,169 +115,178 @@ function init() {
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
     dirLight.position.set(10, 50, 10);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(1024, 1024); // Reduced resolution
+    dirLight.shadow.mapSize.set(1024, 1024);
     scene.add(dirLight);
 
-    // Simple ground placeholder
-    const ground = new THREE.Mesh();
-    ground.receiveShadow = true;
-    scene.add(ground);
+    // Floor for teleportation
+    floorMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0x666666, transparent: true, opacity: 0.25 })
+    );
+    floorMesh.name = 'teleport_floor';
+    scene.add(floorMesh);
 
-    // === Initialize AudioContext Upon User Interaction ===
-    document.addEventListener('click', handleUserInteraction, { once: true });
-    document.addEventListener('keydown', handleUserInteraction, { once: true });
+    // Teleport marker
+    markerMesh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.25, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0xbcbcbc })
+    );
+    markerMesh.visible = false;
+    scene.add(markerMesh);
+
+    // Set up VR controllers for teleporting + joystick rotation
+    setupVRControllers();
+
+    // Additional geometry (optional; e.g. mountains)
+    generateTerrain();
+
+    // Load local avatar
+    loadLocalModel();
+
+    // Desktop keyboard events
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+
+    // Handle resizing
+    window.addEventListener('resize', onWindowResize);
+
+    // Setup Socket.io
+    setupSocketEvents();
 
     // Clock
     clock = new THREE.Clock();
 
-    // Generate your stylized terrain or lines
-    generateTerrain();
-
-    // Load Local (own) Model
-    loadLocalModel();
-
-    // Key Events (desktop WASD)
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
-
-    // Window resize
-    window.addEventListener('resize', onWindowResize);
-
-    // Socket setup
-    setupSocketEvents();
+    // Initialize AudioContext upon user interaction
+    document.addEventListener('click', handleUserInteraction, { once: true });
+    document.addEventListener('keydown', handleUserInteraction, { once: true });
 }
 
-// Load local player model/animations
-function loadLocalModel() {
-    const loader = new GLTFLoader();
-    loader.load(
-        modelPath,
-        (gltf) => {
-            const spawnPoint = getRandomSpawnPoint();
-            localModel = gltf.scene;
-            localModel.position.set(spawnPoint.x, 0, spawnPoint.z);
-            localModel.rotation.y = spawnPoint.rotation;
-            localModel.castShadow = true;
-            scene.add(localModel);
+function setupVRControllers() {
 
-            localModel.traverse((object) => {
-                if (object.isMesh) object.castShadow = true;
-            });
+    // Create two controllers + grips
+    const controller1 = renderer.xr.getController(0);
+    const controller2 = renderer.xr.getController(1);
 
-            // Initialize animation mixer
-            localMixer = new THREE.AnimationMixer(localModel);
-            gltf.animations.forEach((clip) => {
-                const action = localMixer.clipAction(clip);
-                action.loop = THREE.LoopRepeat; // Ensure the animation loops
-                localActions[clip.name] = action;
+    // Teleport events: "selectstart" / "selectend" for each
+    function onSelectStart() {
+        this.userData.isSelecting = true;
+    }
+    function onSelectEnd() {
+        this.userData.isSelecting = false;
 
-                if (clip.name === 'idle') {
-                    action.play();
-                }
-            });
-
-            // Notify server about the new player
-            socket.emit('player_joined', {
-                x: spawnPoint.x,
-                z: spawnPoint.z,
-                rotation: spawnPoint.rotation,
-                action: 'idle',
-            });
-        },
-        undefined,
-        (error) => console.error('Error loading local model:', error)
-    );
-}
-
-// Set up Socket.io events
-function setupSocketEvents() {
-    socket.on('init', (data) => {
-        console.log('Init data:', data);
-        myId = data.id;
-        updatePlayers(data.players);
-    });
-
-    socket.on('state_update_all', (data) => {
-        updatePlayers(data);
-        lastState = { ...data };
-    });
-
-    socket.on('new_player', (data) => {
-        console.log('New Player data:', data);
-        addOrUpdatePlayer(data.id, data);
-    });
-
-    socket.on('state_update', (data) => {
-        console.log('State Update:', data);
-        if (players[data.id]) {
-            players[data.id].targetX = data.x;
-            players[data.id].targetZ = data.z;
-            players[data.id].targetRotation = data.rotation || 0;
+        // If there's a valid intersection, do the offset-based teleport
+        if (INTERSECTION && baseReferenceSpace) {
+            const offsetPosition = {
+                x: -INTERSECTION.x,
+                y: -INTERSECTION.y,
+                z: -INTERSECTION.z,
+                w: 1
+            };
+            const offsetRotation = new THREE.Quaternion();
+            const transform = new XRRigidTransform(offsetPosition, offsetRotation);
+            const teleportSpaceOffset = baseReferenceSpace.getOffsetReferenceSpace(transform);
+            renderer.xr.setReferenceSpace(teleportSpaceOffset);
         }
+    }
+
+    controller1.addEventListener('selectstart', onSelectStart);
+    controller1.addEventListener('selectend', onSelectEnd);
+
+    controller2.addEventListener('selectstart', onSelectStart);
+    controller2.addEventListener('selectend', onSelectEnd);
+
+    // Build a simple beam or ring to show which mode it's in
+    controller1.addEventListener('connected', function (event) {
+        this.add(buildControllerRay(event.data));
+    });
+    controller1.addEventListener('disconnected', function () {
+        this.remove(this.children[0]);
     });
 
-    socket.on('player_disconnected', (id) => {
-        console.log('Player Disconnected:', id);
-        removeRemotePlayer(id);
+    controller2.addEventListener('connected', function (event) {
+        this.add(buildControllerRay(event.data));
+    });
+    controller2.addEventListener('disconnected', function () {
+        this.remove(this.children[0]);
     });
 
-    // Handle 'start_audio' from other clients
-    socket.on('start_audio', (id) => {
-        console.log(`User ${id} started broadcasting audio.`);
-        addRemoteAudioStream(id);
-    });
+    scene.add(controller1);
+    scene.add(controller2);
 
-    // Handle 'stop_audio' from other clients
-    socket.on('stop_audio', (id) => {
-        console.log(`User ${id} stopped broadcasting audio.`);
-        removeRemoteAudioStream(id);
-    });
+    // Now the "Grips"
+    const controllerModelFactory = new XRControllerModelFactory();
+    const controllerGrip1 = renderer.xr.getControllerGrip(0);
+    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+    scene.add(controllerGrip1);
 
-    // Handle 'audio_stream' events from other clients
-    socket.on('audio_stream', (data) => {
-        const { id, audio } = data;
-        receiveAudioStream(id, audio);
-    });
+    const controllerGrip2 = renderer.xr.getControllerGrip(1);
+    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+    scene.add(controllerGrip2);
 }
 
-// Desktop key down
+// Build the controller ray (visual pointer)
+function buildControllerRay(data) {
+    let geometry, material;
+    switch (data.targetRayMode) {
+        case 'tracked-pointer':
+            // A line to show the pointer
+            geometry = new THREE.BufferGeometry();
+            geometry.setAttribute(
+                'position',
+                new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3)
+            );
+            geometry.setAttribute(
+                'color',
+                new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3)
+            );
+            material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
+            return new THREE.Line(geometry, material);
+        case 'gaze':
+            // A ring
+            geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, -1);
+            material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
+            return new THREE.Mesh(geometry, material);
+    }
+}
+
+// ----------------------------------------------------
+// Desktop Keyboard Movement
+// ----------------------------------------------------
+
 function onKeyDown(event) {
     if (event.key in keyStates) {
         if (!keyStates[event.key]) {
             keyStates[event.key] = true;
+            // 'r' = broadcast mic
             if (event.key === 'r') {
-                startBroadcast(); // Start broadcasting audio
+                startBroadcast();
             }
             handleKeyStates();
         }
     }
 }
 
-// Desktop key up
 function onKeyUp(event) {
     if (event.key in keyStates) {
         keyStates[event.key] = false;
         if (event.key === 'r') {
-            stopBroadcast(); // Stop broadcasting audio
+            stopBroadcast();
         }
         handleKeyStates();
     }
 }
 
-// Decide which movement state the desktop user is in
 function handleKeyStates() {
-    // Detect movement keys
+    // Map pressed keys to booleans
     moveForward = keyStates['w'];
     moveBackward = keyStates['s'];
     rotateLeft = keyStates['a'];
     rotateRight = keyStates['d'];
-
-    // Determine running state: Shift modifies W or S
     isRunning = keyStates['Shift'] && (moveForward || moveBackward);
 
-    // Determine movement direction
-    let movementDirection = null; // 'forward' or 'backward'
-    let action = 'idle'; // Default action
+    // Decide local animation state
+    let movementDirection = null;
+    let action = 'idle';
 
     if (moveForward && isRunning) {
         action = 'run';
@@ -282,50 +309,15 @@ function handleKeyStates() {
     } else {
         setLocalAction('idle');
     }
-
-    // Rotation states handled in animate()
 }
 
-// Change local animation with crossfade
-function setLocalAction(name, direction = 'forward') {
-    if (currentAction !== name) {
-        // Fade out the current action
-        if (localActions[currentAction]) {
-            localActions[currentAction].fadeOut(0.5);
-        }
-        // Fade in the new action
-        if (localActions[name]) {
-            localActions[name].reset().fadeIn(0.5).play();
+// ----------------------------------------------------
+// Desktop Movement Helpers
+// ----------------------------------------------------
 
-            // For walking/running forward/backward
-            if (name === 'walk' || name === 'run') {
-                localActions[name].timeScale = direction === 'forward' ? 1 : -1;
-                if (direction === 'backward') {
-                    // Start from the end if playing backward
-                    localActions[name].time = localActions[name].getClip().duration;
-                } else {
-                    localActions[name].time = 0;
-                }
-            } else {
-                localActions[name].timeScale = 1;
-            }
-        }
-        currentAction = name;
-    } else {
-        // If the action is the same, just update the timeScale if it's walk/run
-        if (name === 'walk' || name === 'run') {
-            localActions[name].timeScale = direction === 'forward' ? 1 : -1;
-            if (direction === 'backward') {
-                // Adjust the time to play backward smoothly
-                localActions[name].time = localActions[name].getClip().duration - localActions[name].time;
-            }
-        }
-    }
-}
-
-// Helper for desktop: move forward/back
 function moveLocalCharacter(direction, delta) {
-    const speed = isRunning ? runSpeed : walkSpeed; // run or walk
+    if (!localModel) return;
+    const speed = isRunning ? runSpeed : walkSpeed;
     const forward = new THREE.Vector3(0, 0, direction);
     forward.applyQuaternion(localModel.quaternion);
     localModel.position.add(forward.multiplyScalar(speed * delta));
@@ -339,9 +331,9 @@ function moveLocalCharacter(direction, delta) {
     });
 }
 
-// Helper for desktop: rotate left/right
 function rotateLocalCharacter(direction, delta) {
-    const rotationSpeed = isRunning ? rotateSpeed * 1.2 : rotateSpeed; // faster spin if running
+    if (!localModel) return;
+    const rotationSpeed = isRunning ? rotateSpeed * 1.2 : rotateSpeed;
     localModel.rotation.y += direction * rotationSpeed * delta;
 
     // Emit movement
@@ -353,30 +345,31 @@ function rotateLocalCharacter(direction, delta) {
     });
 }
 
-// === VR Movement Logic ===
-// Poll the left thumbstick for forward/strafe movement, using the headset orientation
+// ----------------------------------------------------
+// VR Movement + Teleportation
+// ----------------------------------------------------
+
 function handleVRMovement(delta) {
     const session = renderer.xr.getSession();
     if (!session || !localModel) return;
 
-    // We can do multiple inputSources but typically each controller is one source
     for (const source of session.inputSources) {
         if (!source.gamepad) continue;
-        // Let's use the left controller for movement
-        if (source.handedness === 'left') {
-            const { axes } = source.gamepad;
-            // Typically: axes[0] = X (left-right), axes[1] = Y (up-down for thumbstick)
-            const strafe = axes[0];
-            const forwardVal = -axes[1]; // Negative so that pushing up is forward
 
-            // Simple deadzone check to avoid drift
+        // 1) LEFT joystick for forward/strafe
+        if (source.handedness === 'left') {
+            const { axes, buttons } = source.gamepad;
+            const strafe = axes[0];
+            const forwardVal = -axes[1]; // push up is negative
+
+            // Basic deadzone
             const deadZone = 0.15;
             const moveX = Math.abs(strafe) > deadZone ? strafe : 0;
             const moveZ = Math.abs(forwardVal) > deadZone ? forwardVal : 0;
 
-            // Decide if we "walk" or "idle" based on magnitude
+            // Decide animation
             const magnitude = Math.sqrt(moveX * moveX + moveZ * moveZ);
-            const threshold = 0.7; // example threshold for "running"
+            const threshold = 0.7; 
             if (magnitude > 0.01) {
                 if (magnitude > threshold) {
                     setLocalAction('run');
@@ -387,66 +380,127 @@ function handleVRMovement(delta) {
                 setLocalAction('idle');
             }
 
-            // You can incorporate run logic if you have a button for "run"
-            // e.g., isRunning = source.gamepad.buttons[1].pressed
+            // You can incorporate run logic via a button check:
+            // e.g. isRunning = buttons[1].pressed
 
             const speed = isRunning ? runSpeed : walkSpeed;
 
-            // The VR "forward" direction is from the camera's orientation
+            // Move relative to camera direction
             const cameraDirection = new THREE.Vector3();
             camera.getWorldDirection(cameraDirection);
-            cameraDirection.y = 0; // flatten so we don't tilt up/down
+            cameraDirection.y = 0;
             cameraDirection.normalize();
 
-            // The side vector is perpendicular to camera direction
             const sideVector = new THREE.Vector3();
             sideVector.crossVectors(new THREE.Vector3(0, 1, 0), cameraDirection).normalize();
 
-            // Combine them
             const movement = new THREE.Vector3();
             movement.addScaledVector(cameraDirection, moveZ * speed * delta);
             movement.addScaledVector(sideVector, moveX * speed * delta);
 
-            // Move localModel
+            // Move the local model
             localModel.position.add(movement);
 
-            // Because we're in VR, the camera is controlled by the headset.
-            // We can keep the localModel and camera in sync if desired:
-            // For example, place camera 2m above localModel’s position
+            // Reposition camera above localModel, if desired
             const cameraOffset = new THREE.Vector3(0, 2, 0);
             camera.position.copy(localModel.position).add(cameraOffset);
 
-            // Broadcast position & orientation
+            // Broadcast
             socket.emit('move', {
                 x: localModel.position.x,
                 z: localModel.position.z,
-                // We can set rotation to camera yaw if you want the avatar
-                // to match the headset's facing direction. This is optional:
                 rotation: getCameraYaw(),
                 action: currentAction,
             });
         }
+
+        // 2) RIGHT joystick for turning left/right
+        if (source.handedness === 'right') {
+            const { axes } = source.gamepad;
+            // Typically axes[0] = X for horizontal turn
+            const turn = axes[0];
+            const deadZone = 0.2;
+            if (Math.abs(turn) > deadZone) {
+                // Smooth turn
+                const turnDirection = Math.sign(turn); // +1 or -1
+                const turnAmount = smoothTurnSpeed * turnDirection * delta;
+                // Rotate localModel
+                if (localModel) {
+                    localModel.rotation.y -= turnAmount; 
+                    // (negative sign so that pushing right rotates user to the right, 
+                    // but adjust to taste)
+                }
+                // If you want to broadcast orientation:
+                socket.emit('move', {
+                    x: localModel.position.x,
+                    z: localModel.position.z,
+                    rotation: localModel.rotation.y,
+                    action: currentAction,
+                });
+            }
+        }
     }
 }
 
-// Grab the camera's yaw angle so avatar can rotate to match
+// Teleport intersection + marker
+function checkTeleportIntersections() {
+    INTERSECTION = null;
+    markerMesh.visible = false;
+
+    const session = renderer.xr.getSession();
+    if (!session) return;
+
+    // For both controllers, if user isSelecting, cast a ray
+    session.inputSources.forEach((source) => {
+        if (source && source.targetRayMode === 'tracked-pointer' && source.gamepad) {
+            const handedness = source.handedness;
+            // Grab the actual XRController object from Three.js
+            const controller = handedness === 'left'
+                ? renderer.xr.getController(0)
+                : renderer.xr.getController(1);
+
+            if (!controller.userData.isSelecting) return;
+
+            // Build a ray
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            const rayOrigin = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+            const rayDirection = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
+
+            // Raycast
+            const raycaster = new THREE.Raycaster(rayOrigin, rayDirection, 0, 100);
+            const intersects = raycaster.intersectObject(floorMesh);
+            if (intersects.length > 0) {
+                INTERSECTION = intersects[0].point;
+                markerMesh.position.copy(INTERSECTION);
+                markerMesh.visible = true;
+            }
+        }
+    });
+}
+
+// Grab the camera's yaw angle
 function getCameraYaw() {
     const euler = new THREE.Euler();
     euler.setFromQuaternion(camera.quaternion, 'YXZ');
     return euler.y;
 }
 
-// Main loop
+// ----------------------------------------------------
+// Main Render Loop
+// ----------------------------------------------------
+
 function animate() {
     renderer.setAnimationLoop(() => {
         const delta = clock.getDelta();
 
-        // Update local animations
+        // 1) Update animations
         if (localMixer) localMixer.update(delta);
 
-        // If we’re in VR, use VR movement. Otherwise, desktop WASD
+        // 2) VR logic or desktop logic
         if (renderer.xr.isPresenting) {
+            // VR: Poll joystick + do teleport intersections
             handleVRMovement(delta);
+            checkTeleportIntersections();
         } else if (localModel) {
             // Desktop movement
             if (moveForward) moveLocalCharacter(1, delta);
@@ -454,23 +508,66 @@ function animate() {
             if (rotateLeft) rotateLocalCharacter(1, delta);
             if (rotateRight) rotateLocalCharacter(-1, delta);
 
-            // Keep the camera behind/above localModel, desktop style
+            // Keep camera behind localModel (desktop style)
             const cameraOffset = new THREE.Vector3(0, 2, -5);
             cameraOffset.applyQuaternion(localModel.quaternion);
             camera.position.copy(localModel.position.clone().add(cameraOffset));
             camera.lookAt(localModel.position.clone().add(new THREE.Vector3(0, 1, 0)));
         }
 
-        // Update remote player animations
+        // 3) Update remote players
         Object.values(players).forEach((player) => {
             player.mixer.update(delta);
         });
 
+        // 4) Render
         renderer.render(scene, camera);
     });
 }
 
-// Generate terrain / stylized lines
+// ----------------------------------------------------
+// Avatar + Terrain
+// ----------------------------------------------------
+
+function loadLocalModel() {
+    const loader = new GLTFLoader();
+    loader.load(
+        modelPath,
+        (gltf) => {
+            const spawnPoint = getRandomSpawnPoint();
+            localModel = gltf.scene;
+            localModel.position.set(spawnPoint.x, 0, spawnPoint.z);
+            localModel.rotation.y = spawnPoint.rotation;
+            localModel.castShadow = true;
+            scene.add(localModel);
+
+            localModel.traverse((object) => {
+                if (object.isMesh) object.castShadow = true;
+            });
+
+            localMixer = new THREE.AnimationMixer(localModel);
+            gltf.animations.forEach((clip) => {
+                const action = localMixer.clipAction(clip);
+                action.loop = THREE.LoopRepeat;
+                localActions[clip.name] = action;
+                if (clip.name === 'idle') {
+                    action.play();
+                }
+            });
+
+            // Inform server
+            socket.emit('player_joined', {
+                x: spawnPoint.x,
+                z: spawnPoint.z,
+                rotation: spawnPoint.rotation,
+                action: 'idle',
+            });
+        },
+        undefined,
+        (error) => console.error('Error loading local model:', error)
+    );
+}
+
 function generateTerrain() {
     const size = terrainSize;
     const segments = terrainSegments;
@@ -505,7 +602,10 @@ function generateTerrain() {
 
             if (distance <= size * 0.5) {
                 if (distance > size * 0.3) {
-                    y = Math.pow((distance - size * 0.3) / (halfSize - size * 0.3), 1.5) * 2 * (Math.random() * 0.7 + 0.5);
+                    y = Math.pow(
+                        (distance - size * 0.3) / (halfSize - size * 0.3),
+                        1.5
+                    ) * 2 * (Math.random() * 0.7 + 0.5);
                 }
 
                 let rangeIndex = distanceRanges.length - 1;
@@ -515,9 +615,11 @@ function generateTerrain() {
                         break;
                     }
                 }
-
                 pointsByRange[rangeIndex].push(x, y, z);
-                vertexIndices[i][j] = { index: (pointsByRange[rangeIndex].length / 3) - 1, rangeIndex };
+                vertexIndices[i][j] = {
+                    index: pointsByRange[rangeIndex].length / 3 - 1,
+                    rangeIndex,
+                };
             } else {
                 vertexIndices[i][j] = undefined;
             }
@@ -531,29 +633,24 @@ function generateTerrain() {
             const bottomVertex = vertexIndices[i + 1] ? vertexIndices[i + 1][j] : undefined;
 
             if (currentVertex !== undefined) {
-                const x0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3];
-                const y0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3 + 1];
-                const z0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3 + 2];
+                const baseIndex = currentVertex.index * 3;
+                const x0 = pointsByRange[currentVertex.rangeIndex][baseIndex];
+                const y0 = pointsByRange[currentVertex.rangeIndex][baseIndex + 1];
+                const z0 = pointsByRange[currentVertex.rangeIndex][baseIndex + 2];
 
                 if (rightVertex !== undefined && currentVertex.rangeIndex === rightVertex.rangeIndex) {
-                    const x1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3];
-                    const y1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3 + 1];
-                    const z1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3 + 2];
-
-                    linesByRange[currentVertex.rangeIndex].push(
-                        x0, y0, z0,
-                        x1, y1, z1
-                    );
+                    const baseRight = rightVertex.index * 3;
+                    const x1 = pointsByRange[rightVertex.rangeIndex][baseRight];
+                    const y1 = pointsByRange[rightVertex.rangeIndex][baseRight + 1];
+                    const z1 = pointsByRange[rightVertex.rangeIndex][baseRight + 2];
+                    linesByRange[currentVertex.rangeIndex].push(x0, y0, z0, x1, y1, z1);
                 }
                 if (bottomVertex !== undefined && currentVertex.rangeIndex === bottomVertex.rangeIndex) {
-                    const x2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3];
-                    const y2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3 + 1];
-                    const z2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3 + 2];
-
-                    linesByRange[currentVertex.rangeIndex].push(
-                        x0, y0, z0,
-                        x2, y2, z2
-                    );
+                    const baseDown = bottomVertex.index * 3;
+                    const x2 = pointsByRange[bottomVertex.rangeIndex][baseDown];
+                    const y2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 1];
+                    const z2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 2];
+                    linesByRange[currentVertex.rangeIndex].push(x0, y0, z0, x2, y2, z2);
                 }
             }
         }
@@ -569,11 +666,11 @@ function generateTerrain() {
                 color: 0xffffff,
                 size: distanceRanges[k].pointSize,
                 transparent: true,
-                opacity: 1.0
+                opacity: 1.0,
             });
 
-            const terrainMesh = new THREE.Points(terrainGeometry, terrainMaterial);
-            scene.add(terrainMesh);
+            const terrainPoints = new THREE.Points(terrainGeometry, terrainMaterial);
+            scene.add(terrainPoints);
         }
 
         const lineVertices = linesByRange[k];
@@ -585,7 +682,6 @@ function generateTerrain() {
                 color: 0xffffff,
                 transparent: true,
                 opacity: distanceRanges[k].lineOpacity,
-                linewidth: 1
             });
 
             const terrainLines = new THREE.LineSegments(lineGeometry, lineMaterial);
@@ -594,7 +690,93 @@ function generateTerrain() {
     }
 }
 
-// Create or update a remote player
+// ----------------------------------------------------
+// Animation & Action Helpers
+// ----------------------------------------------------
+
+function setLocalAction(name, direction = 'forward') {
+    if (currentAction !== name) {
+        // Crossfade out old
+        if (localActions[currentAction]) {
+            localActions[currentAction].fadeOut(0.5);
+        }
+        // Fade in new
+        if (localActions[name]) {
+            localActions[name].reset().fadeIn(0.5).play();
+            // timeScale for forward/back
+            if (name === 'walk' || name === 'run') {
+                localActions[name].timeScale = direction === 'forward' ? 1 : -1;
+                if (direction === 'backward') {
+                    localActions[name].time = localActions[name].getClip().duration;
+                } else {
+                    localActions[name].time = 0;
+                }
+            } else {
+                localActions[name].timeScale = 1;
+            }
+        }
+        currentAction = name;
+    } else {
+        // If same action, just update timeScale if walk/run
+        if (name === 'walk' || name === 'run') {
+            localActions[name].timeScale = direction === 'forward' ? 1 : -1;
+            if (direction === 'backward') {
+                localActions[name].time = localActions[name].getClip().duration - localActions[name].time;
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------
+// Socket.io Player Handling
+// ----------------------------------------------------
+
+function setupSocketEvents() {
+    socket.on('init', (data) => {
+        console.log('Init data:', data);
+        myId = data.id;
+        updatePlayers(data.players);
+    });
+
+    socket.on('state_update_all', (data) => {
+        updatePlayers(data);
+        lastState = { ...data };
+    });
+
+    socket.on('new_player', (data) => {
+        console.log('New Player data:', data);
+        addOrUpdatePlayer(data.id, data);
+    });
+
+    socket.on('state_update', (data) => {
+        console.log('State Update:', data);
+        if (players[data.id]) {
+            players[data.id].targetX = data.x;
+            players[data.id].targetZ = data.z;
+            players[data.id].targetRotation = data.rotation || 0;
+        }
+    });
+
+    socket.on('player_disconnected', (id) => {
+        console.log('Player Disconnected:', id);
+        removeRemotePlayer(id);
+    });
+
+    // Audio streaming from others
+    socket.on('start_audio', (id) => {
+        console.log(`User ${id} started broadcasting audio.`);
+        addRemoteAudioStream(id);
+    });
+    socket.on('stop_audio', (id) => {
+        console.log(`User ${id} stopped broadcasting audio.`);
+        removeRemoteAudioStream(id);
+    });
+    socket.on('audio_stream', (data) => {
+        const { id, audio } = data;
+        receiveAudioStream(id, audio);
+    });
+}
+
 function addOrUpdatePlayer(id, data) {
     if (!players[id]) {
         createRemotePlayer(id, data);
@@ -603,13 +785,11 @@ function addOrUpdatePlayer(id, data) {
     }
 }
 
-// Create a remote player's model
 function createRemotePlayer(id, data) {
     if (players[id] || loadingPlayers.has(id)) {
         console.warn(`Skipping creation for player ${id}. Already exists or is loading.`);
         return;
     }
-
     loadingPlayers.add(id);
 
     const loader = new GLTFLoader();
@@ -626,8 +806,6 @@ function createRemotePlayer(id, data) {
             gltf.animations.forEach((clip) => {
                 remoteActions[clip.name] = remoteMixer.clipAction(clip);
             });
-
-            // Start idle
             if (remoteActions['idle']) {
                 remoteActions['idle'].play();
             }
@@ -641,7 +819,6 @@ function createRemotePlayer(id, data) {
                 currentAction: 'idle',
                 initialized: true,
             };
-
             scene.add(remoteModel);
             loadingPlayers.delete(id);
         },
@@ -653,7 +830,6 @@ function createRemotePlayer(id, data) {
     );
 }
 
-// Update remote player's position/rotation
 function updateRemotePlayer(id, data) {
     const player = players[id];
     if (!player) return;
@@ -668,15 +844,15 @@ function updateRemotePlayer(id, data) {
     player.position.set(data.x, 0, data.z);
     player.rotation = data.rotation;
 
-    // Interpolate for smooth movement
+    // Smoothly move
     player.model.position.lerp(player.position, 0.1);
     player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1);
 
+    // Positional audio
     if (remoteAudioStreams[id]) {
         remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
     }
 
-    // Determine movement
     const distanceMoved = player.position.distanceTo(player.model.position);
     const isMoving = distanceMoved > 0.01;
     const movementDirection = player.position.clone().sub(player.model.position).normalize();
@@ -702,7 +878,6 @@ function updateRemotePlayer(id, data) {
     }
 }
 
-// Remove a remote player
 function removeRemotePlayer(id) {
     if (players[id]) {
         scene.remove(players[id].model);
@@ -711,7 +886,6 @@ function removeRemotePlayer(id) {
     removeRemoteAudioStream(id);
 }
 
-// Generic function: update all players
 function updatePlayers(playersData) {
     Object.keys(playersData).forEach((id) => {
         if (id !== myId) {
@@ -725,7 +899,9 @@ function updatePlayers(playersData) {
     });
 }
 
-// Audio
+// ----------------------------------------------------
+// Audio Streaming
+// ----------------------------------------------------
 
 function handleUserInteraction() {
     if (listener.context.state === 'suspended') {
@@ -785,7 +961,6 @@ function stopBroadcast() {
     console.log('Stopped broadcasting audio.');
 }
 
-// Positional audio for remote players
 function addRemoteAudioStream(id) {
     if (!listener.context) {
         console.warn('AudioContext not initialized. Cannot add remote audio stream.');
@@ -850,11 +1025,14 @@ function receiveAudioStream(id, audioBuffer) {
     };
 }
 
-// Utility to randomize spawn
+// ----------------------------------------------------
+// Utility
+// ----------------------------------------------------
+
 function getRandomSpawnPoint() {
-    const x = (Math.random() - 0.5) * 50; 
-    const z = (Math.random() - 0.5) * 50; 
-    const rotation = Math.random() * Math.PI * 2; 
+    const x = (Math.random() - 0.5) * 50;
+    const z = (Math.random() - 0.5) * 50;
+    const rotation = Math.random() * Math.PI * 2;
     return { x, z, rotation };
 }
 
