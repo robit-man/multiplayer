@@ -30,7 +30,8 @@ let rotateLeft = false;
 let rotateRight = false;
 let isRunning = false; // Shift modifies speed
 
-// VR Teleport + Manual Rotation
+// VR Teleport + ReferenceSpace
+let baseReferenceSpace = null;
 let floorMesh, markerMesh;
 let INTERSECTION = null;
 const tempMatrix = new THREE.Matrix4();
@@ -62,10 +63,9 @@ let lastState = {};
 
 // Movement speeds
 const walkSpeed = 2;
-const runSpeed = 5; 
-const rotateSpeed = Math.PI / 2;       // Desktop rotate
-const smoothTurnSpeed = 1.5;          // VR joystick rotate speed
-const joystickDeadZone = 0.15;        // For VR joystick
+const runSpeed = 5;
+const rotateSpeed = Math.PI / 2; // Desktop rotate
+const smoothTurnSpeed = 1.5;     // VR joystick rotate speed
 
 // Terrain config
 const terrainSize = 100;
@@ -103,6 +103,11 @@ function init() {
     const sessionInit = { requiredFeatures: ['hand-tracking'] };
     document.body.appendChild(VRButton.createButton(renderer, sessionInit));
 
+    // Once the session starts, save a reference to the base XRReferenceSpace
+    renderer.xr.addEventListener('sessionstart', () => {
+        baseReferenceSpace = renderer.xr.getReferenceSpace();
+    });
+
     // Lights
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
     hemiLight.position.set(0, 50, 0);
@@ -130,13 +135,13 @@ function init() {
     markerMesh.visible = false;
     scene.add(markerMesh);
 
-    // Set up VR controllers for teleport + left joystick (rotate + forward/back)
+    // Set up VR controllers for teleporting + joystick rotation
     setupVRControllers();
 
-    // Generate the terrain
+    // Additional geometry (optional; e.g. mountains)
     generateTerrain();
 
-    // Load local model/animations
+    // Load local avatar
     loadLocalModel();
 
     // Desktop keyboard events
@@ -167,31 +172,48 @@ function setupVRControllers() {
     function onSelectStart() {
         this.userData.isSelecting = true;
     }
+
     function onSelectEnd() {
         this.userData.isSelecting = false;
+        if (!INTERSECTION) return;
 
-        // If there's a valid intersection, we move localModel to that point
-        if (INTERSECTION) {
-            localModel.position.set(INTERSECTION.x, localModel.position.y, INTERSECTION.z);
-            // Keep camera consistent
-            camera.position.set(INTERSECTION.x, camera.position.y, INTERSECTION.z);
+        // We do BOTH:
+        // 1) Move the XR ReferenceSpace (so the VR camera truly teleports).
+        // 2) Move the localModel, so the server sees the correct new position.
 
-            // Broadcast the new location to the server
-            socket.emit('move', {
-                x: localModel.position.x,
-                z: localModel.position.z,
-                rotation: localModel.rotation.y,
-                action: currentAction,
-            });
+        if (baseReferenceSpace) {
+            // offset-based teleport for the camera
+            const offsetPosition = {
+                x: -INTERSECTION.x,
+                y: -INTERSECTION.y,
+                z: -INTERSECTION.z,
+                w: 1
+            };
+            const offsetRotation = new THREE.Quaternion();
+            const transform = new XRRigidTransform(offsetPosition, offsetRotation);
+            const teleportSpaceOffset = baseReferenceSpace.getOffsetReferenceSpace(transform);
+            renderer.xr.setReferenceSpace(teleportSpaceOffset);
         }
+
+        // Also update localModel so it matches
+        localModel.position.set(INTERSECTION.x, localModel.position.y, INTERSECTION.z);
+
+        // Broadcast new position to server
+        socket.emit('move', {
+            x: localModel.position.x,
+            z: localModel.position.z,
+            rotation: localModel.rotation.y,
+            action: currentAction,
+        });
     }
 
     controller1.addEventListener('selectstart', onSelectStart);
     controller1.addEventListener('selectend', onSelectEnd);
+
     controller2.addEventListener('selectstart', onSelectStart);
     controller2.addEventListener('selectend', onSelectEnd);
 
-    // Build a simple beam or ring
+    // Build a simple beam or ring to show which mode it's in
     controller1.addEventListener('connected', function (event) {
         this.add(buildControllerRay(event.data));
     });
@@ -209,7 +231,7 @@ function setupVRControllers() {
     scene.add(controller1);
     scene.add(controller2);
 
-    // Grips for controller models
+    // Now the "Grips"
     const controllerModelFactory = new XRControllerModelFactory();
     const controllerGrip1 = renderer.xr.getControllerGrip(0);
     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
@@ -225,6 +247,7 @@ function buildControllerRay(data) {
     let geometry, material;
     switch (data.targetRayMode) {
         case 'tracked-pointer':
+            // A line to show the pointer
             geometry = new THREE.BufferGeometry();
             geometry.setAttribute(
                 'position',
@@ -237,11 +260,11 @@ function buildControllerRay(data) {
             material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
             return new THREE.Line(geometry, material);
         case 'gaze':
+            // A ring
             geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, -1);
             material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
             return new THREE.Mesh(geometry, material);
     }
-    return new THREE.Object3D();
 }
 
 // ----------------------------------------------------
@@ -272,25 +295,31 @@ function onKeyUp(event) {
 }
 
 function handleKeyStates() {
+    // Map pressed keys to booleans
     moveForward = keyStates['w'];
     moveBackward = keyStates['s'];
     rotateLeft = keyStates['a'];
     rotateRight = keyStates['d'];
     isRunning = keyStates['Shift'] && (moveForward || moveBackward);
 
-    let movementDirection = 'forward';
+    // Decide local animation state
+    let movementDirection = null;
     let action = 'idle';
 
     if (moveForward && isRunning) {
         action = 'run';
+        movementDirection = 'forward';
     } else if (moveForward) {
         action = 'walk';
+        movementDirection = 'forward';
     } else if (moveBackward && isRunning) {
         action = 'run';
         movementDirection = 'backward';
     } else if (moveBackward) {
         action = 'walk';
         movementDirection = 'backward';
+    } else {
+        action = 'idle';
     }
 
     if (action !== 'idle') {
@@ -342,63 +371,94 @@ function handleVRMovement(delta) {
     const session = renderer.xr.getSession();
     if (!session || !localModel) return;
 
-    // We'll check each inputSource. We only need the left controller for motion + rotation
     for (const source of session.inputSources) {
         if (!source.gamepad) continue;
-        if (source.handedness !== 'left') continue; // we only handle left for now
 
-        const { axes, buttons } = source.gamepad;
-        // axes[0] => rotate left/right
-        // axes[1] => forward/back (negative Y is forward)
-        const xAxis = axes[0];
-        const yAxis = axes[1];
+        // 1) LEFT joystick for forward/strafe
+        if (source.handedness === 'left') {
+            const { axes, buttons } = source.gamepad;
+            const strafe = axes[0];
+            const forwardVal = -axes[1]; // push up is negative
 
-        // 1) Rotation (left/right)
-        if (Math.abs(xAxis) > joystickDeadZone) {
-            // negative sign so that pushing right gives negative rotation
-            localModel.rotation.y -= (xAxis * smoothTurnSpeed * delta);
-            // Broadcast orientation
-            socket.emit('move', {
-                x: localModel.position.x,
-                z: localModel.position.z,
-                rotation: localModel.rotation.y,
-                action: currentAction,
-            });
-        }
+            // Basic deadzone
+            const deadZone = 0.15;
+            const moveX = Math.abs(strafe) > deadZone ? strafe : 0;
+            const moveZ = Math.abs(forwardVal) > deadZone ? forwardVal : 0;
 
-        // 2) Forward/back
-        if (Math.abs(yAxis) > joystickDeadZone) {
-            // Decide if we walk or run
-            // You could check a button to see if user is "running"
-            // e.g.: isRunning = buttons[1].pressed
-            setLocalAction('walk'); // or 'run'
-            const speed = walkSpeed; 
+            // Decide animation
+            const magnitude = Math.sqrt(moveX * moveX + moveZ * moveZ);
+            const threshold = 0.7;
+            if (magnitude > 0.01) {
+                if (magnitude > threshold) {
+                    setLocalAction('run');
+                } else {
+                    setLocalAction('walk');
+                }
+            } else {
+                setLocalAction('idle');
+            }
+
+            // You can incorporate run logic via a button check:
+            // e.g. isRunning = buttons[1].pressed
+
+            const speed = isRunning ? runSpeed : walkSpeed;
+
+            // Move relative to camera direction
             const cameraDirection = new THREE.Vector3();
             camera.getWorldDirection(cameraDirection);
             cameraDirection.y = 0;
             cameraDirection.normalize();
-            // Pushing up on the joystick is negative yAxis
-            const forwardAmount = -yAxis * speed * delta;
-            localModel.position.addScaledVector(cameraDirection, forwardAmount);
 
-            // Keep camera in sync
-            camera.position.set(localModel.position.x, camera.position.y, localModel.position.z);
+            const sideVector = new THREE.Vector3();
+            sideVector.crossVectors(new THREE.Vector3(0, 1, 0), cameraDirection).normalize();
 
-            // Broadcast movement
+            const movement = new THREE.Vector3();
+            movement.addScaledVector(cameraDirection, moveZ * speed * delta);
+            movement.addScaledVector(sideVector, moveX * speed * delta);
+
+            // Move the local model
+            localModel.position.add(movement);
+
+            // Reposition camera above localModel if you want to keep them synced in VR
+            const cameraOffset = new THREE.Vector3(0, 2, 0);
+            camera.position.copy(localModel.position).add(cameraOffset);
+
+            // Broadcast
             socket.emit('move', {
                 x: localModel.position.x,
                 z: localModel.position.z,
-                rotation: localModel.rotation.y,
+                rotation: getCameraYaw(),
                 action: currentAction,
             });
-        } else {
-            // If we're not pressing, set to idle if we were walking
-            if (currentAction !== 'idle') setLocalAction('idle');
+        }
+
+        // 2) RIGHT joystick for turning left/right
+        if (source.handedness === 'right') {
+            const { axes } = source.gamepad;
+            // Typically axes[0] = X for horizontal turn
+            const turn = axes[0];
+            const deadZone = 0.2;
+            if (Math.abs(turn) > deadZone) {
+                // Smooth turn
+                const turnDirection = Math.sign(turn); // +1 or -1
+                const turnAmount = smoothTurnSpeed * turnDirection * delta;
+                // Rotate localModel
+                if (localModel) {
+                    localModel.rotation.y -= turnAmount;
+                }
+                // If you want to broadcast orientation:
+                socket.emit('move', {
+                    x: localModel.position.x,
+                    z: localModel.position.z,
+                    rotation: localModel.rotation.y,
+                    action: currentAction,
+                });
+            }
         }
     }
 }
 
-// Check if the user is pointing at the floor to teleport
+// Teleport intersection + marker
 function checkTeleportIntersections() {
     INTERSECTION = null;
     markerMesh.visible = false;
@@ -406,28 +466,39 @@ function checkTeleportIntersections() {
     const session = renderer.xr.getSession();
     if (!session) return;
 
-    // For each input source, if user isSelecting, cast a ray
-    for (let i = 0; i < session.inputSources.length; i++) {
-        const source = session.inputSources[i];
-        if (!source.gamepad) continue;
-        if (source.targetRayMode !== 'tracked-pointer') continue;
+    // For both controllers, if user isSelecting, cast a ray
+    session.inputSources.forEach((source) => {
+        if (source && source.targetRayMode === 'tracked-pointer' && source.gamepad) {
+            const handedness = source.handedness;
+            // Grab the actual XRController object from Three.js
+            const controller = handedness === 'left'
+                ? renderer.xr.getController(0)
+                : renderer.xr.getController(1);
 
-        const handedness = source.handedness;
-        const controller = renderer.xr.getController(handedness === 'left' ? 0 : 1);
-        if (!controller.userData.isSelecting) continue;
+            if (!controller.userData.isSelecting) return;
 
-        tempMatrix.identity().extractRotation(controller.matrixWorld);
-        const rayOrigin = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
-        const rayDirection = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
+            // Build a ray
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            const rayOrigin = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+            const rayDirection = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
 
-        const raycaster = new THREE.Raycaster(rayOrigin, rayDirection, 0, 100);
-        const intersects = raycaster.intersectObject(floorMesh);
-        if (intersects.length > 0) {
-            INTERSECTION = intersects[0].point;
-            markerMesh.position.copy(INTERSECTION);
-            markerMesh.visible = true;
+            // Raycast
+            const raycaster = new THREE.Raycaster(rayOrigin, rayDirection, 0, 100);
+            const intersects = raycaster.intersectObject(floorMesh);
+            if (intersects.length > 0) {
+                INTERSECTION = intersects[0].point;
+                markerMesh.position.copy(INTERSECTION);
+                markerMesh.visible = true;
+            }
         }
-    }
+    });
+}
+
+// Grab the camera's yaw angle
+function getCameraYaw() {
+    const euler = new THREE.Euler();
+    euler.setFromQuaternion(camera.quaternion, 'YXZ');
+    return euler.y;
 }
 
 // ----------------------------------------------------
@@ -438,11 +509,12 @@ function animate() {
     renderer.setAnimationLoop(() => {
         const delta = clock.getDelta();
 
-        // Update local animations
+        // 1) Update animations
         if (localMixer) localMixer.update(delta);
 
-        // VR or desktop
+        // 2) VR logic or desktop logic
         if (renderer.xr.isPresenting) {
+            // VR: Poll joystick + do teleport intersections
             handleVRMovement(delta);
             checkTeleportIntersections();
         } else if (localModel) {
@@ -452,18 +524,19 @@ function animate() {
             if (rotateLeft) rotateLocalCharacter(1, delta);
             if (rotateRight) rotateLocalCharacter(-1, delta);
 
-            // Keep camera behind localModel
+            // Keep camera behind localModel (desktop style)
             const cameraOffset = new THREE.Vector3(0, 2, -5);
             cameraOffset.applyQuaternion(localModel.quaternion);
             camera.position.copy(localModel.position.clone().add(cameraOffset));
-            camera.lookAt(localModel.position.x, localModel.position.y + 1, localModel.position.z);
+            camera.lookAt(localModel.position.clone().add(new THREE.Vector3(0, 1, 0)));
         }
 
-        // Update remote players
-        Object.values(players).forEach((p) => {
-            p.mixer.update(delta);
+        // 3) Update remote players
+        Object.values(players).forEach((player) => {
+            player.mixer.update(delta);
         });
 
+        // 4) Render
         renderer.render(scene, camera);
     });
 }
