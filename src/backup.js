@@ -19,6 +19,8 @@ const socket = io('https://full-canary-chokeberry.glitch.me/');
 const simplex = new SimplexNoise();
 
 // Store the listener globally for later use
+
+
 let scene, camera, renderer, clock, listener;
 let localModel, localMixer;
 let currentAction = 'idle';
@@ -29,16 +31,14 @@ let rotateLeft = false;
 let rotateRight = false;
 let isRunning = false; // Track if the player is running
 let lastState = {};
-
 const keyStates = {
     w: false,
     a: false,
     s: false,
     d: false,
     Shift: false,
-    r: false, // microphone broadcast toggling
+    r: false, // Added 'r' key
 };
-
 window.listener = listener; // Optional: Attach to window for global access
 
 let localStream = null;          // MediaStream from user's microphone
@@ -48,6 +48,8 @@ const remoteAudioStreams = {};   // Map to keep track of remote audio streams by
 let mediaStreamSource = null;    // MediaStreamSource from the microphone
 let processor = null;            // ScriptProcessorNode for capturing audio data
 
+
+
 const walkSpeed = 2;
 const runSpeed = 5; // Higher speed for running
 const rotateSpeed = Math.PI / 2;
@@ -56,8 +58,13 @@ const players = {};
 let myId = null;
 
 // Mountainscape variables
+let terrainPoints;
+let terrainMaterial;
+let terrainMesh;
+
 const terrainSize = 100;
 const terrainSegments = 100;
+
 
 init();
 animate();
@@ -65,6 +72,7 @@ animate();
 function init() {
     // Scene setup
     scene = new THREE.Scene();
+
     scene.background = new THREE.Color(0x454545);
     scene.fog = new THREE.Fog(0x454545, 10, 50);
 
@@ -72,22 +80,16 @@ function init() {
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100);
     camera.position.set(0, 2, -5);
 
-    // Audio listener
+    
     listener = new THREE.AudioListener();
     camera.add(listener);
+
 
     // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.xr.enabled = true;         // Enable WebXR
     document.body.appendChild(renderer.domElement);
-
-    // Add VR Button (including hand-tracking, as in your original)
-    const sessionInit = {
-        requiredFeatures: ['hand-tracking']
-    };
-    document.body.appendChild(VRButton.createButton(renderer, sessionInit));
 
     // Lights
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
@@ -100,11 +102,17 @@ function init() {
     dirLight.shadow.mapSize.set(1024, 1024); // Reduced resolution
     scene.add(dirLight);
 
-    // Simple ground placeholder
-    const ground = new THREE.Mesh();
-    ground.receiveShadow = true;
+
+    // Grid Ground
+    const ground = new THREE.Mesh(); ground.receiveShadow = true; // Enable ground to receive shadows
     scene.add(ground);
 
+    // Add VR Button with hand-tracking
+    const sessionInit = {
+        requiredFeatures: ['hand-tracking']
+    };
+
+    document.body.appendChild(VRButton.createButton(renderer, sessionInit));
     // === Initialize AudioContext Upon User Interaction ===
     document.addEventListener('click', handleUserInteraction, { once: true });
     document.addEventListener('keydown', handleUserInteraction, { once: true });
@@ -112,13 +120,13 @@ function init() {
     // Clock
     clock = new THREE.Clock();
 
-    // Generate your stylized terrain or lines
     generateTerrain();
 
-    // Load Local (own) Model
+
+    // Load Local Model
     loadLocalModel();
 
-    // Key Events (desktop WASD)
+    // Key Events
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
@@ -129,7 +137,6 @@ function init() {
     setupSocketEvents();
 }
 
-// Load local player model/animations
 function loadLocalModel() {
     const loader = new GLTFLoader();
     loader.load(
@@ -171,7 +178,6 @@ function loadLocalModel() {
     );
 }
 
-// Set up Socket.io events
 function setupSocketEvents() {
     socket.on('init', (data) => {
         console.log('Init data:', data);
@@ -222,31 +228,329 @@ function setupSocketEvents() {
     });
 }
 
-// Desktop key down
+function addOrUpdatePlayer(id, data) {
+    if (!players[id]) {
+        // Create a new remote player
+        createRemotePlayer(id, data);
+    } else {
+        // Update existing remote player
+        updateRemotePlayer(id, data);
+    }
+}
+
+function updateRemotePlayer(id, data) {
+    const player = players[id];
+    if (!player) return;
+
+    if (!player.initialized) {
+        // Directly set position and rotation on the first update
+        player.model.position.set(data.x, 0, data.z);
+        player.model.rotation.y = data.rotation;
+        player.initialized = true; // Mark as initialized
+        return; // No interpolation needed for the first update
+    }
+
+    // Update target position and rotation
+    player.position.set(data.x, 0, data.z);
+    player.rotation = data.rotation;
+
+    // Interpolate position and rotation for smooth movement
+    player.model.position.lerp(player.position, 0.1);
+    player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1);
+
+    // Update the position of the remote player's audio if it exists
+    if (remoteAudioStreams[id]) {
+        remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
+    }
+
+    // Detect movement
+    const distanceMoved = player.position.distanceTo(player.model.position); // Measure distance moved
+    const isMoving = distanceMoved > 0.01; // Threshold for motion detection
+
+    // Determine if moving forward or backward
+    const movementDirection = player.position.clone().sub(player.model.position).normalize(); // Direction vector
+    const forwardDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion); // Player's forward vector
+    const isMovingForward = movementDirection.dot(forwardDirection) > 0; // Dot product determines forward/backward
+
+    // Determine action based on movement
+    const action = isMoving ? (distanceMoved > 0.5 ? 'run' : 'walk') : 'idle'; // "run" if moving fast, "walk" if slow
+
+    // Update animation state only if changed
+    if (player.currentAction !== action) {
+        if (player.actions[player.currentAction]) {
+            player.actions[player.currentAction].fadeOut(0.5); // Smoothly fade out current animation
+        }
+        if (player.actions[action]) {
+            player.actions[action].reset().fadeIn(0.5).play();
+
+            // Adjust timeScale for walking animation based on direction
+            if (action === 'walk' || action === 'run') {
+                player.actions[action].timeScale = isMovingForward ? 1 : -1;
+            }
+        }
+        player.currentAction = action; // Update current action state
+    }
+}
+
+
+
+function generateTerrain() {    // First, define 'size' and related variables
+    const size = terrainSize;
+    const segments = terrainSegments;
+    const halfSize = size / 2;
+    const segmentSize = size / segments;
+
+    // Configuration for distance ranges
+    const distanceRanges = [
+        { min: 0, max: size * 0.2, pointSize: 0.02, lineOpacity: 0.0 }, // Center: points only, no lines
+        { min: size * 0.2, max: size * 0.4, pointSize: 0.015, lineOpacity: 0.1 },
+        { min: size * 0.4, max: size * 0.5, pointSize: 0.012, lineOpacity: 0.2 },
+        { min: size * 0.5, max: size * 0.6, pointSize: 0.01, lineOpacity: 0.4 },
+        { min: size * 0.6, max: size * 0.7, pointSize: 0.008, lineOpacity: 0.6 },
+        { min: size * 0.8, max: size * 0.5, pointSize: 0.005, lineOpacity: 1.0 }, // Edge: smallest points, most solid lines
+    ];
+
+    // Arrays to hold points and lines for each range
+    const pointsByRange = [];
+    const linesByRange = [];
+
+    // Initialize arrays
+    for (let i = 0; i < distanceRanges.length; i++) {
+        pointsByRange.push([]);
+        linesByRange.push([]);
+    }
+
+    const vertexIndices = []; // Map from grid indices to vertex indices
+
+    // Generate vertices and assign them to distance ranges
+    let totalVertices = 0;
+    for (let i = 0; i <= segments; i++) {
+        vertexIndices[i] = [];
+        for (let j = 0; j <= segments; j++) {
+            const x = i * segmentSize - halfSize;
+            const z = j * segmentSize - halfSize;
+
+            // Calculate distance from center
+            const distance = Math.sqrt(x * x + z * z);
+            let y = 0;
+
+            // Circular boundary
+            if (distance <= size * 0.5) {
+                // Adjust height to form mountains at edges
+                if (distance > size * 0.3) {
+                    y = Math.pow((distance - size * 0.3) / (halfSize - size * 0.3), 1.5) * 2 * (Math.random() * 0.7 + 0.5);
+                }
+
+                // Find the appropriate distance range
+                let rangeIndex = distanceRanges.length - 1;
+                for (let k = 0; k < distanceRanges.length; k++) {
+                    if (distance >= distanceRanges[k].min && distance < distanceRanges[k].max) {
+                        rangeIndex = k;
+                        break;
+                    }
+                }
+
+                // Add vertex to the appropriate range
+                pointsByRange[rangeIndex].push(x, y, z);
+                // Store the vertex index relative to its range
+                vertexIndices[i][j] = { index: (pointsByRange[rangeIndex].length / 3) - 1, rangeIndex };
+                totalVertices++;
+            } else {
+                // Mark as undefined
+                vertexIndices[i][j] = undefined;
+            }
+        }
+
+    }
+
+    // Generate lines for each range
+    for (let i = 0; i < segments; i++) {
+        for (let j = 0; j < segments; j++) {
+            const currentVertex = vertexIndices[i][j];
+            const rightVertex = vertexIndices[i][j + 1];
+            const bottomVertex = vertexIndices[i + 1] ? vertexIndices[i + 1][j] : undefined;
+
+            if (currentVertex !== undefined) {
+                const x0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3];
+                const y0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3 + 1];
+                const z0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3 + 2];
+
+                // Line to the right neighbor
+                if (rightVertex !== undefined && currentVertex.rangeIndex === rightVertex.rangeIndex) {
+                    const x1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3];
+                    const y1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3 + 1];
+                    const z1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3 + 2];
+
+                    linesByRange[currentVertex.rangeIndex].push(
+                        x0, y0, z0,
+                        x1, y1, z1
+                    );
+                }
+
+                // Line to the bottom neighbor
+                if (bottomVertex !== undefined && currentVertex.rangeIndex === bottomVertex.rangeIndex) {
+                    const x2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3];
+                    const y2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3 + 1];
+                    const z2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3 + 2];
+
+                    linesByRange[currentVertex.rangeIndex].push(
+                        x0, y0, z0,
+                        x2, y2, z2
+                    );
+                }
+            }
+        }
+    }
+
+    // Create Points and Lines for each range
+    for (let k = 0; k < distanceRanges.length; k++) {
+        // Points
+        const vertices = pointsByRange[k];
+        if (vertices.length > 0) {
+            const terrainGeometry = new THREE.BufferGeometry();
+            terrainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+            const terrainMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: distanceRanges[k].pointSize,
+                transparent: true,
+                opacity: 1.0
+            });
+
+            const terrainMesh = new THREE.Points(terrainGeometry, terrainMaterial);
+            scene.add(terrainMesh);
+        }
+
+        // Lines
+        const lineVertices = linesByRange[k];
+        if (lineVertices.length > 0 && distanceRanges[k].lineOpacity > 0) {
+            const lineGeometry = new THREE.BufferGeometry();
+            lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lineVertices, 3));
+
+            const lineMaterial = new THREE.LineBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: distanceRanges[k].lineOpacity,
+                linewidth: 1
+            });
+
+            const terrainLines = new THREE.LineSegments(lineGeometry, lineMaterial);
+            scene.add(terrainLines);
+        }
+    }
+}
+
+function createRemotePlayer(id, data) {
+    if (players[id] || loadingPlayers.has(id)) {
+        console.warn(`Skipping creation for player ${id}. Already exists or is loading.`);
+        return;
+    }
+
+    loadingPlayers.add(id); // Mark as loading
+
+    const loader = new GLTFLoader();
+    loader.load(
+        modelPath,
+        (gltf) => {
+            const remoteModel = gltf.scene;
+            remoteModel.position.set(data.x, 0, data.z); // Set initial position
+            remoteModel.rotation.y = data.rotation;     // Set initial rotation
+            remoteModel.castShadow = true;
+
+            const remoteMixer = new THREE.AnimationMixer(remoteModel);
+            const remoteActions = {};
+            gltf.animations.forEach((clip) => {
+                remoteActions[clip.name] = remoteMixer.clipAction(clip);
+            });
+
+            // Start with the idle animation
+            if (remoteActions['idle']) {
+                remoteActions['idle'].play();
+            }
+
+            players[id] = {
+                model: remoteModel,
+                mixer: remoteMixer,
+                actions: remoteActions,
+                position: new THREE.Vector3(data.x, 0, data.z), // Set target position
+                rotation: data.rotation,                      // Set target rotation
+                currentAction: 'idle', // Track current animation
+                initialized: true,     // Mark as initialized
+            };
+
+            scene.add(remoteModel);
+            loadingPlayers.delete(id); // Remove from loading set
+        },
+        undefined,
+        (error) => {
+            console.error(`Error loading model for player ${id}:`, error);
+            loadingPlayers.delete(id); // Ensure the flag is cleared even on error
+        }
+    );
+}
+
+
+
+function updatePlayers(playersData) {
+    Object.keys(playersData).forEach((id) => {
+        if (id !== myId) {
+            addOrUpdatePlayer(id, playersData[id]);
+        }
+    });
+
+    Object.keys(players).forEach((id) => {
+        if (!playersData[id]) {
+            removeRemotePlayer(id);
+        }
+    });
+}
+
+
+
+function removeRemotePlayer(id) {
+    if (players[id]) {
+        scene.remove(players[id].model);
+        delete players[id];
+    }
+    removeRemoteAudioStream(id);
+}
+
 function onKeyDown(event) {
     if (event.key in keyStates) {
-        if (!keyStates[event.key]) {
-            keyStates[event.key] = true;
+        if (!keyStates[event.key]) { // Prevent repeat events
+            keyStates[event.key] = true; // Mark key as pressed
             if (event.key === 'r') {
                 startBroadcast(); // Start broadcasting audio
             }
-            handleKeyStates();
+            handleKeyStates(); // Handle movement and other keys
         }
     }
 }
 
-// Desktop key up
 function onKeyUp(event) {
     if (event.key in keyStates) {
-        keyStates[event.key] = false;
+        keyStates[event.key] = false; // Mark key as released
         if (event.key === 'r') {
             stopBroadcast(); // Stop broadcasting audio
         }
-        handleKeyStates();
+        handleKeyStates(); // Handle movement and other keys
     }
 }
 
-// Decide which movement state the desktop user is in
+// === Initialize AudioContext Upon User Interaction ===
+function handleUserInteraction() {
+    if (listener.context.state === 'suspended') {
+        listener.context.resume().then(() => {
+            console.log('AudioContext resumed on user interaction.');
+        }).catch((err) => {
+            console.error('Error resuming AudioContext:', err);
+        });
+    }
+    // Remove event listeners after initialization to prevent redundant calls
+    document.removeEventListener('click', handleUserInteraction);
+    document.removeEventListener('keydown', handleUserInteraction);
+}
+
 function handleKeyStates() {
     // Detect movement keys
     moveForward = keyStates['w'];
@@ -254,7 +558,7 @@ function handleKeyStates() {
     rotateLeft = keyStates['a'];
     rotateRight = keyStates['d'];
 
-    // Determine running state: Shift modifies W or S
+    // Determine running state: Shift modifies W or S behavior
     isRunning = keyStates['Shift'] && (moveForward || moveBackward);
 
     // Determine movement direction
@@ -283,38 +587,49 @@ function handleKeyStates() {
         setLocalAction('idle');
     }
 
-    // Rotation states handled in animate()
+    // Handle rotation (independent of W/S/Shift states)
+    if (rotateLeft) {
+        rotateLocalCharacter(-1, clock.getDelta());
+    } else if (rotateRight) {
+        rotateLocalCharacter(1, clock.getDelta());
+    }
 }
 
-// Change local animation with crossfade
+
 function setLocalAction(name, direction = 'forward') {
     if (currentAction !== name) {
         // Fade out the current action
         if (localActions[currentAction]) {
             localActions[currentAction].fadeOut(0.5);
         }
+
         // Fade in the new action
         if (localActions[name]) {
             localActions[name].reset().fadeIn(0.5).play();
 
-            // For walking/running forward/backward
+            // Set timeScale based on direction
             if (name === 'walk' || name === 'run') {
                 localActions[name].timeScale = direction === 'forward' ? 1 : -1;
+
                 if (direction === 'backward') {
-                    // Start from the end if playing backward
+                    // Start the animation from the end if playing backward
                     localActions[name].time = localActions[name].getClip().duration;
                 } else {
+                    // Start from the beginning if playing forward
                     localActions[name].time = 0;
                 }
             } else {
+                // For other actions like 'idle', ensure timeScale is normal
                 localActions[name].timeScale = 1;
             }
         }
-        currentAction = name;
+
+        currentAction = name; // Update current action
     } else {
-        // If the action is the same, just update the timeScale if it's walk/run
+        // If the action is the same, just update the timeScale if it's 'walk' or 'run'
         if (name === 'walk' || name === 'run') {
             localActions[name].timeScale = direction === 'forward' ? 1 : -1;
+
             if (direction === 'backward') {
                 // Adjust the time to play backward smoothly
                 localActions[name].time = localActions[name].getClip().duration - localActions[name].time;
@@ -323,14 +638,11 @@ function setLocalAction(name, direction = 'forward') {
     }
 }
 
-// Helper for desktop: move forward/back
 function moveLocalCharacter(direction, delta) {
-    const speed = isRunning ? runSpeed : walkSpeed; // run or walk
+    const speed = isRunning ? runSpeed : walkSpeed; // Use run speed if running
     const forward = new THREE.Vector3(0, 0, direction);
     forward.applyQuaternion(localModel.quaternion);
     localModel.position.add(forward.multiplyScalar(speed * delta));
-
-    // Emit movement
     socket.emit('move', {
         x: localModel.position.x,
         z: localModel.position.z,
@@ -339,12 +651,10 @@ function moveLocalCharacter(direction, delta) {
     });
 }
 
-// Helper for desktop: rotate left/right
+
 function rotateLocalCharacter(direction, delta) {
-    const rotationSpeed = isRunning ? rotateSpeed * 1.2 : rotateSpeed; // faster spin if running
+    const rotationSpeed = isRunning ? rotateSpeed * 1.2 : rotateSpeed; // Faster rotation when running
     localModel.rotation.y += direction * rotationSpeed * delta;
-
-    // Emit movement
     socket.emit('move', {
         x: localModel.position.x,
         z: localModel.position.z,
@@ -353,421 +663,87 @@ function rotateLocalCharacter(direction, delta) {
     });
 }
 
-// === VR Movement Logic ===
-// Poll the left thumbstick for forward/strafe movement, using the headset orientation
-function handleVRMovement(delta) {
-    const session = renderer.xr.getSession();
-    if (!session || !localModel) return;
 
-    // We can do multiple inputSources but typically each controller is one source
-    for (const source of session.inputSources) {
-        if (!source.gamepad) continue;
-        // Let's use the left controller for movement
-        if (source.handedness === 'left') {
-            const { axes } = source.gamepad;
-            // Typically: axes[0] = X (left-right), axes[1] = Y (up-down for thumbstick)
-            const strafe = axes[0];
-            const forwardVal = -axes[1]; // Negative so that pushing up is forward
-
-            // Simple deadzone check to avoid drift
-            const deadZone = 0.15;
-            const moveX = Math.abs(strafe) > deadZone ? strafe : 0;
-            const moveZ = Math.abs(forwardVal) > deadZone ? forwardVal : 0;
-
-            // Decide if we "walk" or "idle" based on magnitude
-            const magnitude = Math.sqrt(moveX * moveX + moveZ * moveZ);
-            const threshold = 0.7; // example threshold for "running"
-            if (magnitude > 0.01) {
-                if (magnitude > threshold) {
-                    setLocalAction('run');
-                } else {
-                    setLocalAction('walk');
-                }
-            } else {
-                setLocalAction('idle');
-            }
-
-            // You can incorporate run logic if you have a button for "run"
-            // e.g., isRunning = source.gamepad.buttons[1].pressed
-
-            const speed = isRunning ? runSpeed : walkSpeed;
-
-            // The VR "forward" direction is from the camera's orientation
-            const cameraDirection = new THREE.Vector3();
-            camera.getWorldDirection(cameraDirection);
-            cameraDirection.y = 0; // flatten so we don't tilt up/down
-            cameraDirection.normalize();
-
-            // The side vector is perpendicular to camera direction
-            const sideVector = new THREE.Vector3();
-            sideVector.crossVectors(new THREE.Vector3(0, 1, 0), cameraDirection).normalize();
-
-            // Combine them
-            const movement = new THREE.Vector3();
-            movement.addScaledVector(cameraDirection, moveZ * speed * delta);
-            movement.addScaledVector(sideVector, moveX * speed * delta);
-
-            // Move localModel
-            localModel.position.add(movement);
-
-            // Because we're in VR, the camera is controlled by the headset.
-            // We can keep the localModel and camera in sync if desired:
-            // For example, place camera 2m above localModel’s position
-            const cameraOffset = new THREE.Vector3(0, 2, 0);
-            camera.position.copy(localModel.position).add(cameraOffset);
-
-            // Broadcast position & orientation
-            socket.emit('move', {
-                x: localModel.position.x,
-                z: localModel.position.z,
-                // We can set rotation to camera yaw if you want the avatar
-                // to match the headset's facing direction. This is optional:
-                rotation: getCameraYaw(),
-                action: currentAction,
-            });
-        }
-    }
-}
-
-// Grab the camera's yaw angle so avatar can rotate to match
-function getCameraYaw() {
-    const euler = new THREE.Euler();
-    euler.setFromQuaternion(camera.quaternion, 'YXZ');
-    return euler.y;
-}
-
-// Main loop
 function animate() {
-    renderer.setAnimationLoop(() => {
-        const delta = clock.getDelta();
+    requestAnimationFrame(animate);
 
-        // Update local animations
-        if (localMixer) localMixer.update(delta);
+    const delta = clock.getDelta();
 
-        // If we’re in VR, use VR movement. Otherwise, desktop WASD
-        if (renderer.xr.isPresenting) {
-            handleVRMovement(delta);
-        } else if (localModel) {
-            // Desktop movement
-            if (moveForward) moveLocalCharacter(1, delta);
-            if (moveBackward) moveLocalCharacter(-1, delta);
-            if (rotateLeft) rotateLocalCharacter(1, delta);
-            if (rotateRight) rotateLocalCharacter(-1, delta);
+    // Update animations
+    if (localMixer) localMixer.update(delta);
 
-            // Keep the camera behind/above localModel, desktop style
-            const cameraOffset = new THREE.Vector3(0, 2, -5);
-            cameraOffset.applyQuaternion(localModel.quaternion);
-            camera.position.copy(localModel.position.clone().add(cameraOffset));
-            camera.lookAt(localModel.position.clone().add(new THREE.Vector3(0, 1, 0)));
-        }
+    // Handle local player movement
+    if (localModel) {
+        if (moveForward) moveLocalCharacter(1, delta);
+        if (moveBackward) moveLocalCharacter(-1, delta);
+        if (rotateLeft) rotateLocalCharacter(1, delta);
+        if (rotateRight) rotateLocalCharacter(-1, delta);
 
-        // Update remote player animations
-        Object.values(players).forEach((player) => {
-            player.mixer.update(delta);
-        });
+        // Update camera position dynamically
+        const cameraOffset = new THREE.Vector3(0, 2, -5); // Offset relative to the model
+        cameraOffset.applyQuaternion(localModel.quaternion); // Rotate offset by model's rotation
+        camera.position.copy(localModel.position.clone().add(cameraOffset)); // Add offset to model position
+        camera.lookAt(localModel.position.clone().add(new THREE.Vector3(0, 1, 0))); // Look slightly above the model
+    }
 
-        renderer.render(scene, camera);
+    // Update remote players
+    Object.values(players).forEach((player) => {
+        player.mixer.update(delta);
     });
+
+    renderer.render(scene, camera);
 }
 
-// Generate terrain / stylized lines
-function generateTerrain() {
-    const size = terrainSize;
-    const segments = terrainSegments;
-    const halfSize = size / 2;
-    const segmentSize = size / segments;
 
-    const distanceRanges = [
-        { min: 0, max: size * 0.2, pointSize: 0.02, lineOpacity: 0.0 },
-        { min: size * 0.2, max: size * 0.4, pointSize: 0.015, lineOpacity: 0.1 },
-        { min: size * 0.4, max: size * 0.5, pointSize: 0.012, lineOpacity: 0.2 },
-        { min: size * 0.5, max: size * 0.6, pointSize: 0.01, lineOpacity: 0.4 },
-        { min: size * 0.6, max: size * 0.7, pointSize: 0.008, lineOpacity: 0.6 },
-        { min: size * 0.8, max: size * 0.5, pointSize: 0.005, lineOpacity: 1.0 },
-    ];
-
-    const pointsByRange = [];
-    const linesByRange = [];
-    for (let i = 0; i < distanceRanges.length; i++) {
-        pointsByRange.push([]);
-        linesByRange.push([]);
-    }
-
-    const vertexIndices = [];
-    for (let i = 0; i <= segments; i++) {
-        vertexIndices[i] = [];
-        for (let j = 0; j <= segments; j++) {
-            const x = i * segmentSize - halfSize;
-            const z = j * segmentSize - halfSize;
-
-            const distance = Math.sqrt(x * x + z * z);
-            let y = 0;
-
-            if (distance <= size * 0.5) {
-                if (distance > size * 0.3) {
-                    y = Math.pow((distance - size * 0.3) / (halfSize - size * 0.3), 1.5) * 2 * (Math.random() * 0.7 + 0.5);
-                }
-
-                let rangeIndex = distanceRanges.length - 1;
-                for (let k = 0; k < distanceRanges.length; k++) {
-                    if (distance >= distanceRanges[k].min && distance < distanceRanges[k].max) {
-                        rangeIndex = k;
-                        break;
-                    }
-                }
-
-                pointsByRange[rangeIndex].push(x, y, z);
-                vertexIndices[i][j] = { index: (pointsByRange[rangeIndex].length / 3) - 1, rangeIndex };
-            } else {
-                vertexIndices[i][j] = undefined;
-            }
-        }
-    }
-
-    for (let i = 0; i < segments; i++) {
-        for (let j = 0; j < segments; j++) {
-            const currentVertex = vertexIndices[i][j];
-            const rightVertex = vertexIndices[i][j + 1];
-            const bottomVertex = vertexIndices[i + 1] ? vertexIndices[i + 1][j] : undefined;
-
-            if (currentVertex !== undefined) {
-                const x0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3];
-                const y0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3 + 1];
-                const z0 = pointsByRange[currentVertex.rangeIndex][currentVertex.index * 3 + 2];
-
-                if (rightVertex !== undefined && currentVertex.rangeIndex === rightVertex.rangeIndex) {
-                    const x1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3];
-                    const y1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3 + 1];
-                    const z1 = pointsByRange[rightVertex.rangeIndex][rightVertex.index * 3 + 2];
-
-                    linesByRange[currentVertex.rangeIndex].push(
-                        x0, y0, z0,
-                        x1, y1, z1
-                    );
-                }
-                if (bottomVertex !== undefined && currentVertex.rangeIndex === bottomVertex.rangeIndex) {
-                    const x2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3];
-                    const y2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3 + 1];
-                    const z2 = pointsByRange[bottomVertex.rangeIndex][bottomVertex.index * 3 + 2];
-
-                    linesByRange[currentVertex.rangeIndex].push(
-                        x0, y0, z0,
-                        x2, y2, z2
-                    );
-                }
-            }
-        }
-    }
-
-    for (let k = 0; k < distanceRanges.length; k++) {
-        const vertices = pointsByRange[k];
-        if (vertices.length > 0) {
-            const terrainGeometry = new THREE.BufferGeometry();
-            terrainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-
-            const terrainMaterial = new THREE.PointsMaterial({
-                color: 0xffffff,
-                size: distanceRanges[k].pointSize,
-                transparent: true,
-                opacity: 1.0
-            });
-
-            const terrainMesh = new THREE.Points(terrainGeometry, terrainMaterial);
-            scene.add(terrainMesh);
-        }
-
-        const lineVertices = linesByRange[k];
-        if (lineVertices.length > 0 && distanceRanges[k].lineOpacity > 0) {
-            const lineGeometry = new THREE.BufferGeometry();
-            lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lineVertices, 3));
-
-            const lineMaterial = new THREE.LineBasicMaterial({
-                color: 0xffffff,
-                transparent: true,
-                opacity: distanceRanges[k].lineOpacity,
-                linewidth: 1
-            });
-
-            const terrainLines = new THREE.LineSegments(lineGeometry, lineMaterial);
-            scene.add(terrainLines);
-        }
-    }
-}
-
-// Create or update a remote player
-function addOrUpdatePlayer(id, data) {
-    if (!players[id]) {
-        createRemotePlayer(id, data);
-    } else {
-        updateRemotePlayer(id, data);
-    }
-}
-
-// Create a remote player's model
-function createRemotePlayer(id, data) {
-    if (players[id] || loadingPlayers.has(id)) {
-        console.warn(`Skipping creation for player ${id}. Already exists or is loading.`);
-        return;
-    }
-
-    loadingPlayers.add(id);
-
-    const loader = new GLTFLoader();
-    loader.load(
-        modelPath,
-        (gltf) => {
-            const remoteModel = gltf.scene;
-            remoteModel.position.set(data.x, 0, data.z);
-            remoteModel.rotation.y = data.rotation;
-            remoteModel.castShadow = true;
-
-            const remoteMixer = new THREE.AnimationMixer(remoteModel);
-            const remoteActions = {};
-            gltf.animations.forEach((clip) => {
-                remoteActions[clip.name] = remoteMixer.clipAction(clip);
-            });
-
-            // Start idle
-            if (remoteActions['idle']) {
-                remoteActions['idle'].play();
-            }
-
-            players[id] = {
-                model: remoteModel,
-                mixer: remoteMixer,
-                actions: remoteActions,
-                position: new THREE.Vector3(data.x, 0, data.z),
-                rotation: data.rotation,
-                currentAction: 'idle',
-                initialized: true,
-            };
-
-            scene.add(remoteModel);
-            loadingPlayers.delete(id);
-        },
-        undefined,
-        (error) => {
-            console.error(`Error loading model for player ${id}:`, error);
-            loadingPlayers.delete(id);
-        }
-    );
-}
-
-// Update remote player's position/rotation
-function updateRemotePlayer(id, data) {
-    const player = players[id];
-    if (!player) return;
-
-    if (!player.initialized) {
-        player.model.position.set(data.x, 0, data.z);
-        player.model.rotation.y = data.rotation;
-        player.initialized = true;
-        return;
-    }
-
-    player.position.set(data.x, 0, data.z);
-    player.rotation = data.rotation;
-
-    // Interpolate for smooth movement
-    player.model.position.lerp(player.position, 0.1);
-    player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1);
-
-    if (remoteAudioStreams[id]) {
-        remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
-    }
-
-    // Determine movement
-    const distanceMoved = player.position.distanceTo(player.model.position);
-    const isMoving = distanceMoved > 0.01;
-    const movementDirection = player.position.clone().sub(player.model.position).normalize();
-    const forwardDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion);
-    const isMovingForward = movementDirection.dot(forwardDirection) > 0;
-
-    let action = 'idle';
-    if (isMoving) {
-        action = distanceMoved > 0.5 ? 'run' : 'walk';
-    }
-
-    if (player.currentAction !== action) {
-        if (player.actions[player.currentAction]) {
-            player.actions[player.currentAction].fadeOut(0.5);
-        }
-        if (player.actions[action]) {
-            player.actions[action].reset().fadeIn(0.5).play();
-            if (action === 'walk' || action === 'run') {
-                player.actions[action].timeScale = isMovingForward ? 1 : -1;
-            }
-        }
-        player.currentAction = action;
-    }
-}
-
-// Remove a remote player
-function removeRemotePlayer(id) {
-    if (players[id]) {
-        scene.remove(players[id].model);
-        delete players[id];
-    }
-    removeRemoteAudioStream(id);
-}
-
-// Generic function: update all players
-function updatePlayers(playersData) {
-    Object.keys(playersData).forEach((id) => {
-        if (id !== myId) {
-            addOrUpdatePlayer(id, playersData[id]);
-        }
-    });
-    Object.keys(players).forEach((id) => {
-        if (!playersData[id]) {
-            removeRemotePlayer(id);
-        }
-    });
-}
-
-// Audio
-
-function handleUserInteraction() {
-    if (listener.context.state === 'suspended') {
-        listener.context.resume().then(() => {
-            console.log('AudioContext resumed on user interaction.');
-        }).catch((err) => {
-            console.error('Error resuming AudioContext:', err);
-        });
-    }
-    document.removeEventListener('click', handleUserInteraction);
-    document.removeEventListener('keydown', handleUserInteraction);
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 async function startBroadcast() {
-    if (localStream) return;
+    if (localStream) return; // Already broadcasting
+
     try {
+        // Request microphone access
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+        // Create a MediaStreamSource from the microphone using Three.js's AudioContext
         mediaStreamSource = listener.context.createMediaStreamSource(localStream);
 
+        // Create a ScriptProcessorNode to capture audio data
         processor = listener.context.createScriptProcessor(4096, 1, 1);
+
+        // Connect the nodes
         mediaStreamSource.connect(processor);
         processor.connect(listener.context.destination);
 
+        // Handle audio processing
         processor.onaudioprocess = (e) => {
             const inputData = e.inputBuffer.getChannelData(0);
+            // Convert Float32Array to Int16Array for transmission
             const buffer = new Int16Array(inputData.length);
             for (let i = 0; i < inputData.length; i++) {
                 buffer[i] = inputData[i] * 32767;
             }
+            // Emit the audio data to the server
             socket.emit('audio_stream', buffer.buffer);
         };
 
+        // Notify server to start broadcasting audio
         socket.emit('start_audio');
+
         console.log('Started broadcasting audio.');
     } catch (err) {
         console.error('Error accessing microphone:', err);
     }
 }
 
-function stopBroadcast() {
-    if (!localStream) return;
 
+function stopBroadcast() {
+    if (!localStream) return; // Not broadcasting
+
+    // Disconnect and close the audio nodes
     if (processor) {
         processor.disconnect();
         processor.onaudioprocess = null;
@@ -778,36 +754,53 @@ function stopBroadcast() {
         mediaStreamSource = null;
     }
 
+    // Do not close audioContext here if it's used for remote audio
+    // if (audioContext) {
+    //     audioContext.close();
+    //     audioContext = null;
+    // }
+
+    // Stop all tracks in the MediaStream
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
 
+    // Notify server to stop broadcasting audio
     socket.emit('stop_audio');
+
     console.log('Stopped broadcasting audio.');
 }
 
-// Positional audio for remote players
+
 function addRemoteAudioStream(id) {
     if (!listener.context) {
         console.warn('AudioContext not initialized. Cannot add remote audio stream.');
         return;
     }
+
     const player = players[id];
     if (!player) {
         console.warn(`Player with ID ${id} not found.`);
         return;
     }
-    if (remoteAudioStreams[id]) return;
 
+    if (remoteAudioStreams[id]) return; // Already has an audio stream
+
+    // Create a PositionalAudio object and attach it to the remote player
     const positionalAudio = new THREE.PositionalAudio(listener);
-    positionalAudio.setRefDistance(20);
-    positionalAudio.setVolume(1.0);
+    positionalAudio.setRefDistance(20); // Adjust based on scene scale
+    positionalAudio.setVolume(1.0); // Optional: Adjust volume as needed
     player.model.add(positionalAudio);
     positionalAudio.play();
 
+    // Store the PositionalAudio object for later use
     remoteAudioStreams[id] = {
         positionalAudio,
     };
 }
+
+
+
+
 
 function removeRemoteAudioStream(id) {
     const remoteAudio = remoteAudioStreams[id];
@@ -815,6 +808,7 @@ function removeRemoteAudioStream(id) {
         remoteAudio.positionalAudio.stop();
         remoteAudio.positionalAudio.disconnect();
         remoteAudio.positionalAudio = null;
+        remoteAudio.remoteStream = null;
         delete remoteAudioStreams[id];
     }
 }
@@ -827,39 +821,70 @@ function receiveAudioStream(id, audioBuffer) {
 
     const remoteAudio = remoteAudioStreams[id];
     if (!remoteAudio) {
+        // Audio stream not started yet
         console.warn(`Received audio data from ${id} before audio stream started.`);
         return;
     }
 
+    // Convert Int16Array back to Float32Array
     const int16 = new Int16Array(audioBuffer);
     const float32 = new Float32Array(int16.length);
     for (let i = 0; i < int16.length; i++) {
         float32[i] = int16[i] / 32767;
     }
 
+    // Create an AudioBuffer and copy the float32 data
     const buffer = listener.context.createBuffer(1, float32.length, listener.context.sampleRate);
     buffer.copyToChannel(float32, 0, 0);
 
+    // Create a BufferSource and set the buffer
     const bufferSource = listener.context.createBufferSource();
     bufferSource.buffer = buffer;
     bufferSource.connect(remoteAudio.positionalAudio.gain);
     bufferSource.start();
 
+    // Optional: Clean up after playback
     bufferSource.onended = () => {
         bufferSource.disconnect();
     };
 }
 
-// Utility to randomize spawn
-function getRandomSpawnPoint() {
-    const x = (Math.random() - 0.5) * 50; 
-    const z = (Math.random() - 0.5) * 50; 
-    const rotation = Math.random() * Math.PI * 2; 
-    return { x, z, rotation };
+
+
+
+
+function isEqual(obj1, obj2) {
+    if (obj1 === obj2) return true;
+    if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) return false;
+
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+
+    if (keys1.length !== keys2.length) return false;
+
+    for (const key of keys1) {
+        if (!keys2.includes(key) || !isEqual(obj1[key], obj2[key])) return false;
+    }
+
+    return true;
 }
 
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+function areAllEqual(objects) {
+    if (objects.length < 2) return true; // Nothing to compare
+
+    const firstObject = objects[0];
+    for (let i = 1; i < objects.length; i++) {
+        if (!isEqual(firstObject, objects[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function getRandomSpawnPoint() {
+    const x = (Math.random() - 0.5) * 50; // Random x between -25 and 25
+    const z = (Math.random() - 0.5) * 50; // Random z between -25 and 25
+    const rotation = Math.random() * Math.PI * 2; // Random rotation between 0 and 2π
+    return { x, z, rotation };
 }
