@@ -58,7 +58,6 @@
       user-select: none;
     }
 
-
     .touch-controls {
       display: flex;
       position: absolute;
@@ -168,14 +167,12 @@
         opacity: 1;
         z-index: 99;
       }
-
       80% {
         display: flex;
         backdrop-filter: blur(15px);
         opacity: 1;
         z-index: 99;
       }
-
       100% {
         display: flex;
         backdrop-filter: blur(10px);
@@ -189,9 +186,19 @@
       top: 10px;
       left: 10px;
       color: white;
-      opacity:0.1;
+      opacity: 0.1;
       font-size: 1rem;
       font-family: "Rajdhani", sans-serif;
+    }
+
+    /* Optional clearer styling for new sensor readouts */
+    .sensor-readouts {
+      opacity: 0.9;
+      margin-top: 1rem;
+    }
+    .sensor-label {
+      font-weight: 400;
+      margin-right: 0.5rem;
     }
   </style>
 </head>
@@ -222,190 +229,167 @@
     </div>
   </div>
 
-  <!-- This is where we display orientation, motion, and location data -->
-  <div class="data" id="data">Orientation: N/A<br>Location: N/A</div>
+  <!-- Data Overlay -->
+  <div class="data" id="data">
+    Location: N/A
+    <div class="sensor-readouts">
+      <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
+      <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
+      <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
+      <hr>
+      <p><span class="sensor-label">Acc. + Gravity X:</span> <span id="Accelerometer_gx">N/A</span></p>
+      <p><span class="sensor-label">Acc. + Gravity Y:</span> <span id="Accelerometer_gy">N/A</span></p>
+      <p><span class="sensor-label">Acc. + Gravity Z:</span> <span id="Accelerometer_gz">N/A</span></p>
+      <hr>
+      <p><span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span></p>
+      <p><span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span></p>
+      <p><span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span></p>
+      <hr>
+      <p><span class="sensor-label">Interval (ms):</span> <span id="Accelerometer_i">N/A</span></p>
+      <hr>
+      <p><span class="sensor-label">Gyro alpha (Z):</span> <span id="Gyroscope_z">N/A</span></p>
+      <p><span class="sensor-label">Gyro beta (X):</span> <span id="Gyroscope_x">N/A</span></p>
+      <p><span class="sensor-label">Gyro gamma (Y):</span> <span id="Gyroscope_y">N/A</span></p>
+      <hr>
+      <p><span class="sensor-label">Total Events:</span> <span id="num-observed-events">0</span></p>
+      <button id="start_demo" class="btn-success">Start demo</button>
+    </div>
+  </div>
 
   <script>
-    // Reference to the data <div> for showing sensor info
-    const infoDiv = document.getElementById('data');
-
-    // We'll hold current readings in these variables so that orientation/motion/geo
-    // can refresh the same display without erasing each other's data
-    let orientationVals = { alpha: null, beta: null, gamma: null };
-    let motionVals = {
-      accG: { x: null, y: null, z: null },
-      acc: { x: null, y: null, z: null },
-      rot: { alpha: null, beta: null, gamma: null },
-      interval: null
-    };
-    let locationVals = { lat: null, lng: null };
-
-    // Master function to refresh what's shown in #data
-    function refreshAllReadings() {
-      const { alpha, beta, gamma } = orientationVals;
-      const { accG, acc, rot, interval } = motionVals;
-      const { lat, lng } = locationVals;
-
-      // Orientation display
-      const orientationStr = `
-Orientation:<br>
-Alpha (Z-axis): ${alpha != null ? alpha.toFixed(2) : 'N/A'}<br>
-Beta (X-axis): ${beta != null ? beta.toFixed(2) : 'N/A'}<br>
-Gamma (Y-axis): ${gamma != null ? gamma.toFixed(2) : 'N/A'}
-`;
-
-      // Motion display
-      // (Only show if we have acceleration data or rotation data)
-      const motionStr = `
-Motion:<br>
-Acc. w/ Gravity => X: ${accG.x != null ? accG.x.toFixed(2) : 'N/A'} 
-Y: ${accG.y != null ? accG.y.toFixed(2) : 'N/A'} 
-Z: ${accG.z != null ? accG.z.toFixed(2) : 'N/A'}<br>
-Acc. => X: ${acc.x != null ? acc.x.toFixed(2) : 'N/A'} 
-Y: ${acc.y != null ? acc.y.toFixed(2) : 'N/A'} 
-Z: ${acc.z != null ? acc.z.toFixed(2) : 'N/A'}<br>
-Rotation => Alpha: ${rot.alpha != null ? rot.alpha.toFixed(2) : 'N/A'} 
-Beta: ${rot.beta != null ? rot.beta.toFixed(2) : 'N/A'} 
-Gamma: ${rot.gamma != null ? rot.gamma.toFixed(2) : 'N/A'}<br>
-Interval: ${interval != null ? interval.toFixed(2) : 'N/A'}
-`;
-
-      // Location display
-      const locationStr = `
-Location: 
-${lat != null ? lat.toFixed(5) : 'N/A'}, 
-${lng != null ? lng.toFixed(5) : 'N/A'} 
-`;
-
-      infoDiv.innerHTML = `${orientationStr}<br>${motionStr}<br>${locationStr}`;
-    }
-
-    //
-    // ORIENTATION
-    //
-    // Request device orientation permission (iOS) and set up event listener
-    async function enableOrientation() {
-      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
-        try {
-          const permission = await DeviceOrientationEvent.requestPermission();
-          if (permission === 'granted') {
-            window.addEventListener('deviceorientation', updateOrientation);
-          } else {
-            infoDiv.innerHTML = 'Orientation: Permission Denied<br>';
-          }
-        } catch (err) {
-          console.error('Error requesting orientation permission:', err);
+    // =========== GEOLOCATION ===========
+    // Keep original geolocation logic
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const dataDiv = document.getElementById('data');
+          dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}` + dataDiv.innerHTML;
+        },
+        (err) => {
+          console.error('Error getting location:', err);
+          const dataDiv = document.getElementById('data');
+          dataDiv.innerHTML = `Location: Permission Denied<br>` + dataDiv.innerHTML;
         }
-      } else {
-        // Non-iOS devices or older browsers
-        window.addEventListener('deviceorientation', updateOrientation);
+      );
+    } else {
+      const dataDiv = document.getElementById('data');
+      dataDiv.innerHTML = `Location: Not Supported<br>` + dataDiv.innerHTML;
+    }
+
+    // =========== ORIENTATION & MOTION HANDLERS ===========
+    function updateFieldIfNotNull(fieldName, value, precision = 10) {
+      if (value != null) {
+        document.getElementById(fieldName).innerHTML = value.toFixed(precision);
       }
     }
 
-    // Handler for orientation events
-    function updateOrientation(event) {
-      orientationVals.alpha = event.alpha;
-      orientationVals.beta = event.beta;
-      orientationVals.gamma = event.gamma;
-      refreshAllReadings();
+    function incrementEventCount() {
+      let counterElement = document.getElementById("num-observed-events");
+      let eventCount = parseInt(counterElement.innerHTML);
+      counterElement.innerHTML = eventCount + 1;
     }
 
-    //
-    // LOCATION
-    //
-    // Request geolocation
-    function enableLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            locationVals.lat = latitude;
-            locationVals.lng = longitude;
-            refreshAllReadings();
-          },
-          (err) => {
-            // If user denies geolocation or error occurs
-            console.error('Error getting location:', err);
-            infoDiv.innerHTML += '<br>Location: Permission Denied';
-          }
-        );
-      } else {
-        infoDiv.innerHTML += '<br>Location: Not Supported';
-      }
+    // Device Orientation
+    function handleOrientation(event) {
+      updateFieldIfNotNull('Orientation_a', event.alpha);
+      updateFieldIfNotNull('Orientation_b', event.beta);
+      updateFieldIfNotNull('Orientation_g', event.gamma);
+      incrementEventCount();
     }
 
-    //
-    // MOTION (acceleration/gyro)
-    //
-    // Ask permission (iOS 13+) and set up devicemotion events
-    async function enableMotion() {
-      if (typeof DeviceMotionEvent !== 'undefined' &&
-          typeof DeviceMotionEvent.requestPermission === 'function') {
-        try {
-          const permission = await DeviceMotionEvent.requestPermission();
-          if (permission === 'granted') {
-            window.addEventListener('devicemotion', handleMotion, true);
-          } else {
-            infoDiv.innerHTML += '<br>Motion: Permission Denied';
-          }
-        } catch (err) {
-          console.error('Error requesting motion permission:', err);
-        }
-      } else {
-        // Non-iOS devices or older browsers
-        window.addEventListener('devicemotion', handleMotion, true);
-      }
-    }
-
-    // devicemotion event handler
+    // Device Motion
     function handleMotion(event) {
-      // accelerationIncludingGravity
-      const g = event.accelerationIncludingGravity || {};
-      motionVals.accG.x = g.x ?? null;
-      motionVals.accG.y = g.y ?? null;
-      motionVals.accG.z = g.z ?? null;
+      if (!event.accelerationIncludingGravity) return;
 
-      // acceleration (no gravity)
-      const a = event.acceleration || {};
-      motionVals.acc.x = a.x ?? null;
-      motionVals.acc.y = a.y ?? null;
-      motionVals.acc.z = a.z ?? null;
+      updateFieldIfNotNull('Accelerometer_gx', event.accelerationIncludingGravity.x);
+      updateFieldIfNotNull('Accelerometer_gy', event.accelerationIncludingGravity.y);
+      updateFieldIfNotNull('Accelerometer_gz', event.accelerationIncludingGravity.z);
 
-      // rotationRate
-      const r = event.rotationRate || {};
-      motionVals.rot.alpha = r.alpha ?? null;
-      motionVals.rot.beta = r.beta ?? null;
-      motionVals.rot.gamma = r.gamma ?? null;
+      if (event.acceleration) {
+        updateFieldIfNotNull('Accelerometer_x', event.acceleration.x);
+        updateFieldIfNotNull('Accelerometer_y', event.acceleration.y);
+        updateFieldIfNotNull('Accelerometer_z', event.acceleration.z);
+      }
 
-      // interval
-      motionVals.interval = event.interval;
+      updateFieldIfNotNull('Accelerometer_i', event.interval, 2);
 
-      // Update display
-      refreshAllReadings();
+      if (event.rotationRate) {
+        updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha);
+        updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta);
+        updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma);
+      }
+      incrementEventCount();
     }
 
-    // Request permissions on load
-    enableOrientation();
-    enableMotion();
-    enableLocation();
+    let is_running = false;
+    let demo_button = document.getElementById("start_demo");
+
+    demo_button.onclick = async function(e) {
+      e.preventDefault();
+
+      // Request permission for iOS 13+ devices:
+      // (Motion)
+      if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") {
+        try {
+          const permissionResult = await DeviceMotionEvent.requestPermission();
+          console.log("Motion permission:", permissionResult);
+        } catch (err) {
+          console.warn("Motion Permission request error:", err);
+        }
+      }
+
+      // (Orientation)
+      if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+        try {
+          const permissionResult = await DeviceOrientationEvent.requestPermission();
+          console.log("Orientation permission:", permissionResult);
+        } catch (err) {
+          console.warn("Orientation Permission request error:", err);
+        }
+      }
+
+      if (is_running) {
+        // Stop reading
+        window.removeEventListener("devicemotion", handleMotion);
+        window.removeEventListener("deviceorientation", handleOrientation);
+        demo_button.innerHTML = "Start demo";
+        demo_button.classList.add('btn-success');
+        demo_button.classList.remove('btn-danger');
+        is_running = false;
+      } else {
+        // Start reading
+        window.addEventListener("devicemotion", handleMotion);
+        window.addEventListener("deviceorientation", handleOrientation);
+        demo_button.innerHTML = "Stop demo";
+        demo_button.classList.remove('btn-success');
+        demo_button.classList.add('btn-danger');
+        is_running = true;
+      }
+    };
   </script>
 
+  <!-- The main 3D or WebXR app container -->
   <div id="app"></div>
 
+  <!-- MOBILE TOUCH CONTROLS -->
   <div class="touch-controls" id="touchControls">
     <div class="touch-control forward">W</div>
     <div class="touch-control left">A</div>
     <div class="touch-control right">D</div>
     <div class="touch-control mic">MIC</div>
     <div class="touch-control backward">S</div>
-    <!--<div class="touch-control forward-left">W+A</div>
+    <!--
+    <div class="touch-control forward-left">W+A</div>
     <div class="touch-control egg"></div>
-    <div class="touch-control forward-right">W+D</div>-->
+    <div class="touch-control forward-right">W+D</div>
+    -->
   </div>
 
+  <!-- Prevent unintended double-taps from zooming on iOS -->
   <script>
     let lastTouchTime = 0;
-    document.addEventListener('touchend', function (event) {
+    document.addEventListener('touchend', function(event) {
       const currentTime = Date.now();
       if (currentTime - lastTouchTime < 300) { // 300ms threshold for double-tap
         event.preventDefault();
@@ -413,21 +397,22 @@ ${lng != null ? lng.toFixed(5) : 'N/A'}
       lastTouchTime = currentTime;
     }, false);
   </script>
+
+  <!-- VR / XR disclaimers and removing "WebXR not available" etc. -->
   <script>
     // Wait for the DOM to fully load
     window.addEventListener('DOMContentLoaded', () => {
-      // Find all <a> tags on the page
+      // Find all <a> and <button> tags on the page
       const allATags = document.querySelectorAll('a');
       const allButtonTags = document.querySelectorAll('button');
       const vrbutton = document.getElementById('VRButton');
 
-      // Iterate through all <a> tags to find certain text
+      // Iterate through <a> tags to find ones with certain text
       allATags.forEach((aTag) => {
         if (aTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE') {
-          // Remove after 5 seconds
           setTimeout(() => {
             aTag.remove();
-          }, 5000);
+          }, 5000); // remove after 5 seconds
         }
         if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
           setTimeout(() => {
@@ -436,6 +421,7 @@ ${lng != null ? lng.toFixed(5) : 'N/A'}
         }
       });
 
+      // Iterate through <button> tags
       allButtonTags.forEach((buttonTag) => {
         if (buttonTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE') {
           setTimeout(() => {
@@ -444,7 +430,7 @@ ${lng != null ? lng.toFixed(5) : 'N/A'}
         }
         if (buttonTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
           setTimeout(() => {
-            vrbutton.remove();
+            if (vrbutton) vrbutton.remove();
           }, 5000);
         }
       });
@@ -460,6 +446,8 @@ ${lng != null ? lng.toFixed(5) : 'N/A'}
       });
     });
   </script>
+
+  <!-- Touch-based movement logic -->
   <script>
     const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
     const touchControls = document.getElementById("touchControls");
@@ -544,7 +532,7 @@ ${lng != null ? lng.toFixed(5) : 'N/A'}
     const touchIdMap = new Map(); // Maps touch.identifier -> setOfKeys
 
     function handleTouchStart(event) {
-      resetVisibilityTimeout(); 
+      resetVisibilityTimeout();
       const touches = event.changedTouches;
       for (const touch of touches) {
         const target = touch.target;
@@ -690,7 +678,9 @@ ${lng != null ? lng.toFixed(5) : 'N/A'}
     });
   </script>
 
+  <!-- Main app logic -->
   <script type="module" src="/src/app.js"></script>
+
 </body>
 
 </html>
