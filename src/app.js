@@ -625,6 +625,16 @@ function animate() {
     });
 }
 
+
+
+// =========== ORIENTATION HANDLERS ===========
+function updateFieldIfNotNullInternal(fieldName, value, precision = 10) {
+    const field = document.getElementById(fieldName);
+    if (field && value != null) {
+        field.innerHTML = value.toFixed(precision);
+    }
+}
+
 // ------------------------------
 // Update Camera Orientation Based on Device Orientation
 // ------------------------------
@@ -638,7 +648,10 @@ function updateCameraOrientation() {
     // - Beta < 90° → Pitch decreases (Looking Down)
 
     const alpha = THREE.MathUtils.degToRad(orientationData.alpha || 0);
-    const beta = THREE.MathUtils.degToRad(orientationData.beta || 90);
+    const beta = THREE.MathUtils.degToRad(orientationData.beta || 0);
+
+    updateFieldIfNotNullInternal("Orientation_a2", alpha);
+    updateFieldIfNotNullInternal("Orientation_b2", beta);
     // Gamma (Y) is Roll, which we are ignoring for camera orientation
 
     // Calculate pitch based on beta
