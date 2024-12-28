@@ -321,31 +321,7 @@ function init () {
   // Generate terrain
   generateTerrain()
 
- // Detect if the browser supports WebXR and has VR capabilities
- if (navigator.xr) {
-    navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-      if (!supported) {
-        // If VR is not supported, load the local model
-        loadLocalModel()
-      } else {
-        console.log('VR is supported. Local model will not be loaded initially.')
-      }
-    })
-  } else {
-    // If WebXR is not available, load the local model
-    loadLocalModel()
-  }
-
-  // Add event listeners for VR session start and end
-  renderer.xr.addEventListener('sessionstart', () => {
-    console.log('VR session started.')
-    unloadLocalModel()
-  })
-
-  renderer.xr.addEventListener('sessionend', () => {
-    console.log('VR session ended.')
-    loadLocalModel()
-  })
+  loadLocalModel()
 
   // Keyboard events (Desktop)
   document.addEventListener('keydown', onKeyDown)
