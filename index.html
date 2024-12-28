@@ -404,10 +404,10 @@
     function handleOrientation(event) {
       if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
       window.isOrientationEnabled = true;
-      //updateFieldIfNotNull("Orientation_a", event.alpha);
-      //updateFieldIfNotNull("Orientation_b", event.beta);
-      //updateFieldIfNotNull("Orientation_g", event.gamma);
-      //incrementEventCount();
+      updateFieldIfNotNull("Orientation_a", event.alpha);
+      updateFieldIfNotNull("Orientation_b", event.beta);
+      updateFieldIfNotNull("Orientation_g", event.gamma);
+      incrementEventCount();
     }
 
     // Device Motion Handler
