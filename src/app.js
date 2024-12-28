@@ -310,6 +310,7 @@ function enablePointerLock() {
             pitch -= e.movementY * mouseSensitivity;
             if (pitch < pitchMin) pitch = pitchMin;
             if (pitch > pitchMax) pitch = pitchMax;
+            console.log(pitch);
 
             // Update camera rotation
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
@@ -601,7 +602,7 @@ function animate() {
 
         // Update camera orientation based on device orientation
         if (window.isOrientationEnabled) {
-            updateCameraOrientation();
+            handleOrientation();
         }
 
         // VR or Desktop
@@ -624,10 +625,30 @@ function animate() {
     });
 }
 
+
+// =========== ORIENTATION HANDLERS ===========
+function updateFieldIfNotNull(fieldName, value, precision = 10) {
+    const field = document.getElementById(fieldName);
+    if (field && value != null) {
+        field.innerHTML = value.toFixed(precision);
+    }
+}
+
+// Device Orientation Handler
+function handleOrientation(event) {
+    if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
+    window.isOrientationEnabled = true;
+    updateFieldIfNotNull("Orientation_a", event.alpha);
+    updateFieldIfNotNull("Orientation_b", event.beta);
+    updateFieldIfNotNull("Orientation_g", event.gamma);
+    updateCameraOrientation(event.alpha, event.beta);
+    incrementEventCount();
+}
+
 // ------------------------------
 // Update Camera Orientation Based on Device Orientation
 // ------------------------------
-function updateCameraOrientation() {
+function updateCameraOrientation(orientationAlpha, orientationBeta) {
     // Use the orientationData to update camera rotation
     // Alpha (Z) is Yaw (rotation around Y-axis)
     // Beta (X) is Pitch (rotation around X-axis)
@@ -636,8 +657,8 @@ function updateCameraOrientation() {
     // - Beta > 90° → Pitch increases (Looking Up)
     // - Beta < 90° → Pitch decreases (Looking Down)
 
-    const alpha = THREE.MathUtils.degToRad(orientationData.alpha || 0);
-    const beta = THREE.MathUtils.degToRad(orientationData.beta || 0);
+    const alpha = THREE.MathUtils.degToRad(orientationAlpha || 0);
+    const beta = THREE.MathUtils.degToRad(orientationBeta || 90);
     // Gamma (Y) is Roll, which we are ignoring for camera orientation
 
     // Calculate pitch based on beta
