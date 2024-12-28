@@ -1,3 +1,5 @@
+// app.js
+
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
@@ -47,7 +49,7 @@ let yaw = 0;
 let pitch = 0;
 const mouseSensitivity = 0.002;
 const pitchMin = -Math.PI / 2 + 0.01;
-const pitchMax =  Math.PI / 2 - 0.01;
+const pitchMax = Math.PI / 2 - 0.01;
 
 // VR Teleport
 let baseReferenceSpace = null;
@@ -174,14 +176,14 @@ function init() {
     markerMesh.visible = false;
     scene.add(markerMesh);
 
-    controls = new PointerLockControls( camera, document.body );
+    controls = new PointerLockControls(camera, document.body);
 
-    const instructions = document.getElementById( 'app' );
-    instructions.addEventListener( 'click', function () {
+    const instructions = document.getElementById('app');
+    instructions.addEventListener('click', function () {
         controls.lock();
-    } );
+    });
 
-    scene.add( controls.object );
+    scene.add(controls.object);
 
     const savedCam = loadPositionFromLocalStorage();
     if (savedCam) {
@@ -374,17 +376,17 @@ function buildControllerRay(data) {
             geometry = new THREE.BufferGeometry();
             geometry.setAttribute(
                 'position',
-                new THREE.Float32BufferAttribute([0,0,0, 0,0,-1], 3)
+                new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3)
             );
             geometry.setAttribute(
                 'color',
-                new THREE.Float32BufferAttribute([0.5,0.5,0.5, 0,0,0], 3)
+                new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3)
             );
             material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
             return new THREE.Line(geometry, material);
 
         case 'gaze':
-            geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0,0,-1);
+            geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, -1);
             material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
             return new THREE.Mesh(geometry, material);
     }
@@ -395,7 +397,7 @@ function buildControllerRay(data) {
 // Desktop Key Events
 // ------------------------------
 function onKeyDown(e) {
-    switch(e.code) {
+    switch (e.code) {
         case 'KeyW': keyStates.w = true; break;
         case 'KeyS': keyStates.s = true; break;
         case 'KeyA': keyStates.a = true; break;
@@ -411,7 +413,7 @@ function onKeyDown(e) {
 }
 
 function onKeyUp(e) {
-    switch(e.code) {
+    switch (e.code) {
         case 'KeyW': keyStates.w = false; break;
         case 'KeyS': keyStates.s = false; break;
         case 'KeyA': keyStates.a = false; break;
@@ -577,9 +579,9 @@ function emitMovementIfChanged(newState) {
     const oldString = lastEmittedState ? JSON.stringify(lastEmittedState) : null;
 
     if (newString !== oldString) {
-      newState.id = myId;  // add myId to payload
-      socket.emit('move', newState);
-      lastEmittedState = newState;
+        newState.id = myId;  // add myId to payload
+        socket.emit('move', newState);
+        lastEmittedState = newState;
     }
 }
 
@@ -599,7 +601,7 @@ function animate() {
             // Make the local model follow the camera
             localModel.position.lerp(camera.position.clone().setY(0), 0.1);
             localModel.rotation.y = camera.rotation.y;
-            moveLocalCharacterDesktop(delta); 
+            moveLocalCharacterDesktop(delta);
         }
 
         // Update remote players
@@ -607,7 +609,7 @@ function animate() {
             p.mixer.update(delta);
         });
 
-        renderer.render(scene, camera);  
+        renderer.render(scene, camera);
     });
 }
 
@@ -677,7 +679,7 @@ function generateTerrain() {
         { min: size * 0.4, max: size * 0.5, pointSize: 0.012, lineOpacity: 0.2 },
         { min: size * 0.5, max: size * 0.6, pointSize: 0.01, lineOpacity: 0.4 },
         { min: size * 0.6, max: size * 0.7, pointSize: 0.008, lineOpacity: 0.6 },
-        { min: size * 0.8, max: size * 0.5, pointSize: 0.005, lineOpacity: 1.0 },
+        { min: size * 0.7, max: size * 0.8, pointSize: 0.005, lineOpacity: 1.0 },
     ];
 
     const pointsByRange = [];
@@ -737,14 +739,14 @@ function generateTerrain() {
                 const x1 = pointsByRange[rightVertex.rangeIndex][baseRight + 0];
                 const y1 = pointsByRange[rightVertex.rangeIndex][baseRight + 1];
                 const z1 = pointsByRange[rightVertex.rangeIndex][baseRight + 2];
-                linesByRange[currentVertex.rangeIndex].push(x0,y0,z0, x1,y1,z1);
+                linesByRange[currentVertex.rangeIndex].push(x0, y0, z0, x1, y1, z1);
             }
             if (bottomVertex && currentVertex.rangeIndex === bottomVertex.rangeIndex) {
                 const baseDown = bottomVertex.index * 3;
                 const x2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 0];
                 const y2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 1];
                 const z2 = pointsByRange[bottomVertex.rangeIndex][baseDown + 2];
-                linesByRange[currentVertex.rangeIndex].push(x0,y0,z0, x2,y2,z2);
+                linesByRange[currentVertex.rangeIndex].push(x0, y0, z0, x2, y2, z2);
             }
         }
     }
@@ -821,87 +823,77 @@ function setLocalAction(name, direction = 'forward') {
 function setupSocketEvents() {
     socket.on('init', (data) => {
         console.log('[Socket] init => received init data:', data);
-        
+
         // We store the ID the server gave us.
-        //console.log('[Socket] Overriding local myId with server ID:', data.id);
         myId = data.id;
-        
+
         // Update players with the full dictionary from the server
-        //console.log('[Socket] About to call updatePlayers() with:', data.players);
         updatePlayers(data.players);
     });
 
     socket.on('state_update_all', (data) => {
-        //console.log('[Socket] state_update_all => full players data:', data);
         updatePlayers(data);
         lastState = { ...data };
     });
 
     socket.on('new_player', (data) => {
         console.log(`[Socket] new_player => Data:`, data);
-      
+
         // If the server calls it `localId`, then we match it to `myId`
         if (data.localId === myId) {
-          //console.warn(`[Socket] new_player => This is our own local ID: ${myId}. Skipping remote creation.`);
-          return;
+            // This is our own local ID; skip remote creation
+            return;
         }
-      
-       console.log(`[Socket] new_player => Creating or updating remote ID: ${data.localId}`);
-        addOrUpdatePlayer(data.localId, data); 
+
+        console.log(`[Socket] new_player => Creating or updating remote ID: ${data.localId}`);
+        addOrUpdatePlayer(data.localId, data);
     });
 
     socket.on('state_update', (data) => {
         const incomingString = JSON.stringify(data);
         const lastString = lastStateData ? JSON.stringify(lastStateData) : null;
-        
+
         // Only log if changed
         if (incomingString !== lastString) {
             console.log('[Socket] state_update => changed data from server:', data);
             lastStateData = data;
         } else {
-            //console.log('[Socket] state_update => data is unchanged, ignoring.');
+            // Data is unchanged; ignoring.
         }
     });
 
     socket.on('player_disconnected', (id) => {
-       //console.log(`[Socket] player_disconnected => ID=${id}`);
         removeRemotePlayer(id);
     });
 
     // Audio events
     socket.on('start_audio', (id) => {
-        //console.log(`[Socket] start_audio => ID=${id} started broadcasting`);
         addRemoteAudioStream(id);
     });
 
     socket.on('stop_audio', (id) => {
-        //console.log(`[Socket] stop_audio => ID=${id} stopped broadcasting`);
         removeRemoteAudioStream(id);
     });
 
     socket.on('audio_stream', (data) => {
         const { id, audio } = data;
-        //console.log('[Socket] audio_stream => receiving audio from ID=', id);
         receiveAudioStream(id, audio);
     });
 }
 
-
 function addOrUpdatePlayer(id, data) {
     // Should skip if it's the local player's ID
     if (id === myId) {
-      console.warn(`Skipping addOrUpdatePlayer for local ID = ${id}`);
-      return;
+        console.warn(`Skipping addOrUpdatePlayer for local ID = ${id}`);
+        return;
     }
-  
-    if (!players[id]) {
-      createRemotePlayer(id, data);
-    } else {
-      updateRemotePlayer(id, data);
-    }
-  }
-  
 
+    if (!players[id]) {
+        createRemotePlayer(id, data);
+    } else {
+        updateRemotePlayer(id, data);
+    }
+}
 
 function createRemotePlayer(id, data) {
     if (players[id] || loadingPlayers.has(id)) {
@@ -963,7 +955,7 @@ function normalizeAngle(angle) {
 // 2) Lerp angles using the shortest path
 function lerpAngle(currentAngle, targetAngle, alpha) {
     currentAngle = normalizeAngle(currentAngle);
-    targetAngle  = normalizeAngle(targetAngle);
+    targetAngle = normalizeAngle(targetAngle);
 
     let diff = targetAngle - currentAngle;
     if (diff > Math.PI) {
@@ -991,7 +983,7 @@ function updateRemotePlayer(id, data) {
     player.model.position.lerp(player.position, 0.1);
 
     const currentAngle = player.model.rotation.y;
-    const targetAngle  = data.rotation;
+    const targetAngle = data.rotation;
     player.model.rotation.y = lerpAngle(currentAngle, targetAngle, 0.1);
 
     if (remoteAudioStreams[id]) {
@@ -999,10 +991,10 @@ function updateRemotePlayer(id, data) {
     }
 
     const distMoved = player.position.distanceTo(player.model.position);
-    const isMoving  = distMoved > 0.01;
+    const isMoving = distMoved > 0.01;
     const movementDir = player.position.clone().sub(player.model.position).normalize();
     const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion);
-    const isForward  = movementDir.dot(forwardDir) > 0;
+    const isForward = movementDir.dot(forwardDir) > 0;
 
     let action = 'idle';
     if (isMoving) {
@@ -1182,3 +1174,86 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+// ------------------------------
+// Accessing Global Permissions
+// ------------------------------
+function checkPermissions() {
+    if (window.appPermissions) {
+        const { motionGranted, orientationGranted, locationGranted } = window.appPermissions;
+        console.log('Accessing Global Permissions:', window.appPermissions);
+
+        // Example: Modify behavior based on permissions
+        if (motionGranted) {
+            // Enable motion-related features
+            console.log('Motion permissions granted.');
+            // For example, ensure event listeners are active
+            enableMotionFeatures();
+        } else {
+            // Disable or adjust motion-related features
+            console.log('Motion permissions denied.');
+            disableMotionFeatures();
+        }
+
+        if (orientationGranted) {
+            console.log('Orientation permissions granted.');
+            enableOrientationFeatures();
+        } else {
+            console.log('Orientation permissions denied.');
+            disableOrientationFeatures();
+        }
+
+        if (locationGranted) {
+            console.log('Location permissions granted.');
+            initializeLocationFeatures();
+        } else {
+            console.log('Location permissions denied.');
+            disableLocationFeatures();
+        }
+    } else {
+        console.log('Permissions not yet set.');
+    }
+}
+
+// Example functions to enable/disable features based on permissions
+function enableMotionFeatures() {
+    // Add or activate motion-related event listeners or controls
+    if (window.appPermissions.motionGranted) {
+        window.addEventListener("devicemotion", handleMotion);
+    }
+}
+
+function disableMotionFeatures() {
+    // Remove or deactivate motion-related event listeners or controls
+    window.removeEventListener("devicemotion", handleMotion);
+}
+
+function enableOrientationFeatures() {
+    // Enable orientation-specific functionalities
+    if (window.appPermissions.orientationGranted) {
+        window.addEventListener("deviceorientation", handleOrientation);
+    }
+}
+
+function disableOrientationFeatures() {
+    // Disable orientation-specific functionalities
+    window.removeEventListener("deviceorientation", handleOrientation);
+}
+
+function initializeLocationFeatures() {
+    // Initialize features that rely on location data
+    console.log('Initializing location-based features.');
+}
+
+function disableLocationFeatures() {
+    // Disable or adjust features that rely on location data
+    console.log('Disabling location-based features.');
+}
+
+// Listen for changes in permissions
+window.addEventListener('appPermissionsChanged', () => {
+    checkPermissions();
+});
+
+// Initial check (if permissions are already set)
+checkPermissions();

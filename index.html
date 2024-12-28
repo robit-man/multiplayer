@@ -78,6 +78,26 @@
       margin-bottom: 1rem;
     }
 
+    #start_demo {
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      background-color: #28a745; /* Green */
+      color: white;
+      margin-top: 1rem;
+      transition: background-color 0.3s ease;
+    }
+
+    #start_demo.btn-danger {
+      background-color: #dc3545; /* Red */
+    }
+
+    #start_demo.btn-success {
+      background-color: #28a745; /* Green */
+    }
+
     .touch-controls {
       display: none !important;
       position: absolute;
@@ -211,6 +231,7 @@
       opacity: 1;
       font-size: 0.8rem;
       font-family: "Rajdhani", sans-serif;
+      cursor: pointer; /* Indicate that it's clickable */
     }
 
     /* Optional clearer styling for new sensor readouts */
@@ -252,10 +273,13 @@
 </head>
 
 <body>
+  <!-- Cover Overlay -->
   <div id="cover">
     <div id="cover-message">Initializing Demo...</div>
     <button id="start_demo" class="btn btn-success" style="display: none;">Start Demo</button>
   </div>
+
+  <!-- Instructional Overlay -->
   <div class="info">
     <div class="text">
       <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
@@ -307,7 +331,12 @@
     </div>
   </div>
 
+  <!-- Geolocation and Sensor Permissions Script -->
   <script>
+    // Global flags to track sensor availability
+    window.isGPSEnabled = false;
+    window.isOrientationEnabled = false;
+
     // =========== GEOLOCATION ===========
     function initializeGeolocation() {
       const dataDiv = document.getElementById("data");
@@ -318,19 +347,39 @@
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}<br>` + dataDiv.innerHTML;
-        },
-        (err) => {
-          console.error("Error getting location:", err);
+      // Options for watchPosition to increase polling rate
+      const geoOptions = {
+        enableHighAccuracy: true,
+        maximumAge: 0, // No caching
+        timeout: 5000 // 5 seconds timeout
+      };
+
+      // Success callback
+      function geoSuccess(position) {
+        window.isGPSEnabled = true;
+        const { latitude, longitude } = position.coords;
+        dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}<br>` + dataDiv.innerHTML;
+      }
+
+      // Error callback
+      function geoError(err) {
+        console.error("Geolocation error:", err);
+        window.isGPSEnabled = false;
+        if (err.code === err.PERMISSION_DENIED) {
           dataDiv.innerHTML = `Location: Permission Denied<br>` + dataDiv.innerHTML;
+        } else {
+          dataDiv.innerHTML = `Location: Error (${err.message})<br>` + dataDiv.innerHTML;
         }
-      );
+      }
+
+      // Start watching position
+      const watchId = navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
+
+      // Store watchId to allow stopping if needed
+      window.geolocationWatchId = watchId;
     }
 
-    // =========== ORIENTATION & MOTION HANDLERS ===========
+    // =========== ORIENTATION HANDLERS ===========
     function updateFieldIfNotNull(fieldName, value, precision = 10) {
       const field = document.getElementById(fieldName);
       if (field && value != null) {
@@ -348,6 +397,8 @@
 
     // Device Orientation Handler
     function handleOrientation(event) {
+      if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
+      window.isOrientationEnabled = true;
       updateFieldIfNotNull("Orientation_a", event.alpha);
       updateFieldIfNotNull("Orientation_b", event.beta);
       updateFieldIfNotNull("Orientation_g", event.gamma);
@@ -356,6 +407,8 @@
 
     // Device Motion Handler
     function handleMotion(event) {
+      if (!window.appPermissions || !window.appPermissions.motionGranted) return;
+      window.isGPSEnabled = true; // Assuming motion is related to GPS being enabled
       if (event.accelerationIncludingGravity) {
         updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x);
         updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y);
@@ -434,13 +487,40 @@
             console.error("Error getting location:", error);
             if (error.code === error.PERMISSION_DENIED) {
               alert("Location permissions denied. Location data will be unavailable.");
+              const dataDiv = document.getElementById("data");
+              if (dataDiv) {
+                dataDiv.innerHTML = `Location: Permission Denied<br>` + dataDiv.innerHTML;
+              }
             } else {
               alert("Unable to retrieve location data.");
             }
             resolve(false);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
           }
         );
       });
+    }
+
+    // Expose requestAllPermissions globally
+    async function requestAllPermissions() {
+      const sensorPermissions = await requestSensorPermissions();
+      const locationGranted = await requestLocationPermission();
+
+      // Assign permissions to a global object
+      window.appPermissions = {
+        motionGranted: sensorPermissions.motionGranted,
+        orientationGranted: sensorPermissions.orientationGranted,
+        locationGranted: locationGranted
+      };
+
+      // Dispatch a custom event to notify that permissions have been updated
+      window.dispatchEvent(new Event('appPermissionsChanged'));
+
+      return window.appPermissions;
     }
 
     // =========== DEMO CONTROL LOGIC ===========
@@ -470,8 +550,12 @@
           demoButton.classList.remove("btn-danger");
         } else {
           // Start reading
-          window.addEventListener("devicemotion", handleMotion);
-          window.addEventListener("deviceorientation", handleOrientation);
+          if (window.appPermissions && window.appPermissions.motionGranted) {
+            window.addEventListener("devicemotion", handleMotion);
+          }
+          if (window.appPermissions && window.appPermissions.orientationGranted) {
+            window.addEventListener("deviceorientation", handleOrientation);
+          }
           demoButton.innerHTML = "Stop Demo";
           demoButton.classList.remove("btn-success");
           demoButton.classList.add("btn-danger");
@@ -479,22 +563,13 @@
         isRunning = !isRunning;
       }
 
-      // Function to request all permissions
-      async function requestAllPermissions() {
-        const sensorPermissions = await requestSensorPermissions();
-        const locationGranted = await requestLocationPermission();
-
-        return {
-          motionGranted: sensorPermissions.motionGranted,
-          orientationGranted: sensorPermissions.orientationGranted,
-          locationGranted: locationGranted
-        };
-      }
-
       // Automatically request permissions on join
       async function autoRequestPermissions() {
         coverMessage.innerHTML = "Initializing Demo...";
         const permissions = await requestAllPermissions();
+
+        // Start geolocation watching
+        initializeGeolocation();
 
         if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
           // Start the demo if at least one permission is granted
@@ -515,6 +590,11 @@
         demoButton.style.display = "none";
         const permissions = await requestAllPermissions();
 
+        // Restart geolocation watching in case it was stopped
+        if (window.geolocationWatchId === undefined) {
+          initializeGeolocation();
+        }
+
         if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
           toggleDemo();
           cover.style.display = "none"; // Hide the cover after starting
@@ -525,13 +605,37 @@
         }
       });
 
+      // Add click listener to #data for re-requesting permissions if needed
+      const dataDiv = document.getElementById("data");
+      dataDiv.addEventListener("click", async () => {
+        // Check if any permissions are not granted
+        const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
+        if (!motionGranted || !orientationGranted || !locationGranted) {
+          alert("Re-requesting permissions...");
+          const permissions = await requestAllPermissions();
+
+          // Restart geolocation watching if location was granted
+          if (permissions.locationGranted && window.geolocationWatchId === undefined) {
+            initializeGeolocation();
+          }
+
+          if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+            toggleDemo();
+            cover.style.display = "none"; // Hide the cover if permissions are now granted
+          } else {
+            coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
+            demoButton.style.display = "block";
+          }
+        }
+      });
+
       // Attempt to request permissions automatically
       autoRequestPermissions();
     }
 
     // =========== INITIALIZATION ===========
     document.addEventListener("DOMContentLoaded", () => {
-      initializeGeolocation(); // Initial location request
+      initializeGeolocation(); // Start watching geolocation
       initializeDemo();
     });
   </script>
