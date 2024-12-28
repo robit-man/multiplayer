@@ -405,12 +405,12 @@ function buildControllerRay(data) {
 // Desktop Key Events
 // ------------------------------
 function onKeyDown(e) {
-    switch (e.key) {
+    switch (e.key.toLowerCase()) {
         case 'w': keyStates.w = true; break;
         case 's': keyStates.s = true; break;
         case 'a': keyStates.a = true; break;
         case 'd': keyStates.d = true; break;
-        case 'Shift': keyStates.Shift = true; break;
+        case 'shift': keyStates.Shift = true; break;
         case 'r':
             if (!keyStates.r) startBroadcast();
             keyStates.r = true;
@@ -420,12 +420,12 @@ function onKeyDown(e) {
 }
 
 function onKeyUp(e) {
-    switch (e.key) {
+    switch (e.key.toLowerCase()) {
         case 'w': keyStates.w = false; break;
         case 's': keyStates.s = false; break;
         case 'a': keyStates.a = false; break;
         case 'd': keyStates.d = false; break;
-        case 'Shift': keyStates.Shift = false; break;
+        case 'shift': keyStates.Shift = false; break;
         case 'r':
             stopBroadcast();
             keyStates.r = false;
@@ -629,17 +629,23 @@ function animate() {
 // ------------------------------
 function updateCameraOrientation() {
     // Use the orientationData to update camera rotation
-    // Assuming alpha (0-360) is the compass direction (yaw)
-    // beta (-180 to 180) is front to back tilt (pitch)
-    // gamma (-90 to 90) is left to right tilt (roll) - we will ignore roll
+    // Alpha (Z) is Yaw (rotation around Y-axis)
+    // Beta (X) is Pitch (rotation around X-axis)
+    // Mapping:
+    // - Beta = 90° → Pitch = 0° (Looking Forward)
+    // - Beta > 90° → Pitch increases (Looking Up)
+    // - Beta < 90° → Pitch decreases (Looking Down)
 
     const alpha = THREE.MathUtils.degToRad(orientationData.alpha || 0);
     const beta = THREE.MathUtils.degToRad(orientationData.beta || 0);
-    // const gamma = THREE.MathUtils.degToRad(orientationData.gamma || 0); // Ignored for camera rotation
+    // Gamma (Y) is Roll, which we are ignoring for camera orientation
+
+    // Calculate pitch based on beta
+    const pitchAngle = THREE.MathUtils.clamp(beta - Math.PI / 2, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
 
     // Update yaw and pitch
     yaw = alpha;
-    pitch = THREE.MathUtils.clamp(beta, pitchMin, pitchMax);
+    pitch = pitchAngle;
 
     // Update camera rotation
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
@@ -844,6 +850,8 @@ function setLocalAction(name, direction = 'forward') {
             localActions[name].timeScale = (direction === 'forward') ? 1 : -1;
             if (direction === 'backward') {
                 localActions[name].time = localActions[name].getClip().duration - localActions[name].time;
+            } else {
+                localActions[name].time = 0;
             }
         }
     }
@@ -899,11 +907,13 @@ function setupSocketEvents() {
     });
 
     // Audio events
-    socket.on('start_audio', (id) => {
+    socket.on('start_audio', (data) => {
+        const { id } = data;
         addRemoteAudioStream(id);
     });
 
-    socket.on('stop_audio', (id) => {
+    socket.on('stop_audio', (data) => {
+        const { id } = data;
         removeRemoteAudioStream(id);
     });
 
@@ -1300,7 +1310,6 @@ checkPermissions();
 // This is already handled in the animate loop by updating camera.rotation
 
 // Function to handle swipe gestures mapped to WASD
-// Swipes are translated into keydown and keyup events which are already handled
+// Swipes are translated into keydown and keyup events which are already handled by the existing key event listeners
 
 // No additional code needed here since swipe gestures trigger key events that are handled by the existing key event listeners
-
