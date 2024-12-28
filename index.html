@@ -77,7 +77,6 @@
       opacity: 0.5;
       pointer-events: auto;
       user-select: none;
-
     }
 
     .touch-control {
@@ -95,7 +94,6 @@
       color: #ffffff44;
       filter: brightness(1);
     }
-
 
     .forward {
       bottom: 6rem;
@@ -169,7 +167,6 @@
         backdrop-filter: blur(20px) brightness(0);
         opacity: 1;
         z-index: 99;
-
       }
 
       80% {
@@ -177,7 +174,6 @@
         backdrop-filter: blur(15px);
         opacity: 1;
         z-index: 99;
-
       }
 
       100% {
@@ -185,9 +181,9 @@
         backdrop-filter: blur(10px);
         opacity: 0;
         z-index: 99;
-
       }
     }
+
     .data {
       position: absolute;
       top: 10px;
@@ -203,7 +199,6 @@
 <body>
   <div class="info">
     <div class="text">
-
       <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
       <br>
       MULTI USER DEMO
@@ -224,46 +219,114 @@
       BUTTONS ON MOBILE
       <br>
       <i style="color:gray;">[WORK IN PROGRESS]</i>
-
     </div>
   </div>
 
-
-
+  <!-- This is where we display orientation, motion, and location data -->
   <div class="data" id="data">Orientation: N/A<br>Location: N/A</div>
 
   <script>
+    // Reference to the data <div> for showing sensor info
     const infoDiv = document.getElementById('data');
 
-    // Request device orientation permission
+    // We'll hold current readings in these variables so that orientation/motion/geo
+    // can refresh the same display without erasing each other's data
+    let orientationVals = { alpha: null, beta: null, gamma: null };
+    let motionVals = {
+      accG: { x: null, y: null, z: null },
+      acc: { x: null, y: null, z: null },
+      rot: { alpha: null, beta: null, gamma: null },
+      interval: null
+    };
+    let locationVals = { lat: null, lng: null };
+
+    // Master function to refresh what's shown in #data
+    function refreshAllReadings() {
+      const { alpha, beta, gamma } = orientationVals;
+      const { accG, acc, rot, interval } = motionVals;
+      const { lat, lng } = locationVals;
+
+      // Orientation display
+      const orientationStr = `
+Orientation:<br>
+Alpha (Z-axis): ${alpha != null ? alpha.toFixed(2) : 'N/A'}<br>
+Beta (X-axis): ${beta != null ? beta.toFixed(2) : 'N/A'}<br>
+Gamma (Y-axis): ${gamma != null ? gamma.toFixed(2) : 'N/A'}
+`;
+
+      // Motion display
+      // (Only show if we have acceleration data or rotation data)
+      const motionStr = `
+Motion:<br>
+Acc. w/ Gravity => X: ${accG.x != null ? accG.x.toFixed(2) : 'N/A'} 
+Y: ${accG.y != null ? accG.y.toFixed(2) : 'N/A'} 
+Z: ${accG.z != null ? accG.z.toFixed(2) : 'N/A'}<br>
+Acc. => X: ${acc.x != null ? acc.x.toFixed(2) : 'N/A'} 
+Y: ${acc.y != null ? acc.y.toFixed(2) : 'N/A'} 
+Z: ${acc.z != null ? acc.z.toFixed(2) : 'N/A'}<br>
+Rotation => Alpha: ${rot.alpha != null ? rot.alpha.toFixed(2) : 'N/A'} 
+Beta: ${rot.beta != null ? rot.beta.toFixed(2) : 'N/A'} 
+Gamma: ${rot.gamma != null ? rot.gamma.toFixed(2) : 'N/A'}<br>
+Interval: ${interval != null ? interval.toFixed(2) : 'N/A'}
+`;
+
+      // Location display
+      const locationStr = `
+Location: 
+${lat != null ? lat.toFixed(5) : 'N/A'}, 
+${lng != null ? lng.toFixed(5) : 'N/A'} 
+`;
+
+      infoDiv.innerHTML = `${orientationStr}<br>${motionStr}<br>${locationStr}`;
+    }
+
+    //
+    // ORIENTATION
+    //
+    // Request device orientation permission (iOS) and set up event listener
     async function enableOrientation() {
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
         try {
           const permission = await DeviceOrientationEvent.requestPermission();
           if (permission === 'granted') {
             window.addEventListener('deviceorientation', updateOrientation);
           } else {
-            infoDiv.innerHTML = 'Orientation: Permission Denied';
+            infoDiv.innerHTML = 'Orientation: Permission Denied<br>';
           }
         } catch (err) {
           console.error('Error requesting orientation permission:', err);
         }
       } else {
+        // Non-iOS devices or older browsers
         window.addEventListener('deviceorientation', updateOrientation);
       }
     }
 
-    // Request geolocation permission
+    // Handler for orientation events
+    function updateOrientation(event) {
+      orientationVals.alpha = event.alpha;
+      orientationVals.beta = event.beta;
+      orientationVals.gamma = event.gamma;
+      refreshAllReadings();
+    }
+
+    //
+    // LOCATION
+    //
+    // Request geolocation
     function enableLocation() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const { latitude, longitude } = position.coords;
-            infoDiv.innerHTML += `<br>Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+            locationVals.lat = latitude;
+            locationVals.lng = longitude;
+            refreshAllReadings();
           },
           (err) => {
-            infoDiv.innerHTML += '<br>Location: Permission Denied';
+            // If user denies geolocation or error occurs
             console.error('Error getting location:', err);
+            infoDiv.innerHTML += '<br>Location: Permission Denied';
           }
         );
       } else {
@@ -271,19 +334,62 @@
       }
     }
 
-    // Update orientation data
-    function updateOrientation(event) {
-      const { alpha, beta, gamma } = event;
-      infoDiv.innerHTML = `Orientation: <br>
-        Alpha (Z-axis): ${alpha ? alpha.toFixed(2) : 'N/A'}<br>
-        Beta (X-axis): ${beta ? beta.toFixed(2) : 'N/A'}<br>
-        Gamma (Y-axis): ${gamma ? gamma.toFixed(2) : 'N/A'}`;
+    //
+    // MOTION (acceleration/gyro)
+    //
+    // Ask permission (iOS 13+) and set up devicemotion events
+    async function enableMotion() {
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission === 'granted') {
+            window.addEventListener('devicemotion', handleMotion, true);
+          } else {
+            infoDiv.innerHTML += '<br>Motion: Permission Denied';
+          }
+        } catch (err) {
+          console.error('Error requesting motion permission:', err);
+        }
+      } else {
+        // Non-iOS devices or older browsers
+        window.addEventListener('devicemotion', handleMotion, true);
+      }
+    }
+
+    // devicemotion event handler
+    function handleMotion(event) {
+      // accelerationIncludingGravity
+      const g = event.accelerationIncludingGravity || {};
+      motionVals.accG.x = g.x ?? null;
+      motionVals.accG.y = g.y ?? null;
+      motionVals.accG.z = g.z ?? null;
+
+      // acceleration (no gravity)
+      const a = event.acceleration || {};
+      motionVals.acc.x = a.x ?? null;
+      motionVals.acc.y = a.y ?? null;
+      motionVals.acc.z = a.z ?? null;
+
+      // rotationRate
+      const r = event.rotationRate || {};
+      motionVals.rot.alpha = r.alpha ?? null;
+      motionVals.rot.beta = r.beta ?? null;
+      motionVals.rot.gamma = r.gamma ?? null;
+
+      // interval
+      motionVals.interval = event.interval;
+
+      // Update display
+      refreshAllReadings();
     }
 
     // Request permissions on load
     enableOrientation();
+    enableMotion();
     enableLocation();
   </script>
+
   <div id="app"></div>
 
   <div class="touch-controls" id="touchControls">
@@ -311,67 +417,56 @@
     // Wait for the DOM to fully load
     window.addEventListener('DOMContentLoaded', () => {
       // Find all <a> tags on the page
-        const allATags = document.querySelectorAll('a');
-        const alButtonTags = document.querySelectorAll('button');
-        const vrbutton = document.getElementById('VRButton')
+      const allATags = document.querySelectorAll('a');
+      const allButtonTags = document.querySelectorAll('button');
+      const vrbutton = document.getElementById('VRButton');
 
-      // Iterate through all <a> tags to find the one with the exact content
-        allATags.forEach((aTag) => {
+      // Iterate through all <a> tags to find certain text
+      allATags.forEach((aTag) => {
         if (aTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE') {
-          // Set a timeout to remove the element after 5 seconds (5000ms)
+          // Remove after 5 seconds
           setTimeout(() => {
-            aTag.remove(); // Remove the <a> tag from the DOM
-          }, 5000); // Timeout in milliseconds
+            aTag.remove();
+          }, 5000);
         }
         if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
-          // Set a timeout to remove the element after 5 seconds (5000ms)
           setTimeout(() => {
-       
-            aTag.remove(); // Remove the <a> tag from the DOM
-            }, 5000); // Timeout in milliseconds
-        }
-      }); 
-      
-      allButtonTags.forEach((buttonTag) => {
-        if (buttonTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE') {
-          // Set a timeout to remove the element after 5 seconds (5000ms)
-          setTimeout(() => {
-            buttonTag.remove(); // Remove the <a> tag from the DOM
-          }, 5000); // Timeout in milliseconds
-        }
-        if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
-          // Set a timeout to remove the element after 5 seconds (5000ms)
-          setTimeout(() => {
-       
-            vrbutton.remove(); // Remove the <a> tag from the DOM
-            }, 5000); // Timeout in milliseconds
+            aTag.remove();
+          }, 5000);
         }
       });
 
-      // Prevent context menu on touch controls container and individual controls
-      const touchControlsContainer = document.querySelector('.touch-controls');
-      const touchControlsElements = document.querySelectorAll('.touch-control');
+      allButtonTags.forEach((buttonTag) => {
+        if (buttonTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE') {
+          setTimeout(() => {
+            buttonTag.remove();
+          }, 5000);
+        }
+        if (buttonTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
+          setTimeout(() => {
+            vrbutton.remove();
+          }, 5000);
+        }
+      });
 
       // Prevent context menu on the touch-controls container
+      const touchControlsContainer = document.querySelector('.touch-controls');
+      const touchControlsElements = document.querySelectorAll('.touch-control');
       if (touchControlsContainer) {
         touchControlsContainer.addEventListener('contextmenu', (e) => e.preventDefault());
       }
-
-      // Prevent context menu on each touch-control element
       touchControlsElements.forEach(element => {
         element.addEventListener('contextmenu', (e) => e.preventDefault());
       });
     });
-
   </script>
   <script>
     const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
-
     const touchControls = document.getElementById("touchControls");
     let visibilityTimeout;
 
     if (isMobile) {
-      // Show controls and reset visibility timeout when the screen is touched
+      // Show controls and reset visibility timeout on touch
       document.body.addEventListener("touchstart", () => {
         showControls();
         resetVisibilityTimeout();
@@ -418,7 +513,7 @@
       if (visibilityTimeout) {
         clearTimeout(visibilityTimeout);
       }
-      visibilityTimeout = setTimeout(hideControls, 10000); // Hide controls after 10 seconds of inactivity
+      visibilityTimeout = setTimeout(hideControls, 10000); // Hide controls after 10s of inactivity
     }
 
     function triggerKeyEvent(key, eventType) {
@@ -446,10 +541,10 @@
     }
 
     // Track active touches and their corresponding keys
-    const touchIdMap = new Map(); // Maps touch.identifier to keys
+    const touchIdMap = new Map(); // Maps touch.identifier -> setOfKeys
 
     function handleTouchStart(event) {
-      resetVisibilityTimeout(); // Reset timeout on touch interaction
+      resetVisibilityTimeout(); 
       const touches = event.changedTouches;
       for (const touch of touches) {
         const target = touch.target;
@@ -458,14 +553,14 @@
         // Check if touch is on a specific control button
         for (const className in keyMap) {
           if (target.classList.contains(className)) {
-            const keys = Array.isArray(keyMap[className])
+            const mappedKeys = Array.isArray(keyMap[className])
               ? keyMap[className]
               : [keyMap[className]];
-            keys.forEach((key) => keysToActivate.add(key));
+            mappedKeys.forEach(k => keysToActivate.add(k));
           }
         }
 
-        // If touch is not on a specific control, use proximity for movement
+        // If not on a specific control, use proximity
         if (keysToActivate.size === 0) {
           updateActiveKeys(touch.clientX, touch.clientY, keysToActivate);
         }
@@ -478,57 +573,57 @@
           }
         });
 
-        // Map touch identifier to activated keys
+        // Map touch identifier -> setOfKeys
         touchIdMap.set(touch.identifier, keysToActivate);
       }
     }
 
     function handleTouchMove(event) {
-      resetVisibilityTimeout(); // Reset timeout on touch interaction
+      resetVisibilityTimeout();
       const touches = event.changedTouches;
       for (const touch of touches) {
         const previousKeys = touchIdMap.get(touch.identifier) || new Set();
         const newKeys = new Set();
 
-        // Check if touch is on a specific control button
+        // Check if still on a known control
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
         if (target && target.classList) {
           for (const className in keyMap) {
             if (target.classList.contains(className)) {
-              const keys = Array.isArray(keyMap[className])
+              const mappedKeys = Array.isArray(keyMap[className])
                 ? keyMap[className]
                 : [keyMap[className]];
-              keys.forEach((key) => newKeys.add(key));
+              mappedKeys.forEach(k => newKeys.add(k));
             }
           }
         }
 
-        // If touch is not on a specific control, use proximity for movement
+        // Otherwise use proximity
         if (newKeys.size === 0) {
           updateActiveKeys(touch.clientX, touch.clientY, newKeys);
         }
 
-        // Determine keys to add and remove
+        // Determine which keys to add or remove
         const keysToAdd = new Set([...newKeys].filter(x => !previousKeys.has(x)));
         const keysToRemove = new Set([...previousKeys].filter(x => !newKeys.has(x)));
 
         // Add new keys
-        keysToAdd.forEach((key) => {
-          if (!activeKeys.has(key)) {
-            activeKeys.add(key);
-            triggerKeyEvent(key, "keydown");
+        keysToAdd.forEach((k) => {
+          if (!activeKeys.has(k)) {
+            activeKeys.add(k);
+            triggerKeyEvent(k, "keydown");
           }
         });
 
         // Remove keys no longer active
-        keysToRemove.forEach((key) => {
-          if (activeKeys.has(key)) {
-            activeKeys.delete(key);
-            triggerKeyEvent(key, "keyup");
+        keysToRemove.forEach((k) => {
+          if (activeKeys.has(k)) {
+            activeKeys.delete(k);
+            triggerKeyEvent(k, "keyup");
           }
         });
 
-        // Update the map
+        // Update map
         touchIdMap.set(touch.identifier, newKeys);
       }
     }
@@ -538,10 +633,10 @@
       for (const touch of touches) {
         const keys = touchIdMap.get(touch.identifier);
         if (keys) {
-          keys.forEach((key) => {
-            if (activeKeys.has(key)) {
-              activeKeys.delete(key);
-              triggerKeyEvent(key, "keyup");
+          keys.forEach((k) => {
+            if (activeKeys.has(k)) {
+              activeKeys.delete(k);
+              triggerKeyEvent(k, "keyup");
             }
           });
           touchIdMap.delete(touch.identifier);
@@ -553,19 +648,25 @@
       handleTouchEnd(event);
     }
 
+    // For multi-touch proximity
     function updateActiveKeys(touchX, touchY, keysToActivate) {
-      const proximityThreshold = 50; // Adjust as needed
-
+      const proximityThreshold = 50; // Adjust if needed
       for (const [control, center] of Object.entries(controlCenters)) {
         const distance = calculateDistance(touchX, touchY, center.x, center.y);
         if (distance <= proximityThreshold) {
-          const key = keyMap[control];
-          if (key) keysToActivate.add(key);
+          const keyOrKeys = keyMap[control];
+          if (keyOrKeys) {
+            if (Array.isArray(keyOrKeys)) {
+              keyOrKeys.forEach(k => keysToActivate.add(k));
+            } else {
+              keysToActivate.add(keyOrKeys);
+            }
+          }
         }
       }
     }
 
-    // Add event listeners for multi-touch handling
+    // Add event listeners for multi-touch
     touchControls.addEventListener("touchstart", handleTouchStart, false);
     touchControls.addEventListener("touchmove", handleTouchMove, false);
     touchControls.addEventListener("touchend", handleTouchEnd, false);
@@ -582,13 +683,13 @@
       event.preventDefault();
     });
 
-    // Ensure controls are visible on touch interactions
+    // Keep controls visible after touch
     document.body.addEventListener("touchstart", () => {
       showControls();
       resetVisibilityTimeout();
     });
-
   </script>
+
   <script type="module" src="/src/app.js"></script>
 </body>
 
