@@ -66,6 +66,13 @@
       z-index: 1000;
       left: 0px;
       top: 0px;
+      background: rgba(0, 0, 0, 0.5); /* Optional: Add a semi-transparent background */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-size: 1.5rem;
+      flex-direction: column;
     }
 
     .touch-controls {
@@ -217,11 +224,34 @@
       font-weight: 400;
       margin-right: 0.5rem;
     }
+
+    /* Start Demo Button Styles */
+    #start_demo {
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      background-color: #28a745; /* Green */
+      color: white;
+      margin-top: 1rem;
+    }
+
+    #start_demo.btn-danger {
+      background-color: #dc3545; /* Red */
+    }
+
+    #start_demo.btn-success {
+      background-color: #28a745; /* Green */
+    }
   </style>
 </head>
 
 <body>
-  <div id="cover"></div>
+  <div id="cover">
+    <div>Initializing Demo...</div>
+    <button id="start_demo" class="btn btn-success" style="display: none;">Start Demo</button>
+  </div>
   <div class="info">
     <div class="text">
       <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
@@ -382,8 +412,13 @@
     // =========== DEMO CONTROL LOGIC ===========
     async function initializeDemo() {
       let isRunning = false;
-      const demoButton = document.getElementById("cover"); // Ensure you have a button with id "start_demo"
+      const cover = document.getElementById("cover");
+      const demoButton = document.getElementById("start_demo"); // Ensure you have a button with id "start_demo"
 
+      if (!cover) {
+        console.error("Cover element not found in the DOM.");
+        return;
+      }
 
       if (!demoButton) {
         console.error('Demo button with id "start_demo" not found in the DOM.');
@@ -395,14 +430,14 @@
           // Stop reading
           window.removeEventListener("devicemotion", handleMotion);
           window.removeEventListener("deviceorientation", handleOrientation);
-          demoButton.innerHTML = "Start demo";
+          demoButton.innerHTML = "Start Demo";
           demoButton.classList.add("btn-success");
           demoButton.classList.remove("btn-danger");
         } else {
           // Start reading
           window.addEventListener("devicemotion", handleMotion);
           window.addEventListener("deviceorientation", handleOrientation);
-          demoButton.innerHTML = "Stop demo";
+          demoButton.innerHTML = "Stop Demo";
           demoButton.classList.remove("btn-success");
           demoButton.classList.add("btn-danger");
         }
@@ -415,20 +450,18 @@
         if (motionGranted || orientationGranted) {
           // Start the demo if at least one permission is granted
           toggleDemo();
+          cover.style.display = "none"; // Hide the cover after starting
         } else {
-          console.warn("Necessary permissions were not granted. Demo will not start.");
+          // Show the fallback button for manual permission request
+          demoButton.style.display = "block";
+          cover.innerHTML = "<div>Please enable sensor permissions to start the demo.</div>";
         }
       }
 
       // Attach event listeners
-      cover.addEventListener("touchstart", (e) => {
+      demoButton.addEventListener("click", async (e) => {
         e.preventDefault();
-        toggleDemo();
-      });
-
-      demoButton.addEventListener("click", (e) => {
-        e.preventDefault();
-        toggleDemo();
+        await autoRequestPermissions();
       });
 
       // Attempt to request permissions automatically
@@ -453,24 +486,6 @@
     <div class="touch-control mic">MIC</div>
     <div class="touch-control backward">S</div>
     <!-- Additional controls as needed -->
-  </div>
-
-
-  <!-- The main 3D or WebXR app container -->
-  <div id="app"></div>
-
-  <!-- MOBILE TOUCH CONTROLS -->
-  <div class="touch-controls" id="touchControls">
-    <div class="touch-control forward">W</div>
-    <div class="touch-control left">A</div>
-    <div class="touch-control right">D</div>
-    <div class="touch-control mic">MIC</div>
-    <div class="touch-control backward">S</div>
-    <!--
-    <div class="touch-control forward-left">W+A</div>
-    <div class="touch-control egg"></div>
-    <div class="touch-control forward-right">W+D</div>
-    -->
   </div>
 
   <!-- Prevent unintended double-taps from zooming on iOS -->
@@ -542,7 +557,7 @@
 
     if (!isMobile) {
       const cover = document.getElementById("cover");
-      cover.remove();
+      if (cover) cover.remove();
     }
     if (isMobile) {
       // Show controls and reset visibility timeout on touch
@@ -767,6 +782,21 @@
       showControls();
       resetVisibilityTimeout();
     });
+
+    function showControls() {
+      touchControls.classList.add("active");
+    }
+
+    function hideControls() {
+      touchControls.classList.remove("active");
+    }
+
+    function resetVisibilityTimeout() {
+      if (visibilityTimeout) {
+        clearTimeout(visibilityTimeout);
+      }
+      visibilityTimeout = setTimeout(hideControls, 10000); // Hide controls after 10s of inactivity
+    }
   </script>
 
   <!-- Main app logic -->
