@@ -32,7 +32,6 @@
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
-      overflow: hidden;
       -webkit-user-select: none;
       /* Disable text selection */
       user-select: none;
@@ -59,20 +58,24 @@
     }
 
     #cover {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
       width: 100vw;
       height: 100vh;
       position: fixed;
       z-index: 1000;
       left: 0px;
       top: 0px;
-      background: rgba(0, 0, 0, 0.5); /* Optional: Add a semi-transparent background */
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      background: rgba(0, 0, 0, 0.8); /* Semi-transparent background */
       color: white;
       font-size: 1.5rem;
-      flex-direction: column;
+      text-align: center;
+    }
+
+    #cover-message {
+      margin-bottom: 1rem;
     }
 
     .touch-controls {
@@ -235,6 +238,7 @@
       background-color: #28a745; /* Green */
       color: white;
       margin-top: 1rem;
+      transition: background-color 0.3s ease;
     }
 
     #start_demo.btn-danger {
@@ -249,7 +253,7 @@
 
 <body>
   <div id="cover">
-    <div>Initializing Demo...</div>
+    <div id="cover-message">Initializing Demo...</div>
     <button id="start_demo" class="btn btn-success" style="display: none;">Start Demo</button>
   </div>
   <div class="info">
@@ -409,11 +413,42 @@
       return { motionGranted, orientationGranted };
     }
 
+    async function requestLocationPermission() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          console.error("Geolocation is not supported by this browser.");
+          resolve(false);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            const dataDiv = document.getElementById("data");
+            if (dataDiv) {
+              dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}<br>` + dataDiv.innerHTML;
+            }
+            resolve(true);
+          },
+          (error) => {
+            console.error("Error getting location:", error);
+            if (error.code === error.PERMISSION_DENIED) {
+              alert("Location permissions denied. Location data will be unavailable.");
+            } else {
+              alert("Unable to retrieve location data.");
+            }
+            resolve(false);
+          }
+        );
+      });
+    }
+
     // =========== DEMO CONTROL LOGIC ===========
     async function initializeDemo() {
       let isRunning = false;
       const cover = document.getElementById("cover");
-      const demoButton = document.getElementById("start_demo"); // Ensure you have a button with id "start_demo"
+      const coverMessage = document.getElementById("cover-message");
+      const demoButton = document.getElementById("start_demo");
 
       if (!cover) {
         console.error("Cover element not found in the DOM.");
@@ -444,24 +479,50 @@
         isRunning = !isRunning;
       }
 
+      // Function to request all permissions
+      async function requestAllPermissions() {
+        const sensorPermissions = await requestSensorPermissions();
+        const locationGranted = await requestLocationPermission();
+
+        return {
+          motionGranted: sensorPermissions.motionGranted,
+          orientationGranted: sensorPermissions.orientationGranted,
+          locationGranted: locationGranted
+        };
+      }
+
       // Automatically request permissions on join
       async function autoRequestPermissions() {
-        const { motionGranted, orientationGranted } = await requestSensorPermissions();
-        if (motionGranted || orientationGranted) {
+        coverMessage.innerHTML = "Initializing Demo...";
+        const permissions = await requestAllPermissions();
+
+        if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
           // Start the demo if at least one permission is granted
           toggleDemo();
           cover.style.display = "none"; // Hide the cover after starting
         } else {
           // Show the fallback button for manual permission request
+          coverMessage.innerHTML = "Please enable sensor and location permissions to start the demo.";
           demoButton.style.display = "block";
-          cover.innerHTML = "<div>Please enable sensor permissions to start the demo.</div>";
         }
       }
 
-      // Attach event listeners
+      // Attach event listeners to the Start Demo button
       demoButton.addEventListener("click", async (e) => {
         e.preventDefault();
-        await autoRequestPermissions();
+        // Reset cover message and hide the button before requesting again
+        coverMessage.innerHTML = "Requesting permissions...";
+        demoButton.style.display = "none";
+        const permissions = await requestAllPermissions();
+
+        if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+          toggleDemo();
+          cover.style.display = "none"; // Hide the cover after starting
+        } else {
+          // Permissions still not granted
+          coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
+          demoButton.style.display = "block";
+        }
       });
 
       // Attempt to request permissions automatically
@@ -470,7 +531,7 @@
 
     // =========== INITIALIZATION ===========
     document.addEventListener("DOMContentLoaded", () => {
-      initializeGeolocation();
+      initializeGeolocation(); // Initial location request
       initializeDemo();
     });
   </script>
