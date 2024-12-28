@@ -58,8 +58,18 @@
       user-select: none;
     }
 
+    #cover {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      z-index: 1000;
+      left: 0px;
+      top: 0px;
+    }
+
     .touch-controls {
-      display: none!important;
+      display: none !important;
       position: absolute;
       width: 100vw;
       height: 100vh;
@@ -167,12 +177,14 @@
         opacity: 1;
         z-index: 99;
       }
+
       80% {
         display: flex;
         backdrop-filter: blur(15px);
         opacity: 1;
         z-index: 99;
       }
+
       100% {
         display: flex;
         backdrop-filter: blur(10px);
@@ -186,8 +198,8 @@
       top: 10px;
       left: 10px;
       color: white;
-      opacity: 0.1;
-      font-size: 1rem;
+      opacity: 1;
+      font-size: 0.8rem;
       font-family: "Rajdhani", sans-serif;
     }
 
@@ -195,8 +207,12 @@
     .sensor-readouts {
       opacity: 0.9;
       margin-top: 0rem;
-      display:flex;flex-flow:column;
     }
+
+    .sensor-readouts p {
+      margin: unset !important;
+    }
+
     .sensor-label {
       font-weight: 400;
       margin-right: 0.5rem;
@@ -205,6 +221,7 @@
 </head>
 
 <body>
+  <div id="cover"></div>
   <div class="info">
     <div class="text">
       <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
@@ -234,26 +251,25 @@
   <div class="data" id="data">
     Location: N/A
     <div class="sensor-readouts">
-      <span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span>
-      <span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span>
-      <span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span>
+      <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
+      <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
+      <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
       <hr>
-      <span class="sensor-label">Acc. + Gravity X:</span> <span id="Accelerometer_gx">N/A</span>
-      <span class="sensor-label">Acc. + Gravity Y:</span> <span id="Accelerometer_gy">N/A</span>
-      <span class="sensor-label">Acc. + Gravity Z:</span> <span id="Accelerometer_gz">N/A</span>
+      <p><span class="sensor-label">Acc. + Gravity X:</span> <span id="Accelerometer_gx">N/A</span></p>
+      <p><span class="sensor-label">Acc. + Gravity Y:</span> <span id="Accelerometer_gy">N/A</span></p>
+      <p><span class="sensor-label">Acc. + Gravity Z:</span> <span id="Accelerometer_gz">N/A</span></p>
       <hr>
-      <span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span>
-      <span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span>
-      <span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span>
+      <p><span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span></p>
+      <p><span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span></p>
+      <p><span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span></p>
       <hr>
-      <span class="sensor-label">Interval (ms):</span> <span id="Accelerometer_i">N/A</span>
+      <p><span class="sensor-label">Interval (ms):</span> <span id="Accelerometer_i">N/A</span></p>
       <hr>
-      <span class="sensor-label">Gyro alpha (Z):</span> <span id="Gyroscope_z">N/A</span>
-      <span class="sensor-label">Gyro beta (X):</span> <span id="Gyroscope_x">N/A</span>
-      <span class="sensor-label">Gyro gamma (Y):</span> <span id="Gyroscope_y">N/A</span>
+      <p><span class="sensor-label">Gyro alpha (Z):</span> <span id="Gyroscope_z">N/A</span></p>
+      <p><span class="sensor-label">Gyro beta (X):</span> <span id="Gyroscope_x">N/A</span></p>
+      <p><span class="sensor-label">Gyro gamma (Y):</span> <span id="Gyroscope_y">N/A</span></p>
       <hr>
-      <span class="sensor-label">Total Events:</span> <span id="num-observed-events">0</span>
-      <button id="start_demo" class="btn-success">Start demo</button>
+      <p><span class="sensor-label">Total Events:</span> <span id="num-observed-events">0</span></p>
     </div>
   </div>
 
@@ -324,9 +340,9 @@
     }
 
     let is_running = false;
-    let demo_button = document.getElementsByTagName("body");
+    let cover = document.getElementById("cover");
 
-    demo_button.ontouchstart = async function(e) {
+    cover.ontouchstart = async function (e) {
       e.preventDefault();
 
       // Request permission for iOS 13+ devices:
@@ -390,7 +406,7 @@
   <!-- Prevent unintended double-taps from zooming on iOS -->
   <script>
     let lastTouchTime = 0;
-    document.addEventListener('touchend', function(event) {
+    document.addEventListener('touchend', function (event) {
       const currentTime = Date.now();
       if (currentTime - lastTouchTime < 300) { // 300ms threshold for double-tap
         event.preventDefault();
