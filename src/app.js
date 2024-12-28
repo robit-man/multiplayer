@@ -673,6 +673,9 @@ function moveLocalCharacterDesktop (delta) {
 // VR Movement
 // ------------------------------
 
+// ------------------------------
+// VR Movement
+// ------------------------------
 function handleVRMovement(delta) {
     const session = renderer.xr.getSession();
     if (!session || !localModel) return;
@@ -704,8 +707,9 @@ function handleVRMovement(delta) {
                 setLocalAction('idle');
             }
 
-            // You can incorporate run logic via a button check:
-            // e.g. isRunning = buttons[1].pressed
+            // Incorporate run logic via a button check:
+            // e.g., isRunning = buttons[1].pressed (typically the trigger)
+            isRunning = buttons[1]?.pressed || false;
 
             const speed = isRunning ? runSpeed : walkSpeed;
 
@@ -725,12 +729,12 @@ function handleVRMovement(delta) {
             // Move the local model
             localModel.position.add(movement);
 
-            // Reposition camera above localModel, if desired
-            const cameraOffset = new THREE.Vector3(0, 2, 0);
+            // Reposition camera above localModel
+            const cameraOffset = new THREE.Vector3(0, 1.7, 0);
             camera.position.copy(localModel.position).add(cameraOffset);
 
             // Broadcast
-            socket.emit('move', {
+            emitMovementIfChanged({
                 x: localModel.position.x,
                 z: localModel.position.z,
                 rotation: getCameraYaw(),
@@ -751,11 +755,10 @@ function handleVRMovement(delta) {
                 // Rotate localModel
                 if (localModel) {
                     localModel.rotation.y -= turnAmount; 
-                    // (negative sign so that pushing right rotates user to the right, 
-                    // but adjust to taste)
+                    // (negative sign so that pushing right rotates user to the right, adjust if necessary)
                 }
                 // If you want to broadcast orientation:
-                socket.emit('move', {
+                emitMovementIfChanged({
                     x: localModel.position.x,
                     z: localModel.position.z,
                     rotation: localModel.rotation.y,
@@ -765,6 +768,7 @@ function handleVRMovement(delta) {
         }
     }
 }
+
 
 // Teleport intersection + marker
 function checkTeleportIntersections() {
@@ -801,6 +805,7 @@ function checkTeleportIntersections() {
         }
     });
 }
+
 
 // ------------------------------
 // getCameraYaw() - Helper to retrieve camera's yaw
