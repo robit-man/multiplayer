@@ -44,12 +44,12 @@ let strafeLeft = false;
 let strafeRight = false;
 let isRunning = false;
 
-// Mouse look
-let yaw = 0;
-let pitch = 0;
+// Mouse look (desktop)
+let yaw = 0;     // Horizontal rotation (around Y-axis)
+let pitch = 0;   // Vertical rotation (around X-axis)
 const mouseSensitivity = 0.002;
-const pitchMin = -Math.PI / 2 + 0.01;
-const pitchMax = Math.PI / 2 - 0.01;
+const pitchMin = -Math.PI / 2 + 0.01;  // Slightly above -90°
+const pitchMax =  Math.PI / 2 - 0.01;  // Slightly below +90°
 
 // VR Teleport
 let baseReferenceSpace = null;
@@ -100,18 +100,18 @@ let lastSaveTime = 0;
 const SAVE_INTERVAL = 1000; // only save at most once per second
 let lastSavedPos = { x: null, z: null, rotation: null };
 
-// app.js
-
-// Define a global orientationData object
+// ------------------------------
+// Device Orientation Data
+// ------------------------------
 window.orientationData = {
-    alpha: 0,
-    beta: 0,
-    gamma: 0
+    alpha: 0, // Yaw-like angle (degrees)
+    beta: 0,  // Pitch-like angle (degrees)
+    gamma: 0  // Roll-like angle (degrees) - typically unused here
 };
 
-// app.js
-
+// ------------------------------
 // Initialize Sensor Listeners
+// ------------------------------
 function initializeSensorListeners() {
     if (window.appPermissions && window.appPermissions.orientationGranted) {
         window.addEventListener("deviceorientation", handleOrientation);
@@ -123,27 +123,54 @@ function initializeSensorListeners() {
     }
 }
 
-
-
+// ------------------------------
 // Device Orientation Handler
+// ------------------------------
 function handleOrientation(event) {
     if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
     window.isOrientationEnabled = true;
 
-    // Update orientationData
-    window.orientationData.alpha = event.alpha || 0;
-    window.orientationData.beta = event.beta || 0;
-    window.orientationData.gamma = event.gamma || 0;
+    // Read raw device orientation (in degrees)
+    const { alpha = 0, beta = 0, gamma = 0 } = event;
 
-    // Update DOM elements
-    updateFieldIfNotNull("Orientation_a", window.orientationData.alpha, 2);
-    updateFieldIfNotNull("Orientation_b", window.orientationData.beta, 2);
-    updateFieldIfNotNull("Orientation_g", window.orientationData.gamma, 2);
+    // Update orientationData
+    window.orientationData.alpha = alpha;
+    window.orientationData.beta  = beta;
+    window.orientationData.gamma = gamma;
+
+    // Update UI for debugging
+    updateFieldIfNotNull("Orientation_a", alpha, 2); // Display in degrees for clarity
+    updateFieldIfNotNull("Orientation_b", beta, 2);
+    updateFieldIfNotNull("Orientation_g", gamma, 2);
 
     incrementEventCount();
 }
 
+// ------------------------------
+// Device Motion Handler
+// ------------------------------
+function handleMotion(event) {
+    if (!window.appPermissions || !window.appPermissions.motionGranted) return;
 
+    if (event.accelerationIncludingGravity) {
+        updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x, 2);
+        updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y, 2);
+        updateFieldIfNotNull("Accelerometer_gz", event.accelerationIncludingGravity.z, 2);
+    }
+    if (event.acceleration) {
+        updateFieldIfNotNull("Accelerometer_x", event.acceleration.x, 2);
+        updateFieldIfNotNull("Accelerometer_y", event.acceleration.y, 2);
+        updateFieldIfNotNull("Accelerometer_z", event.acceleration.z, 2);
+    }
+    if (event.rotationRate) {
+        updateFieldIfNotNull("Gyroscope_z", event.rotationRate.alpha, 2);
+        updateFieldIfNotNull("Gyroscope_x", event.rotationRate.beta, 2);
+        updateFieldIfNotNull("Gyroscope_y", event.rotationRate.gamma, 2);
+    }
+    updateFieldIfNotNull("Accelerometer_i", event.interval, 2);
+
+    incrementEventCount();
+}
 
 // ------------------------------
 // Initialize + Animate
@@ -219,40 +246,39 @@ function init() {
     markerMesh.visible = false;
     scene.add(markerMesh);
 
+    // Pointer Lock Controls (Desktop)
     controls = new PointerLockControls(camera, document.body);
 
     const instructions = document.getElementById('app');
     instructions.addEventListener('click', function () {
         controls.lock();
     });
-
     scene.add(controls.object);
 
+    // Load saved camera position if available
     const savedCam = loadPositionFromLocalStorage();
     if (savedCam) {
         console.log('Loaded camera from localStorage:', savedCam);
-        // Place camera
         camera.position.set(savedCam.x, savedCam.y, savedCam.z);
-        // If you only stored yaw, set it with an Euler
-        camera.rotation.set(0, savedCam.rotation, 0);
+        camera.rotation.set(0, savedCam.rotation, 0); // Set only yaw; pitch remains as updated via device orientation
     } else {
         console.log('No saved camera location, using defaults...');
     }
 
-    // VR controllers
+    // Setup VR controllers
     setupVRControllers();
 
     // Generate terrain
     generateTerrain();
 
-    // Load local avatar
+    // Load local avatar (3D model)
     loadLocalModel();
 
-    // Keyboard events
+    // Keyboard events (Desktop)
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
-    // Mouse pointer lock
+    // Enable pointer lock (Desktop)
     enablePointerLock();
 
     // Window resize
@@ -261,7 +287,7 @@ function init() {
     // Socket setup
     setupSocketEvents();
 
-    // Clock
+    // Clock for animations
     clock = new THREE.Clock();
 
     // Audio context on user interaction
@@ -270,6 +296,9 @@ function init() {
 
     // Save local position on unload
     window.addEventListener('beforeunload', savePositionToLocalStorage);
+
+    // Check and initialize sensor listeners based on permissions
+    checkPermissions();
 }
 
 // ------------------------------
@@ -278,12 +307,12 @@ function init() {
 function savePositionToLocalStorage() {
     if (!camera) return;
 
-    // Grab camera position
+    // Grab camera position and yaw
     const pos = {
         x: camera.position.x,
         y: camera.position.y, // optional if you also care about vertical
         z: camera.position.z,
-        rotation: getCameraYaw() // we can store only the yaw portion
+        rotation: getCameraYaw() // yaw in radians
     };
 
     localStorage.setItem(LS_POS_KEY, JSON.stringify(pos));
@@ -348,7 +377,7 @@ function enablePointerLock() {
             pitch -= e.movementY * mouseSensitivity;
             if (pitch < pitchMin) pitch = pitchMin;
             if (pitch > pitchMax) pitch = pitchMax;
-            console.log(pitch);
+            console.log(`Pitch: ${THREE.MathUtils.radToDeg(pitch).toFixed(2)}°, Yaw: ${THREE.MathUtils.radToDeg(yaw).toFixed(2)}°`);
 
             // Update camera rotation
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
@@ -495,43 +524,43 @@ function moveLocalCharacterDesktop(delta) {
 
     const speed = isRunning ? runSpeed : walkSpeed;
     const forwardVec = new THREE.Vector3();
-    const rightVec = new THREE.Vector3();
+    const rightVec   = new THREE.Vector3();
 
-    // Camera's yaw
+    // cameraYaw from camera's quaternion
     const cameraYaw = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ').y;
 
-    // Forward / Right relative to camera
     forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0));
     rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0));
 
     const movement = new THREE.Vector3();
-    if (moveForward) movement.add(forwardVec);
+    if (moveForward)  movement.add(forwardVec);
     if (moveBackward) movement.sub(forwardVec);
-    if (strafeLeft) movement.sub(rightVec);
-    if (strafeRight) movement.add(rightVec);
+    if (strafeLeft)   movement.sub(rightVec);
+    if (strafeRight)  movement.add(rightVec);
 
     if (movement.length() > 0) {
         movement.normalize().multiplyScalar(speed * delta);
         localModel.position.add(movement);
+
+        // Keep camera ~1.7m above player
         const cameraOffset = new THREE.Vector3(0, 1.7, 0);
         camera.position.copy(localModel.position.clone().add(cameraOffset));
     }
 
-    // Face the camera direction (adjusted)
+    // Local model faces camera direction
     localModel.rotation.y = (cameraYaw + Math.PI) % (Math.PI * 2);
-
     maybeSavePositionToLocalStorage();
 
-    // Include myId
+    // Broadcast movement
+    const newAction = movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle';
     emitMovementIfChanged({
         x: localModel.position.x,
         z: localModel.position.z,
         rotation: localModel.rotation.y,
-        action: movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle'
+        action: newAction
     });
 
     // Trigger animations
-    const newAction = movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle';
     if (currentAction !== newAction) {
         setLocalAction(newAction);
         currentAction = newAction;
@@ -545,6 +574,7 @@ function handleVRMovement(delta) {
     const session = renderer.xr.getSession();
     if (!session || !localModel) return;
 
+    // Attempt to read from gamepad for movement
     for (const source of session.inputSources) {
         if (!source.gamepad) continue;
         if (source.handedness === 'left') {
@@ -563,7 +593,7 @@ function handleVRMovement(delta) {
                 const curSpeed = isRunning ? runSpeed : walkSpeed;
                 localModel.position.addScaledVector(cameraDirection, moveZ * curSpeed * delta);
 
-                // keep camera with localModel
+                // Keep camera with localModel
                 const cameraOffset = new THREE.Vector3(0, 1.7, 0);
                 camera.position.copy(localModel.position).add(cameraOffset);
 
@@ -610,6 +640,9 @@ function checkTeleportIntersections() {
     });
 }
 
+// ------------------------------
+// getCameraYaw() - Helper to retrieve camera's yaw
+// ------------------------------
 function getCameraYaw() {
     const euler = new THREE.Euler();
     euler.setFromQuaternion(camera.quaternion, 'YXZ');
@@ -630,24 +663,24 @@ function emitMovementIfChanged(newState) {
     }
 }
 
-
-// app.js
-
 // ------------------------------
 // Render loop
 // ------------------------------
 function animate() {
-    
     renderer.setAnimationLoop(() => {
         const delta = clock.getDelta();
-        if (localMixer) localMixer.update(delta);
 
-        // Update camera orientation based on device orientation
+        // Update local animations
+        if (localMixer) {
+            localMixer.update(delta);
+        }
+
+        // If device orientation is enabled, update camera orientation from alpha/beta
         if (window.isOrientationEnabled) {
             updateCameraOrientation();
         }
 
-        // VR or Desktop
+        // VR or Desktop movement
         if (renderer.xr.isPresenting) {
             handleVRMovement(delta);
             checkTeleportIntersections();
@@ -655,6 +688,8 @@ function animate() {
             // Make the local model follow the camera
             localModel.position.lerp(camera.position.clone().setY(0), 0.1);
             localModel.rotation.y = camera.rotation.y;
+
+            // Desktop movement
             moveLocalCharacterDesktop(delta);
         }
 
@@ -667,42 +702,37 @@ function animate() {
     });
 }
 
-
-
-
-
-// =========== ORIENTATION HANDLERS ===========
-function updateFieldIfNotNullInternal(fieldName, value, precision = 10) {
-    const field = document.getElementById(fieldName);
-    if (field && value != null) {
-        field.innerHTML = value.toFixed(precision);
-    }
-}
-
 // ------------------------------
 // Update Camera Orientation Based on Device Orientation
 // ------------------------------
 function updateCameraOrientation() {
-    const alpha = THREE.MathUtils.degToRad(window.orientationData.alpha || 0);
-    const beta = THREE.MathUtils.degToRad(window.orientationData.beta || 0);
+    const alphaDeg = window.orientationData.alpha || 0;   // 0..360 degrees
+    const betaDeg  = window.orientationData.beta  || 0;   // -180..180 degrees
 
-    // Update existing DOM elements
-    updateFieldIfNotNull("Orientation_a", alpha, 2);
-    updateFieldIfNotNull("Orientation_b", beta, 2);
-    // If you have Orientation_g, update it as needed
-    updateFieldIfNotNull("Orientation_g", THREE.MathUtils.degToRad(window.orientationData.gamma || 0), 2);
+    // Convert to radians
+    const alphaRad = THREE.MathUtils.degToRad(alphaDeg);
+    const betaRad  = THREE.MathUtils.degToRad(betaDeg);
+
+    // Debugging output: show alpha/beta in degrees
+    // Optionally, comment out in production
+    console.log(`Device Orientation - Alpha: ${alphaDeg.toFixed(2)}°, Beta: ${betaDeg.toFixed(2)}°, Yaw: ${THREE.MathUtils.radToDeg(alphaRad).toFixed(2)}°, Pitch: ${THREE.MathUtils.radToDeg(betaRad - Math.PI / 2).toFixed(2)}°`);
 
     // Calculate pitch based on beta
-    const pitchAngle = THREE.MathUtils.clamp(beta - Math.PI / 2, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
+    // When beta = 90 degrees, pitch = 0 (device upright)
+    const pitchAngle = THREE.MathUtils.clamp(
+        betaRad - Math.PI / 2,
+        pitchMin,  // ~ -1.56 radians (-89.4 degrees)
+        pitchMax   // ~ +1.56 radians (+89.4 degrees)
+    );
 
-    // Update yaw and pitch
-    yaw = alpha;
+    // Yaw is alpha radians
+    yaw = alphaRad;
+
     pitch = pitchAngle;
 
     // Update camera rotation
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
 }
-
 
 // ------------------------------
 // Load local model
@@ -1120,10 +1150,8 @@ function removeRemotePlayer(id) {
 
 function updatePlayers(playersData) {
     Object.keys(playersData).forEach((id) => {
-        //console.log(playersData[id].localId)
         if (playersData[id].localId === myId) return;
         addOrUpdatePlayer(id, playersData[id]);
-
     });
     Object.keys(players).forEach((id) => {
         if (!playersData[id]) {
@@ -1308,7 +1336,6 @@ function checkPermissions() {
     }
 }
 
-
 // Example functions to enable/disable features based on permissions
 function enableMotionFeatures() {
     // Add or activate motion-related event listeners or controls
@@ -1348,9 +1375,6 @@ function disableLocationFeatures() {
 window.addEventListener('appPermissionsChanged', () => {
     checkPermissions();
 });
-
-// Initial check (if permissions are already set)
-checkPermissions();
 
 // ------------------------------
 // Swipe Gesture Controls Integration
