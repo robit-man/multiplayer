@@ -892,6 +892,7 @@ function animate () {
     //renderer.render()
 
     composer.render(scene, camera);
+    renderer.render(scene, camera);
 
   })
 }
