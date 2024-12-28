@@ -194,7 +194,8 @@
     /* Optional clearer styling for new sensor readouts */
     .sensor-readouts {
       opacity: 0.9;
-      margin-top: 1rem;
+      margin-top: 0rem;
+      display:flex;flex-flow:column;
     }
     .sensor-label {
       font-weight: 400;
@@ -233,25 +234,25 @@
   <div class="data" id="data">
     Location: N/A
     <div class="sensor-readouts">
-      <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
-      <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
-      <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
+      <span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span>
+      <span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span>
+      <span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span>
       <hr>
-      <p><span class="sensor-label">Acc. + Gravity X:</span> <span id="Accelerometer_gx">N/A</span></p>
-      <p><span class="sensor-label">Acc. + Gravity Y:</span> <span id="Accelerometer_gy">N/A</span></p>
-      <p><span class="sensor-label">Acc. + Gravity Z:</span> <span id="Accelerometer_gz">N/A</span></p>
+      <span class="sensor-label">Acc. + Gravity X:</span> <span id="Accelerometer_gx">N/A</span>
+      <span class="sensor-label">Acc. + Gravity Y:</span> <span id="Accelerometer_gy">N/A</span>
+      <span class="sensor-label">Acc. + Gravity Z:</span> <span id="Accelerometer_gz">N/A</span>
       <hr>
-      <p><span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span></p>
-      <p><span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span></p>
-      <p><span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span></p>
+      <span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span>
+      <span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span>
+      <span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span>
       <hr>
-      <p><span class="sensor-label">Interval (ms):</span> <span id="Accelerometer_i">N/A</span></p>
+      <span class="sensor-label">Interval (ms):</span> <span id="Accelerometer_i">N/A</span>
       <hr>
-      <p><span class="sensor-label">Gyro alpha (Z):</span> <span id="Gyroscope_z">N/A</span></p>
-      <p><span class="sensor-label">Gyro beta (X):</span> <span id="Gyroscope_x">N/A</span></p>
-      <p><span class="sensor-label">Gyro gamma (Y):</span> <span id="Gyroscope_y">N/A</span></p>
+      <span class="sensor-label">Gyro alpha (Z):</span> <span id="Gyroscope_z">N/A</span>
+      <span class="sensor-label">Gyro beta (X):</span> <span id="Gyroscope_x">N/A</span>
+      <span class="sensor-label">Gyro gamma (Y):</span> <span id="Gyroscope_y">N/A</span>
       <hr>
-      <p><span class="sensor-label">Total Events:</span> <span id="num-observed-events">0</span></p>
+      <span class="sensor-label">Total Events:</span> <span id="num-observed-events">0</span>
       <button id="start_demo" class="btn-success">Start demo</button>
     </div>
   </div>
@@ -323,9 +324,9 @@
     }
 
     let is_running = false;
-    let demo_button = document.getElementById("start_demo");
+    let demo_button = document.getElementsByTagName("body");
 
-    demo_button.onclick = async function(e) {
+    demo_button.ontouchstart = async function(e) {
       e.preventDefault();
 
       // Request permission for iOS 13+ devices:
