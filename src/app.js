@@ -321,8 +321,31 @@ function init () {
   // Generate terrain
   generateTerrain()
 
-  // Load local avatar (3D model)
-  loadLocalModel()
+ // Detect if the browser supports WebXR and has VR capabilities
+ if (navigator.xr) {
+    navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+      if (!supported) {
+        // If VR is not supported, load the local model
+        loadLocalModel()
+      } else {
+        console.log('VR is supported. Local model will not be loaded initially.')
+      }
+    })
+  } else {
+    // If WebXR is not available, load the local model
+    loadLocalModel()
+  }
+
+  // Add event listeners for VR session start and end
+  renderer.xr.addEventListener('sessionstart', () => {
+    console.log('VR session started.')
+    unloadLocalModel()
+  })
+
+  renderer.xr.addEventListener('sessionend', () => {
+    console.log('VR session ended.')
+    loadLocalModel()
+  })
 
   // Keyboard events (Desktop)
   document.addEventListener('keydown', onKeyDown)
@@ -917,52 +940,74 @@ function updateCameraOrientation () {
 // Load local model
 // ------------------------------
 function loadLocalModel () {
-  const spawnData = loadPositionFromLocalStorage()
-  let finalSpawn = spawnData
-
-  if (!finalSpawn) {
-    finalSpawn = getRandomSpawnPoint()
-    console.log('No saved position found; using random spawn:', finalSpawn)
-  } else {
-    console.log('Loaded saved position from localStorage:', finalSpawn)
+    // Check if a VR session is active; if so, do not load the local model
+    if (renderer.xr.isPresenting) {
+      console.log('VR session active. Skipping loading of local model to prevent camera obstruction.')
+      return
+    }
+  
+    const spawnData = loadPositionFromLocalStorage()
+    let finalSpawn = spawnData
+  
+    if (!finalSpawn) {
+      finalSpawn = getRandomSpawnPoint()
+      console.log('No saved position found; using random spawn:', finalSpawn)
+    } else {
+      console.log('Loaded saved position from localStorage:', finalSpawn)
+    }
+  
+    const loader = new GLTFLoader()
+    loader.load(
+      modelPath,
+      gltf => {
+        localModel = gltf.scene
+        localModel.position.set(finalSpawn.x, 0, finalSpawn.z)
+        localModel.rotation.y = finalSpawn.rotation || 0
+  
+        scene.add(localModel)
+  
+        localModel.traverse(obj => {
+          if (obj.isMesh) obj.castShadow = true
+        })
+  
+        // Setup localMixer
+        localMixer = new THREE.AnimationMixer(localModel)
+        gltf.animations.forEach(clip => {
+          const action = localMixer.clipAction(clip)
+          action.loop = THREE.LoopRepeat
+          localActions[clip.name] = action
+          if (clip.name === 'idle') action.play()
+        })
+  
+        // Finally, inform server
+        socket.emit('player_joined', {
+          x: finalSpawn.x,
+          z: finalSpawn.z,
+          rotation: finalSpawn.rotation,
+          action: 'idle',
+          id: myId // include localStorage ID
+        })
+      },
+      undefined,
+      err => console.error('Error loading local model:', err)
+    )
   }
 
-  const loader = new GLTFLoader()
-  loader.load(
-    modelPath,
-    gltf => {
-      localModel = gltf.scene
-      localModel.position.set(finalSpawn.x, 0, finalSpawn.z)
-      localModel.rotation.y = finalSpawn.rotation || 0
-
-      //scene.add(localModel)
-
+// ------------------------------
+// Unload local model
+// ------------------------------
+function unloadLocalModel () {
+    if (localModel) {
+      scene.remove(localModel)
       localModel.traverse(obj => {
-        if (obj.isMesh) obj.castShadow = true
+        if (obj.isMesh) obj.castShadow = false
       })
-
-      // Setup localMixer
-      localMixer = new THREE.AnimationMixer(localModel)
-      gltf.animations.forEach(clip => {
-        const action = localMixer.clipAction(clip)
-        action.loop = THREE.LoopRepeat
-        localActions[clip.name] = action
-        if (clip.name === 'idle') action.play()
-      })
-
-      // Finally, inform server
-      socket.emit('player_joined', {
-        x: finalSpawn.x,
-        z: finalSpawn.z,
-        rotation: finalSpawn.rotation,
-        action: 'idle',
-        id: myId // include localStorage ID
-      })
-    },
-    undefined,
-    err => console.error('Error loading local model:', err)
-  )
-}
+      localModel = null
+      localMixer = null
+      localActions = {}
+      console.log('Local model unloaded.')
+    }
+  }
 
 // ------------------------------
 // Terrain
