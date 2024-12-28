@@ -188,6 +188,15 @@
 
       }
     }
+    .data {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      opacity:0.1;
+      font-size: 1rem;
+      font-family: "Rajdhani", sans-serif;
+    }
   </style>
 </head>
 
@@ -218,6 +227,63 @@
 
     </div>
   </div>
+
+
+
+  <div class="data" id="data">Orientation: N/A<br>Location: N/A</div>
+
+  <script>
+    const infoDiv = document.getElementById('data');
+
+    // Request device orientation permission
+    async function enableOrientation() {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission === 'granted') {
+            window.addEventListener('deviceorientation', updateOrientation);
+          } else {
+            infoDiv.innerHTML = 'Orientation: Permission Denied';
+          }
+        } catch (err) {
+          console.error('Error requesting orientation permission:', err);
+        }
+      } else {
+        window.addEventListener('deviceorientation', updateOrientation);
+      }
+    }
+
+    // Request geolocation permission
+    function enableLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            infoDiv.innerHTML += `<br>Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          },
+          (err) => {
+            infoDiv.innerHTML += '<br>Location: Permission Denied';
+            console.error('Error getting location:', err);
+          }
+        );
+      } else {
+        infoDiv.innerHTML += '<br>Location: Not Supported';
+      }
+    }
+
+    // Update orientation data
+    function updateOrientation(event) {
+      const { alpha, beta, gamma } = event;
+      infoDiv.innerHTML = `Orientation: <br>
+        Alpha (Z-axis): ${alpha ? alpha.toFixed(2) : 'N/A'}<br>
+        Beta (X-axis): ${beta ? beta.toFixed(2) : 'N/A'}<br>
+        Gamma (Y-axis): ${gamma ? gamma.toFixed(2) : 'N/A'}`;
+    }
+
+    // Request permissions on load
+    enableOrientation();
+    enableLocation();
+  </script>
   <div id="app"></div>
 
   <div class="touch-controls" id="touchControls">
