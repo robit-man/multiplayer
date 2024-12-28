@@ -100,12 +100,50 @@ let lastSaveTime = 0;
 const SAVE_INTERVAL = 1000; // only save at most once per second
 let lastSavedPos = { x: null, z: null, rotation: null };
 
-// Orientation Data
-let orientationData = {
+// app.js
+
+// Define a global orientationData object
+window.orientationData = {
     alpha: 0,
     beta: 0,
     gamma: 0
 };
+
+// app.js
+
+// Initialize Sensor Listeners
+function initializeSensorListeners() {
+    if (window.appPermissions && window.appPermissions.orientationGranted) {
+        window.addEventListener("deviceorientation", handleOrientation);
+        console.log("DeviceOrientation event listener added.");
+    }
+    if (window.appPermissions && window.appPermissions.motionGranted) {
+        window.addEventListener("devicemotion", handleMotion);
+        console.log("DeviceMotion event listener added.");
+    }
+}
+
+
+
+// Device Orientation Handler
+function handleOrientation(event) {
+    if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
+    window.isOrientationEnabled = true;
+
+    // Update orientationData
+    window.orientationData.alpha = event.alpha || 0;
+    window.orientationData.beta = event.beta || 0;
+    window.orientationData.gamma = event.gamma || 0;
+
+    // Update DOM elements
+    updateFieldIfNotNull("Orientation_a", window.orientationData.alpha, 2);
+    updateFieldIfNotNull("Orientation_b", window.orientationData.beta, 2);
+    updateFieldIfNotNull("Orientation_g", window.orientationData.gamma, 2);
+
+    incrementEventCount();
+}
+
+
 
 // ------------------------------
 // Initialize + Animate
@@ -592,10 +630,14 @@ function emitMovementIfChanged(newState) {
     }
 }
 
+
+// app.js
+
 // ------------------------------
 // Render loop
 // ------------------------------
 function animate() {
+    
     renderer.setAnimationLoop(() => {
         const delta = clock.getDelta();
         if (localMixer) localMixer.update(delta);
@@ -627,6 +669,8 @@ function animate() {
 
 
 
+
+
 // =========== ORIENTATION HANDLERS ===========
 function updateFieldIfNotNullInternal(fieldName, value, precision = 10) {
     const field = document.getElementById(fieldName);
@@ -639,20 +683,14 @@ function updateFieldIfNotNullInternal(fieldName, value, precision = 10) {
 // Update Camera Orientation Based on Device Orientation
 // ------------------------------
 function updateCameraOrientation() {
-    // Use the orientationData to update camera rotation
-    // Alpha (Z) is Yaw (rotation around Y-axis)
-    // Beta (X) is Pitch (rotation around X-axis)
-    // Mapping:
-    // - Beta = 90° → Pitch = 0° (Looking Forward)
-    // - Beta > 90° → Pitch increases (Looking Up)
-    // - Beta < 90° → Pitch decreases (Looking Down)
+    const alpha = THREE.MathUtils.degToRad(window.orientationData.alpha || 0);
+    const beta = THREE.MathUtils.degToRad(window.orientationData.beta || 0);
 
-    const alpha = THREE.MathUtils.degToRad(orientationData.alpha || 0);
-    const beta = THREE.MathUtils.degToRad(orientationData.beta || 0);
-
-    updateFieldIfNotNullInternal("Orientation_a2", alpha);
-    updateFieldIfNotNullInternal("Orientation_b2", beta);
-    // Gamma (Y) is Roll, which we are ignoring for camera orientation
+    // Update existing DOM elements
+    updateFieldIfNotNull("Orientation_a", alpha, 2);
+    updateFieldIfNotNull("Orientation_b", beta, 2);
+    // If you have Orientation_g, update it as needed
+    updateFieldIfNotNull("Orientation_g", THREE.MathUtils.degToRad(window.orientationData.gamma || 0), 2);
 
     // Calculate pitch based on beta
     const pitchAngle = THREE.MathUtils.clamp(beta - Math.PI / 2, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
@@ -664,6 +702,7 @@ function updateCameraOrientation() {
     // Update camera rotation
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
 }
+
 
 // ------------------------------
 // Load local model
@@ -1231,22 +1270,17 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// ------------------------------
-// Accessing Global Permissions
-// ------------------------------
+// Check Permissions and Initialize Listeners
 function checkPermissions() {
     if (window.appPermissions) {
         const { motionGranted, orientationGranted, locationGranted } = window.appPermissions;
         console.log('Accessing Global Permissions:', window.appPermissions);
 
-        // Example: Modify behavior based on permissions
+        // Modify behavior based on permissions
         if (motionGranted) {
-            // Enable motion-related features
             console.log('Motion permissions granted.');
-            // For example, ensure event listeners are active
             enableMotionFeatures();
         } else {
-            // Disable or adjust motion-related features
             console.log('Motion permissions denied.');
             disableMotionFeatures();
         }
@@ -1266,10 +1300,14 @@ function checkPermissions() {
             console.log('Location permissions denied.');
             disableLocationFeatures();
         }
+
+        // Initialize sensor listeners after checking permissions
+        initializeSensorListeners();
     } else {
         console.log('Permissions not yet set.');
     }
 }
+
 
 // Example functions to enable/disable features based on permissions
 function enableMotionFeatures() {
