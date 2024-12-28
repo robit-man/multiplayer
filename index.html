@@ -470,6 +470,10 @@
     const touchControls = document.getElementById("touchControls");
     let visibilityTimeout;
 
+    if (!isMobile) {
+      const cover = document.getElementById("cover");
+      cover.remove();
+    }
     if (isMobile) {
       // Show controls and reset visibility timeout on touch
       document.body.addEventListener("touchstart", () => {
