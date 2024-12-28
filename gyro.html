@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gyroscope Test</title>
+</head>
+<body>
+  <h1>Gyroscope Permission Test</h1>
+  <button id="enableGyro">Enable Gyroscope</button>
+  <div id="output"></div>
+
+  <script>
+    document.getElementById('enableGyro').addEventListener('click', async () => {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const result = await DeviceOrientationEvent.requestPermission();
+          console.log('Permission response:', result);
+          if (result === 'granted') {
+            window.addEventListener('deviceorientation', (event) => {
+              console.log('Device Orientation Data:', event);
+              document.getElementById('output').textContent =
+                `Alpha: ${event.alpha}, Beta: ${event.beta}, Gamma: ${event.gamma}`;
+            });
+          } else {
+            alert('Permission denied. Please allow access to device motion.');
+          }
+        } catch (err) {
+          console.error('Error requesting permission:', err);
+        }
+      } else {
+        console.warn('DeviceOrientationEvent.requestPermission is not supported. Trying default...');
+        window.addEventListener('deviceorientation', (event) => {
+          console.log('Device Orientation Data:', event);
+          document.getElementById('output').textContent =
+            `Alpha: ${event.alpha}, Beta: ${event.beta}, Gamma: ${event.gamma}`;
+        });
+      }
+    });
+  </script>
+</body>
+</html>

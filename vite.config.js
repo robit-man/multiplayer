@@ -6,5 +6,9 @@ export default defineConfig({
   build: {
     outDir: 'dist', // Specify the build output directory
     assetsDir: '', // Keep assets like .glb at the root of /dist
+  }, 
+  server: {
+    host: true, // Allows access from your local network
+    port: 3000, // Optional: Specify a port (default is 5173)
   },
 });

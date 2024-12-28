@@ -91,6 +91,15 @@ const terrainSegments = 100;
 const LS_ID_KEY = 'myUniquePlayerID';
 const LS_POS_KEY = 'myLastPosition';
 
+// Track state changes
+let lastStateData = null;
+let lastEmittedState = null;
+
+// Localstorage Saving
+let lastSaveTime = 0;
+const SAVE_INTERVAL = 1000; // only save at most once per second
+let lastSavedPos = { x: null, z: null, rotation: null };
+
 // ------------------------------
 // Initialize + Animate
 // ------------------------------
@@ -167,15 +176,23 @@ function init() {
 
     controls = new PointerLockControls( camera, document.body );
 
-	const instructions = document.getElementById( 'app' );
-
+    const instructions = document.getElementById( 'app' );
     instructions.addEventListener( 'click', function () {
-
         controls.lock();
-
     } );
 
     scene.add( controls.object );
+
+    const savedCam = loadPositionFromLocalStorage();
+    if (savedCam) {
+        console.log('Loaded camera from localStorage:', savedCam);
+        // Place camera
+        camera.position.set(savedCam.x, savedCam.y, savedCam.z);
+        // If you only stored yaw, set it with an Euler
+        camera.rotation.set(0, savedCam.rotation, 0);
+    } else {
+        console.log('No saved camera location, using defaults...');
+    }
 
     // VR controllers
     setupVRControllers();
@@ -214,13 +231,18 @@ function init() {
 // Save + Load local position
 // ------------------------------
 function savePositionToLocalStorage() {
-    if (!localModel) return;
+    if (!camera) return;
+
+    // Grab camera position
     const pos = {
-        x: localModel.position.x,
-        z: localModel.position.z,
-        rotation: localModel.rotation.y
+        x: camera.position.x,
+        y: camera.position.y, // optional if you also care about vertical
+        z: camera.position.z,
+        rotation: getCameraYaw() // we can store only the yaw portion
     };
+
     localStorage.setItem(LS_POS_KEY, JSON.stringify(pos));
+    console.log('Saved camera position to LS:', pos);
 }
 
 function loadPositionFromLocalStorage() {
@@ -230,15 +252,39 @@ function loadPositionFromLocalStorage() {
         const data = JSON.parse(raw);
         if (
             typeof data.x === 'number' &&
+            typeof data.y === 'number' &&
             typeof data.z === 'number' &&
             typeof data.rotation === 'number'
         ) {
             return data;
         }
     } catch (e) {
-        console.warn('Error parsing position from LS:', e);
+        console.warn('Error parsing camera position from LS:', e);
     }
     return null;
+}
+
+// Given Changes in location
+function maybeSavePositionToLocalStorage() {
+    if (!camera) return; // camera is authority
+    const x = camera.position.x;
+    const y = camera.position.y;
+    const z = camera.position.z;
+    const r = getCameraYaw();
+
+    const THRESHOLD = 0.001;
+    const posChanged =
+        (lastSavedPos.x === null) ||
+        (Math.abs(x - lastSavedPos.x) > THRESHOLD) ||
+        (Math.abs(z - lastSavedPos.z) > THRESHOLD) ||
+        (Math.abs(r - lastSavedPos.rotation) > THRESHOLD);
+
+    if (posChanged) {
+        const pos = { x, y, z, rotation: r };
+        localStorage.setItem(LS_POS_KEY, JSON.stringify(pos));
+        console.log('Saved camera to localStorage:', pos);
+        lastSavedPos = { x, y, z, rotation: r };
+    }
 }
 
 // ------------------------------
@@ -246,15 +292,11 @@ function loadPositionFromLocalStorage() {
 // ------------------------------
 function enablePointerLock() {
     const canvas = renderer.domElement;
-
-    // On click, request pointer lock
     canvas.addEventListener('click', () => {
         if (!renderer.xr.isPresenting) {
             canvas.requestPointerLock();
         }
     });
-
-    // Mouse movement => change yaw/pitch
     document.addEventListener('mousemove', (e) => {
         if (document.pointerLockElement === canvas && !renderer.xr.isPresenting) {
             yaw -= e.movementX * mouseSensitivity;
@@ -278,12 +320,7 @@ function setupVRControllers() {
         if (!INTERSECTION || !baseReferenceSpace) return;
 
         // offset-based XR ref
-        const offsetPosition = {
-            x: -INTERSECTION.x,
-            y: -INTERSECTION.y,
-            z: -INTERSECTION.z,
-            w: 1
-        };
+        const offsetPosition = { x: -INTERSECTION.x, y: -INTERSECTION.y, z: -INTERSECTION.z, w: 1 };
         const offsetRotation = new THREE.Quaternion();
         const transform = new XRRigidTransform(offsetPosition, offsetRotation);
         const teleportSpaceOffset = baseReferenceSpace.getOffsetReferenceSpace(transform);
@@ -291,11 +328,11 @@ function setupVRControllers() {
 
         // Move localModel
         localModel.position.set(INTERSECTION.x, localModel.position.y, INTERSECTION.z);
-        socket.emit('move', {
+        emitMovementIfChanged({
             x: localModel.position.x,
             z: localModel.position.z,
             rotation: localModel.rotation.y,
-            action: currentAction,
+            action: currentAction
         });
     }
 
@@ -413,62 +450,46 @@ function moveLocalCharacterDesktop(delta) {
     const forwardVec = new THREE.Vector3();
     const rightVec = new THREE.Vector3();
 
-    // Get the camera's yaw
+    // Camera's yaw
     const cameraYaw = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ').y;
 
-    // Compute forward and right movement vectors based on the camera's orientation
-    forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0)); // Forward relative to camera
-    rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0)); // Right relative to camera
+    // Forward / Right relative to camera
+    forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0));
+    rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0));
 
-    // Initialize movement tracking
     const movement = new THREE.Vector3();
+    if (moveForward) movement.add(forwardVec);
+    if (moveBackward) movement.sub(forwardVec);
+    if (strafeLeft) movement.sub(rightVec);
+    if (strafeRight) movement.add(rightVec);
 
-    // Check movement directions and update the movement vector
-    if (moveForward) {
-        movement.add(forwardVec); // Move forward
-    }
-    if (moveBackward) {
-        movement.sub(forwardVec); // Move backward
-    }
-    if (strafeLeft) {
-        movement.sub(rightVec); // Strafe left
-    }
-    if (strafeRight) {
-        movement.add(rightVec); // Strafe right
-    }
-
-    // If there's any movement, normalize it and scale by speed
     if (movement.length() > 0) {
         movement.normalize().multiplyScalar(speed * delta);
-
-        // Update the model's position in the scene
         localModel.position.add(movement);
-
-        // Update the camera's position to follow the model
-        const cameraOffset = new THREE.Vector3(0, 1.7, 0); // Adjust as needed for desired camera height
+        const cameraOffset = new THREE.Vector3(0, 1.7, 0);
         camera.position.copy(localModel.position.clone().add(cameraOffset));
     }
 
-    // Update the model's rotation to face the camera direction (adjusted by 180 degrees)
-    localModel.rotation.y = cameraYaw + Math.PI;
+    // Face the camera direction (adjusted)
+    localModel.rotation.y = (cameraYaw + Math.PI) % (Math.PI * 2);
 
-    // Broadcast state to the server (position and rotation)
-    socket.emit('move', {
+    maybeSavePositionToLocalStorage();
+
+    // Include myId
+    emitMovementIfChanged({
         x: localModel.position.x,
         z: localModel.position.z,
         rotation: localModel.rotation.y,
-        action: movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle',
+        action: movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle'
     });
 
-    // Trigger animations based on movement state
+    // Trigger animations
     const newAction = movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle';
     if (currentAction !== newAction) {
-        setLocalAction(newAction); // Update local animation state
+        setLocalAction(newAction);
         currentAction = newAction;
     }
 }
-
-
 
 // ------------------------------
 // VR Movement
@@ -499,11 +520,11 @@ function handleVRMovement(delta) {
                 const cameraOffset = new THREE.Vector3(0, 1.7, 0);
                 camera.position.copy(localModel.position).add(cameraOffset);
 
-                socket.emit('move', {
+                emitMovementIfChanged({
                     x: localModel.position.x,
                     z: localModel.position.z,
                     rotation: getCameraYaw(),
-                    action: currentAction,
+                    action: currentAction
                 });
             } else if (currentAction !== 'idle') {
                 setLocalAction('idle');
@@ -515,7 +536,6 @@ function handleVRMovement(delta) {
 function checkTeleportIntersections() {
     INTERSECTION = null;
     markerMesh.visible = false;
-
     const session = renderer.xr.getSession();
     if (!session) return;
 
@@ -550,12 +570,25 @@ function getCameraYaw() {
 }
 
 // ------------------------------
+// Add `myId` to all emits
+// ------------------------------
+function emitMovementIfChanged(newState) {
+    const newString = JSON.stringify(newState);
+    const oldString = lastEmittedState ? JSON.stringify(lastEmittedState) : null;
+
+    if (newString !== oldString) {
+      newState.id = myId;  // add myId to payload
+      socket.emit('move', newState);
+      lastEmittedState = newState;
+    }
+}
+
+// ------------------------------
 // Render loop
 // ------------------------------
 function animate() {
     renderer.setAnimationLoop(() => {
         const delta = clock.getDelta();
-
         if (localMixer) localMixer.update(delta);
 
         // VR or Desktop
@@ -564,10 +597,9 @@ function animate() {
             checkTeleportIntersections();
         } else if (localModel) {
             // Make the local model follow the camera
-            localModel.position.lerp(camera.position.clone().setY(0), 0.1); // Smoothly follow camera position
-            localModel.rotation.y = camera.rotation.y; // Align model's rotation to the camera's yaw
-
-            moveLocalCharacterDesktop(delta); // Optional, if movement logic depends on key states
+            localModel.position.lerp(camera.position.clone().setY(0), 0.1);
+            localModel.rotation.y = camera.rotation.y;
+            moveLocalCharacterDesktop(delta); 
         }
 
         // Update remote players
@@ -575,19 +607,22 @@ function animate() {
             p.mixer.update(delta);
         });
 
-        renderer.render(scene, camera);
+        renderer.render(scene, camera);  
     });
 }
-
 
 // ------------------------------
 // Load local model
 // ------------------------------
 function loadLocalModel() {
-    // read last position
-    let spawnData = loadPositionFromLocalStorage();
-    if (!spawnData) {
-        spawnData = getRandomSpawnPoint();
+    const spawnData = loadPositionFromLocalStorage();
+    let finalSpawn = spawnData;
+
+    if (!finalSpawn) {
+        finalSpawn = getRandomSpawnPoint();
+        console.log("No saved position found; using random spawn:", finalSpawn);
+    } else {
+        console.log("Loaded saved position from localStorage:", finalSpawn);
     }
 
     const loader = new GLTFLoader();
@@ -595,15 +630,16 @@ function loadLocalModel() {
         modelPath,
         (gltf) => {
             localModel = gltf.scene;
-            localModel.position.set(spawnData.x, 0, spawnData.z);
-            localModel.rotation.y = spawnData.rotation;
-            localModel.castShadow = true;
+            localModel.position.set(finalSpawn.x, 0, finalSpawn.z);
+            localModel.rotation.y = finalSpawn.rotation || 0;
+
             scene.add(localModel);
 
             localModel.traverse((obj) => {
                 if (obj.isMesh) obj.castShadow = true;
             });
 
+            // Setup localMixer
             localMixer = new THREE.AnimationMixer(localModel);
             gltf.animations.forEach((clip) => {
                 const action = localMixer.clipAction(clip);
@@ -612,13 +648,13 @@ function loadLocalModel() {
                 if (clip.name === 'idle') action.play();
             });
 
-            // inform server
+            // Finally, inform server
             socket.emit('player_joined', {
-                x: spawnData.x,
-                z: spawnData.z,
-                rotation: spawnData.rotation,
+                x: finalSpawn.x,
+                z: finalSpawn.z,
+                rotation: finalSpawn.rotation,
                 action: 'idle',
-                id: myId,
+                id: myId  // include localStorage ID
             });
         },
         undefined,
@@ -784,60 +820,95 @@ function setLocalAction(name, direction = 'forward') {
 // ------------------------------
 function setupSocketEvents() {
     socket.on('init', (data) => {
-        console.log('Init data:', data);
-        // Fill local knowledge
+        console.log('[Socket] init => received init data:', data);
+        
+        // We store the ID the server gave us.
+        //console.log('[Socket] Overriding local myId with server ID:', data.id);
+        myId = data.id;
+        
+        // Update players with the full dictionary from the server
+        //console.log('[Socket] About to call updatePlayers() with:', data.players);
         updatePlayers(data.players);
     });
 
     socket.on('state_update_all', (data) => {
+        //console.log('[Socket] state_update_all => full players data:', data);
         updatePlayers(data);
         lastState = { ...data };
     });
 
     socket.on('new_player', (data) => {
-        console.log('New Player data:', data);
-        addOrUpdatePlayer(data.id, data);
+        console.log(`[Socket] new_player => Data:`, data);
+      
+        // If the server calls it `localId`, then we match it to `myId`
+        if (data.localId === myId) {
+          //console.warn(`[Socket] new_player => This is our own local ID: ${myId}. Skipping remote creation.`);
+          return;
+        }
+      
+       console.log(`[Socket] new_player => Creating or updating remote ID: ${data.localId}`);
+        addOrUpdatePlayer(data.localId, data); 
     });
 
     socket.on('state_update', (data) => {
-        console.log('State Update:', data);
-        if (players[data.id]) {
-            players[data.id].targetX = data.x;
-            players[data.id].targetZ = data.z;
-            players[data.id].targetRotation = data.rotation || 0;
+        const incomingString = JSON.stringify(data);
+        const lastString = lastStateData ? JSON.stringify(lastStateData) : null;
+        
+        // Only log if changed
+        if (incomingString !== lastString) {
+            console.log('[Socket] state_update => changed data from server:', data);
+            lastStateData = data;
+        } else {
+            //console.log('[Socket] state_update => data is unchanged, ignoring.');
         }
     });
 
     socket.on('player_disconnected', (id) => {
-        console.log('Player Disconnected:', id);
+       //console.log(`[Socket] player_disconnected => ID=${id}`);
         removeRemotePlayer(id);
     });
 
+    // Audio events
     socket.on('start_audio', (id) => {
-        console.log(`User ${id} started broadcasting audio.`);
+        //console.log(`[Socket] start_audio => ID=${id} started broadcasting`);
         addRemoteAudioStream(id);
     });
+
     socket.on('stop_audio', (id) => {
-        console.log(`User ${id} stopped broadcasting audio.`);
+        //console.log(`[Socket] stop_audio => ID=${id} stopped broadcasting`);
         removeRemoteAudioStream(id);
     });
+
     socket.on('audio_stream', (data) => {
         const { id, audio } = data;
+        //console.log('[Socket] audio_stream => receiving audio from ID=', id);
         receiveAudioStream(id, audio);
     });
 }
 
+
 function addOrUpdatePlayer(id, data) {
-    if (!players[id]) {
-        createRemotePlayer(id, data);
-    } else {
-        updateRemotePlayer(id, data);
+    // Should skip if it's the local player's ID
+    if (id === myId) {
+      console.warn(`Skipping addOrUpdatePlayer for local ID = ${id}`);
+      return;
     }
-}
+  
+    if (!players[id]) {
+      createRemotePlayer(id, data);
+    } else {
+      updateRemotePlayer(id, data);
+    }
+  }
+  
+
 
 function createRemotePlayer(id, data) {
     if (players[id] || loadingPlayers.has(id)) {
         console.warn(`Skipping creation for player ${id}. Already exists or is loading.`);
+        return;
+    }
+    if (id === myId) {
         return;
     }
     loadingPlayers.add(id);
@@ -880,6 +951,31 @@ function createRemotePlayer(id, data) {
     );
 }
 
+// 1) Normalize an angle to [0..2π)
+function normalizeAngle(angle) {
+    angle = angle % (2 * Math.PI);
+    if (angle < 0) {
+        angle += 2 * Math.PI;
+    }
+    return angle;
+}
+
+// 2) Lerp angles using the shortest path
+function lerpAngle(currentAngle, targetAngle, alpha) {
+    currentAngle = normalizeAngle(currentAngle);
+    targetAngle  = normalizeAngle(targetAngle);
+
+    let diff = targetAngle - currentAngle;
+    if (diff > Math.PI) {
+        diff -= 2 * Math.PI;
+    } else if (diff < -Math.PI) {
+        diff += 2 * Math.PI;
+    }
+    const newAngle = currentAngle + diff * alpha;
+    return normalizeAngle(newAngle);
+}
+
+// 3) updateRemotePlayer
 function updateRemotePlayer(id, data) {
     const player = players[id];
     if (!player) return;
@@ -892,23 +988,21 @@ function updateRemotePlayer(id, data) {
     }
 
     player.position.set(data.x, 0, data.z);
-    player.rotation = data.rotation;
-
-    // Smooth interpolation
     player.model.position.lerp(player.position, 0.1);
-    player.model.rotation.y = THREE.MathUtils.lerp(player.model.rotation.y, player.rotation, 0.1);
 
-    // Audio
+    const currentAngle = player.model.rotation.y;
+    const targetAngle  = data.rotation;
+    player.model.rotation.y = lerpAngle(currentAngle, targetAngle, 0.1);
+
     if (remoteAudioStreams[id]) {
         remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
     }
 
-    // Determine if moving
     const distMoved = player.position.distanceTo(player.model.position);
-    const isMoving = distMoved > 0.01;
+    const isMoving  = distMoved > 0.01;
     const movementDir = player.position.clone().sub(player.model.position).normalize();
     const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion);
-    const isForward = movementDir.dot(forwardDir) > 0;
+    const isForward  = movementDir.dot(forwardDir) > 0;
 
     let action = 'idle';
     if (isMoving) {
@@ -938,13 +1032,12 @@ function removeRemotePlayer(id) {
 }
 
 function updatePlayers(playersData) {
-    // Compare local data vs server data
     Object.keys(playersData).forEach((id) => {
-        if (id !== myId) {
-            addOrUpdatePlayer(id, playersData[id]);
-        }
+        //console.log(playersData[id].localId)
+        if (playersData[id].localId === myId) return;
+        addOrUpdatePlayer(id, playersData[id]);
+
     });
-    // Remove any players not in playersData
     Object.keys(players).forEach((id) => {
         if (!playersData[id]) {
             removeRemotePlayer(id);
@@ -983,10 +1076,14 @@ async function startBroadcast() {
             for (let i = 0; i < inputData.length; i++) {
                 buffer[i] = inputData[i] * 32767;
             }
-            socket.emit('audio_stream', buffer.buffer);
+            // Include myId
+            socket.emit('audio_stream', {
+                id: myId,
+                audio: buffer.buffer
+            });
         };
 
-        socket.emit('start_audio');
+        socket.emit('start_audio', { id: myId });  // Include myId
         console.log('Started broadcasting audio.');
     } catch (err) {
         console.error('Error accessing microphone:', err);
@@ -1006,7 +1103,7 @@ function stopBroadcast() {
     }
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
-    socket.emit('stop_audio');
+    socket.emit('stop_audio', { id: myId });  // Include myId
     console.log('Stopped broadcasting audio.');
 }
 
@@ -1028,9 +1125,7 @@ function addRemoteAudioStream(id) {
     player.model.add(positionalAudio);
     positionalAudio.play();
 
-    remoteAudioStreams[id] = {
-        positionalAudio,
-    };
+    remoteAudioStreams[id] = { positionalAudio };
 }
 
 function removeRemoteAudioStream(id) {

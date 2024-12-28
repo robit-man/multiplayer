@@ -245,10 +245,12 @@
     // Wait for the DOM to fully load
     window.addEventListener('DOMContentLoaded', () => {
       // Find all <a> tags on the page
-      const allATags = document.querySelectorAll('a');
+        const allATags = document.querySelectorAll('a');
+        const alButtonTags = document.querySelectorAll('button');
+        const vrbutton = document.getElementById('VRButton')
 
       // Iterate through all <a> tags to find the one with the exact content
-      allATags.forEach((aTag) => {
+        allATags.forEach((aTag) => {
         if (aTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE') {
           // Set a timeout to remove the element after 5 seconds (5000ms)
           setTimeout(() => {
@@ -258,8 +260,25 @@
         if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
           // Set a timeout to remove the element after 5 seconds (5000ms)
           setTimeout(() => {
+       
             aTag.remove(); // Remove the <a> tag from the DOM
+            }, 5000); // Timeout in milliseconds
+        }
+      }); 
+      
+      allButtonTags.forEach((buttonTag) => {
+        if (buttonTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE') {
+          // Set a timeout to remove the element after 5 seconds (5000ms)
+          setTimeout(() => {
+            buttonTag.remove(); // Remove the <a> tag from the DOM
           }, 5000); // Timeout in milliseconds
+        }
+        if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
+          // Set a timeout to remove the element after 5 seconds (5000ms)
+          setTimeout(() => {
+       
+            vrbutton.remove(); // Remove the <a> tag from the DOM
+            }, 5000); // Timeout in milliseconds
         }
       });
 
