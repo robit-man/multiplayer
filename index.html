@@ -249,6 +249,7 @@
 
   <!-- Data Overlay -->
   <div class="data" id="data">
+    Location: N/A
     <div class="sensor-readouts">
       <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
       <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
@@ -381,13 +382,8 @@
     // =========== DEMO CONTROL LOGIC ===========
     async function initializeDemo() {
       let isRunning = false;
-      const cover = document.getElementById("cover");
-      const demoButton = document.getElementById("start_demo"); // Ensure you have a button with id "start_demo"
+      const demoButton = document.getElementById("cover"); // Ensure you have a button with id "start_demo"
 
-      if (!cover) {
-        console.error("Cover element not found in the DOM.");
-        return;
-      }
 
       if (!demoButton) {
         console.error('Demo button with id "start_demo" not found in the DOM.');
@@ -445,6 +441,19 @@
       initializeDemo();
     });
   </script>
+
+  <!-- The main 3D or WebXR app container -->
+  <div id="app"></div>
+
+  <!-- MOBILE TOUCH CONTROLS -->
+  <div class="touch-controls" id="touchControls">
+    <div class="touch-control forward">W</div>
+    <div class="touch-control left">A</div>
+    <div class="touch-control right">D</div>
+    <div class="touch-control mic">MIC</div>
+    <div class="touch-control backward">S</div>
+    <!-- Additional controls as needed -->
+  </div>
 
 
   <!-- The main 3D or WebXR app container -->
