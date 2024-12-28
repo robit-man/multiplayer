@@ -859,50 +859,51 @@ function emitMovementIfChanged (newState) {
 function animate() {
     renderer.setAnimationLoop(() => {
       const delta = clock.getDelta();
-  
+
       // 1. Update local animations
       if (localMixer) {
         localMixer.update(delta);
       }
-  
+
       // 2. Update camera orientation based on device orientation data, if enabled
       if (window.isOrientationEnabled) {
         updateCameraOrientation();
       }
-  
-      // 3. Handle movement based on current mode (VR or Desktop)
+
+      // 3. Handle rendering and movements based on VR availability
       if (renderer.xr.isPresenting) {
         // **VR Mode**
-        
+
         // Handle VR-specific movements (e.g., joystick input)
         handleVRMovement(delta);
-        
+
         // Handle teleportation intersections and marker placement
         checkTeleportIntersections();
-  
-        // **Render the scene for VR**
+
+        // **Render the scene for VR without post-processing**
         renderer.render(scene, camera);
-      } else if (localModel) {
+      } else {
         // **Desktop/Mobile Mode**
-        
-        // Make the local model follow the camera's position smoothly
-        localModel.position.lerp(camera.position.clone().setY(0), 0.1);
-        localModel.rotation.y = camera.rotation.y;
-  
+
+        // Make the local model follow the camera's position smoothly, if it exists
+        if (localModel) {
+          localModel.position.lerp(camera.position.clone().setY(0), 0.1);
+          localModel.rotation.y = camera.rotation.y;
+        }
+
         // Handle desktop-specific movements (e.g., keyboard input)
         moveLocalCharacterDesktop(delta);
-  
+
         // **Render the scene with post-processing effects**
         composer.render(scene, camera);
       }
-  
+
       // 4. Update remote players' animations
       Object.values(players).forEach(p => {
         p.mixer.update(delta);
       });
     });
-  }
-  
+}
 
 // ------------------------------
 // Update Camera Orientation Based on Device Orientation
