@@ -856,46 +856,53 @@ function emitMovementIfChanged (newState) {
 // ------------------------------
 // Render loop
 // ------------------------------
-function animate () {
-  renderer.setAnimationLoop(() => {
-    const delta = clock.getDelta()
-
-    // Update local animations
-    if (localMixer) {
-      localMixer.update(delta)
-    }
-
-    // If device orientation is enabled, update camera orientation from alpha/beta
-    if (window.isOrientationEnabled) {
-      updateCameraOrientation()
-    }
-
-    // VR or Desktop movement
-    if (renderer.xr.isPresenting) {
-      handleVRMovement(delta)
-      checkTeleportIntersections()
-
-    } else if (localModel) {
-      // Make the local model follow the camera
-      localModel.position.lerp(camera.position.clone().setY(0), 0.1)
-      localModel.rotation.y = camera.rotation.y
-
-      // Desktop movement
-      moveLocalCharacterDesktop(delta)
-    }
-
-    // Update remote players
-    Object.values(players).forEach(p => {
-      p.mixer.update(delta)
-    })
-
-    //renderer.render()
-
-    composer.render(scene, camera);
-    renderer.render(scene, camera);
-
-  })
-}
+function animate() {
+    renderer.setAnimationLoop(() => {
+      const delta = clock.getDelta();
+  
+      // 1. Update local animations
+      if (localMixer) {
+        localMixer.update(delta);
+      }
+  
+      // 2. Update camera orientation based on device orientation data, if enabled
+      if (window.isOrientationEnabled) {
+        updateCameraOrientation();
+      }
+  
+      // 3. Handle movement based on current mode (VR or Desktop)
+      if (renderer.xr.isPresenting) {
+        // **VR Mode**
+        
+        // Handle VR-specific movements (e.g., joystick input)
+        handleVRMovement(delta);
+        
+        // Handle teleportation intersections and marker placement
+        checkTeleportIntersections();
+  
+        // **Render the scene for VR**
+        renderer.render(scene, camera);
+      } else if (localModel) {
+        // **Desktop/Mobile Mode**
+        
+        // Make the local model follow the camera's position smoothly
+        localModel.position.lerp(camera.position.clone().setY(0), 0.1);
+        localModel.rotation.y = camera.rotation.y;
+  
+        // Handle desktop-specific movements (e.g., keyboard input)
+        moveLocalCharacterDesktop(delta);
+  
+        // **Render the scene with post-processing effects**
+        composer.render(scene, camera);
+      }
+  
+      // 4. Update remote players' animations
+      Object.values(players).forEach(p => {
+        p.mixer.update(delta);
+      });
+    });
+  }
+  
 
 // ------------------------------
 // Update Camera Orientation Based on Device Orientation
