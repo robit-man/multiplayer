@@ -275,116 +275,178 @@
 
   <script>
     // =========== GEOLOCATION ===========
-    // Keep original geolocation logic
-    if (navigator.geolocation) {
+    function initializeGeolocation() {
+      const dataDiv = document.getElementById("data");
+      if (!navigator.geolocation || !dataDiv) {
+        if (dataDiv) {
+          dataDiv.innerHTML = "Location: Not Supported<br>" + dataDiv.innerHTML;
+        }
+        return;
+      }
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          const dataDiv = document.getElementById('data');
-          dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}` + dataDiv.innerHTML;
+          dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}<br>` + dataDiv.innerHTML;
         },
         (err) => {
-          console.error('Error getting location:', err);
-          const dataDiv = document.getElementById('data');
+          console.error("Error getting location:", err);
           dataDiv.innerHTML = `Location: Permission Denied<br>` + dataDiv.innerHTML;
         }
       );
-    } else {
-      const dataDiv = document.getElementById('data');
-      dataDiv.innerHTML = `Location: Not Supported<br>` + dataDiv.innerHTML;
     }
 
     // =========== ORIENTATION & MOTION HANDLERS ===========
     function updateFieldIfNotNull(fieldName, value, precision = 10) {
-      if (value != null) {
-        document.getElementById(fieldName).innerHTML = value.toFixed(precision);
+      const field = document.getElementById(fieldName);
+      if (field && value != null) {
+        field.innerHTML = value.toFixed(precision);
       }
     }
 
     function incrementEventCount() {
-      let counterElement = document.getElementById("num-observed-events");
-      let eventCount = parseInt(counterElement.innerHTML);
-      counterElement.innerHTML = eventCount + 1;
+      const counterElement = document.getElementById("num-observed-events");
+      if (counterElement) {
+        const eventCount = parseInt(counterElement.innerHTML || "0", 10);
+        counterElement.innerHTML = eventCount + 1;
+      }
     }
 
-    // Device Orientation
+    // Device Orientation Handler
     function handleOrientation(event) {
-      updateFieldIfNotNull('Orientation_a', event.alpha);
-      updateFieldIfNotNull('Orientation_b', event.beta);
-      updateFieldIfNotNull('Orientation_g', event.gamma);
+      updateFieldIfNotNull("Orientation_a", event.alpha);
+      updateFieldIfNotNull("Orientation_b", event.beta);
+      updateFieldIfNotNull("Orientation_g", event.gamma);
       incrementEventCount();
     }
 
-    // Device Motion
+    // Device Motion Handler
     function handleMotion(event) {
-      if (!event.accelerationIncludingGravity) return;
-
-      updateFieldIfNotNull('Accelerometer_gx', event.accelerationIncludingGravity.x);
-      updateFieldIfNotNull('Accelerometer_gy', event.accelerationIncludingGravity.y);
-      updateFieldIfNotNull('Accelerometer_gz', event.accelerationIncludingGravity.z);
-
+      if (event.accelerationIncludingGravity) {
+        updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x);
+        updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y);
+        updateFieldIfNotNull("Accelerometer_gz", event.accelerationIncludingGravity.z);
+      }
       if (event.acceleration) {
-        updateFieldIfNotNull('Accelerometer_x', event.acceleration.x);
-        updateFieldIfNotNull('Accelerometer_y', event.acceleration.y);
-        updateFieldIfNotNull('Accelerometer_z', event.acceleration.z);
+        updateFieldIfNotNull("Accelerometer_x", event.acceleration.x);
+        updateFieldIfNotNull("Accelerometer_y", event.acceleration.y);
+        updateFieldIfNotNull("Accelerometer_z", event.acceleration.z);
       }
-
-      updateFieldIfNotNull('Accelerometer_i', event.interval, 2);
-
       if (event.rotationRate) {
-        updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha);
-        updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta);
-        updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma);
+        updateFieldIfNotNull("Gyroscope_z", event.rotationRate.alpha);
+        updateFieldIfNotNull("Gyroscope_x", event.rotationRate.beta);
+        updateFieldIfNotNull("Gyroscope_y", event.rotationRate.gamma);
       }
+      updateFieldIfNotNull("Accelerometer_i", event.interval, 2);
       incrementEventCount();
     }
 
-    let is_running = false;
-    let cover = document.getElementById("cover");
+    // =========== PERMISSION REQUEST ===========
+    async function requestSensorPermissions() {
+      let motionGranted = true;
+      let orientationGranted = true;
 
-    cover.ontouchstart = async function (e) {
-      e.preventDefault();
-
-      // Request permission for iOS 13+ devices:
-      // (Motion)
+      // Request Motion Permission for iOS 13+ devices
       if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") {
         try {
-          const permissionResult = await DeviceMotionEvent.requestPermission();
-          console.log("Motion permission:", permissionResult);
+          const motionPermission = await DeviceMotionEvent.requestPermission();
+          console.log("Motion permission:", motionPermission);
+          if (motionPermission !== "granted") {
+            motionGranted = false;
+            alert("Motion permissions denied. Motion data will be unavailable.");
+          }
         } catch (err) {
-          console.warn("Motion Permission request error:", err);
+          console.error("Motion Permission request error:", err);
+          motionGranted = false;
         }
       }
 
-      // (Orientation)
+      // Request Orientation Permission for iOS 13+ devices
       if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
         try {
-          const permissionResult = await DeviceOrientationEvent.requestPermission();
-          console.log("Orientation permission:", permissionResult);
+          const orientationPermission = await DeviceOrientationEvent.requestPermission();
+          console.log("Orientation permission:", orientationPermission);
+          if (orientationPermission !== "granted") {
+            orientationGranted = false;
+            alert("Orientation permissions denied. Orientation data will be unavailable.");
+          }
         } catch (err) {
-          console.warn("Orientation Permission request error:", err);
+          console.error("Orientation Permission request error:", err);
+          orientationGranted = false;
         }
       }
 
-      if (is_running) {
-        // Stop reading
-        window.removeEventListener("devicemotion", handleMotion);
-        window.removeEventListener("deviceorientation", handleOrientation);
-        demo_button.innerHTML = "Start demo";
-        demo_button.classList.add('btn-success');
-        demo_button.classList.remove('btn-danger');
-        is_running = false;
-      } else {
-        // Start reading
-        window.addEventListener("devicemotion", handleMotion);
-        window.addEventListener("deviceorientation", handleOrientation);
-        demo_button.innerHTML = "Stop demo";
-        demo_button.classList.remove('btn-success');
-        demo_button.classList.add('btn-danger');
-        is_running = true;
+      return { motionGranted, orientationGranted };
+    }
+
+    // =========== DEMO CONTROL LOGIC ===========
+    async function initializeDemo() {
+      let isRunning = false;
+      const cover = document.getElementById("cover");
+      const demoButton = document.getElementById("start_demo"); // Ensure you have a button with id "start_demo"
+
+      if (!cover) {
+        console.error("Cover element not found in the DOM.");
+        return;
       }
-    };
+
+      if (!demoButton) {
+        console.error('Demo button with id "start_demo" not found in the DOM.');
+        return;
+      }
+
+      async function toggleDemo() {
+        if (isRunning) {
+          // Stop reading
+          window.removeEventListener("devicemotion", handleMotion);
+          window.removeEventListener("deviceorientation", handleOrientation);
+          demoButton.innerHTML = "Start demo";
+          demoButton.classList.add("btn-success");
+          demoButton.classList.remove("btn-danger");
+        } else {
+          // Start reading
+          window.addEventListener("devicemotion", handleMotion);
+          window.addEventListener("deviceorientation", handleOrientation);
+          demoButton.innerHTML = "Stop demo";
+          demoButton.classList.remove("btn-success");
+          demoButton.classList.add("btn-danger");
+        }
+        isRunning = !isRunning;
+      }
+
+      // Automatically request permissions on join
+      async function autoRequestPermissions() {
+        const { motionGranted, orientationGranted } = await requestSensorPermissions();
+        if (motionGranted || orientationGranted) {
+          // Start the demo if at least one permission is granted
+          toggleDemo();
+        } else {
+          console.warn("Necessary permissions were not granted. Demo will not start.");
+        }
+      }
+
+      // Attach event listeners
+      cover.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        toggleDemo();
+      });
+
+      demoButton.addEventListener("click", (e) => {
+        e.preventDefault();
+        toggleDemo();
+      });
+
+      // Attempt to request permissions automatically
+      autoRequestPermissions();
+    }
+
+    // =========== INITIALIZATION ===========
+    document.addEventListener("DOMContentLoaded", () => {
+      initializeGeolocation();
+      initializeDemo();
+    });
   </script>
+
 
   <!-- The main 3D or WebXR app container -->
   <div id="app"></div>
