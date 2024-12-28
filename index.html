@@ -234,6 +234,11 @@
       cursor: pointer; /* Indicate that it's clickable */
     }
 
+    /* Updated Location Display */
+    #location {
+      margin-bottom: 0.5rem;
+    }
+
     /* Optional clearer styling for new sensor readouts */
     .sensor-readouts {
       opacity: 0.9;
@@ -307,7 +312,7 @@
 
   <!-- Data Overlay -->
   <div class="data" id="data">
-    Location: N/A
+    <p id="location">Location: N/A</p>
     <div class="sensor-readouts">
       <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
       <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
@@ -339,10 +344,10 @@
 
     // =========== GEOLOCATION ===========
     function initializeGeolocation() {
-      const dataDiv = document.getElementById("data");
-      if (!navigator.geolocation || !dataDiv) {
-        if (dataDiv) {
-          dataDiv.innerHTML = "Location: Not Supported<br>" + dataDiv.innerHTML;
+      const locationElement = document.getElementById("location");
+      if (!navigator.geolocation || !locationElement) {
+        if (locationElement) {
+          locationElement.innerHTML = "Location: Not Supported";
         }
         return;
       }
@@ -358,7 +363,7 @@
       function geoSuccess(position) {
         window.isGPSEnabled = true;
         const { latitude, longitude } = position.coords;
-        dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}<br>` + dataDiv.innerHTML;
+        locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
       }
 
       // Error callback
@@ -366,9 +371,9 @@
         console.error("Geolocation error:", err);
         window.isGPSEnabled = false;
         if (err.code === err.PERMISSION_DENIED) {
-          dataDiv.innerHTML = `Location: Permission Denied<br>` + dataDiv.innerHTML;
+          locationElement.innerHTML = `Location: Permission Denied`;
         } else {
-          dataDiv.innerHTML = `Location: Error (${err.message})<br>` + dataDiv.innerHTML;
+          locationElement.innerHTML = `Location: Error (${err.message})`;
         }
       }
 
@@ -408,7 +413,8 @@
     // Device Motion Handler
     function handleMotion(event) {
       if (!window.appPermissions || !window.appPermissions.motionGranted) return;
-      window.isGPSEnabled = true; // Assuming motion is related to GPS being enabled
+      // window.isGPSEnabled = true; // Removed assumption that motion relates to GPS
+
       if (event.accelerationIncludingGravity) {
         updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x);
         updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y);
@@ -477,9 +483,9 @@
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const { latitude, longitude } = position.coords;
-            const dataDiv = document.getElementById("data");
-            if (dataDiv) {
-              dataDiv.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}<br>` + dataDiv.innerHTML;
+            const locationElement = document.getElementById("location");
+            if (locationElement) {
+              locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
             }
             resolve(true);
           },
@@ -487,9 +493,9 @@
             console.error("Error getting location:", error);
             if (error.code === error.PERMISSION_DENIED) {
               alert("Location permissions denied. Location data will be unavailable.");
-              const dataDiv = document.getElementById("data");
-              if (dataDiv) {
-                dataDiv.innerHTML = `Location: Permission Denied<br>` + dataDiv.innerHTML;
+              const locationElement = document.getElementById("location");
+              if (locationElement) {
+                locationElement.innerHTML = `Location: Permission Denied`;
               }
             } else {
               alert("Unable to retrieve location data.");
@@ -591,7 +597,7 @@
         const permissions = await requestAllPermissions();
 
         // Restart geolocation watching in case it was stopped
-        if (window.geolocationWatchId === undefined) {
+        if (permissions.locationGranted && window.geolocationWatchId === undefined) {
           initializeGeolocation();
         }
 
