@@ -970,6 +970,66 @@
     }
   </script>
 
+  <!-- Swipe Gesture Detection Script -->
+  <script>
+    // Swipe Gesture Detection
+    let touchStartX = null;
+    let touchStartY = null;
+    const swipeThreshold = 50; // Minimum distance (px) for a swipe
+
+    document.addEventListener('touchstart', function (e) {
+      const touch = e.changedTouches[0];
+      touchStartX = touch.screenX;
+      touchStartY = touch.screenY;
+    }, false);
+
+    document.addEventListener('touchend', function (e) {
+      if (touchStartX === null || touchStartY === null) {
+        return;
+      }
+
+      const touch = e.changedTouches[0];
+      const touchEndX = touch.screenX;
+      const touchEndY = touch.screenY;
+
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+
+      // Determine if swipe is horizontal or vertical
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Horizontal Swipe
+        if (Math.abs(deltaX) > swipeThreshold) {
+          if (deltaX > 0) {
+            // Swipe Right
+            triggerKeyEvent('d', 'keydown');
+            setTimeout(() => triggerKeyEvent('d', 'keyup'), 300); // Simulate key press
+          } else {
+            // Swipe Left
+            triggerKeyEvent('a', 'keydown');
+            setTimeout(() => triggerKeyEvent('a', 'keyup'), 300);
+          }
+        }
+      } else {
+        // Vertical Swipe
+        if (Math.abs(deltaY) > swipeThreshold) {
+          if (deltaY > 0) {
+            // Swipe Down
+            triggerKeyEvent('s', 'keydown');
+            setTimeout(() => triggerKeyEvent('s', 'keyup'), 300);
+          } else {
+            // Swipe Up
+            triggerKeyEvent('w', 'keydown');
+            setTimeout(() => triggerKeyEvent('w', 'keyup'), 300);
+          }
+        }
+      }
+
+      // Reset touch start positions
+      touchStartX = null;
+      touchStartY = null;
+    }, false);
+  </script>
+
   <!-- Main app logic -->
   <script type="module" src="/src/app.js"></script>
 

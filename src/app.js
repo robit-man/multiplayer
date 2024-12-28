@@ -67,8 +67,6 @@ const keyStates = {
     r: false,
 };
 
-window.listener = listener; // optional for debug
-
 // Audio
 let localStream = null;
 let mediaStreamSource = null;
@@ -101,6 +99,13 @@ let lastEmittedState = null;
 let lastSaveTime = 0;
 const SAVE_INTERVAL = 1000; // only save at most once per second
 let lastSavedPos = { x: null, z: null, rotation: null };
+
+// Orientation Data
+let orientationData = {
+    alpha: 0,
+    beta: 0,
+    gamma: 0
+};
 
 // ------------------------------
 // Initialize + Animate
@@ -305,6 +310,9 @@ function enablePointerLock() {
             pitch -= e.movementY * mouseSensitivity;
             if (pitch < pitchMin) pitch = pitchMin;
             if (pitch > pitchMax) pitch = pitchMax;
+
+            // Update camera rotation
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
         }
     });
 }
@@ -397,14 +405,13 @@ function buildControllerRay(data) {
 // Desktop Key Events
 // ------------------------------
 function onKeyDown(e) {
-    switch (e.code) {
-        case 'KeyW': keyStates.w = true; break;
-        case 'KeyS': keyStates.s = true; break;
-        case 'KeyA': keyStates.a = true; break;
-        case 'KeyD': keyStates.d = true; break;
-        case 'ShiftLeft':
-        case 'ShiftRight': keyStates.Shift = true; break;
-        case 'KeyR':
+    switch (e.key) {
+        case 'w': keyStates.w = true; break;
+        case 's': keyStates.s = true; break;
+        case 'a': keyStates.a = true; break;
+        case 'd': keyStates.d = true; break;
+        case 'Shift': keyStates.Shift = true; break;
+        case 'r':
             if (!keyStates.r) startBroadcast();
             keyStates.r = true;
             break;
@@ -413,14 +420,13 @@ function onKeyDown(e) {
 }
 
 function onKeyUp(e) {
-    switch (e.code) {
-        case 'KeyW': keyStates.w = false; break;
-        case 'KeyS': keyStates.s = false; break;
-        case 'KeyA': keyStates.a = false; break;
-        case 'KeyD': keyStates.d = false; break;
-        case 'ShiftLeft':
-        case 'ShiftRight': keyStates.Shift = false; break;
-        case 'KeyR':
+    switch (e.key) {
+        case 'w': keyStates.w = false; break;
+        case 's': keyStates.s = false; break;
+        case 'a': keyStates.a = false; break;
+        case 'd': keyStates.d = false; break;
+        case 'Shift': keyStates.Shift = false; break;
+        case 'r':
             stopBroadcast();
             keyStates.r = false;
             break;
@@ -593,6 +599,11 @@ function animate() {
         const delta = clock.getDelta();
         if (localMixer) localMixer.update(delta);
 
+        // Update camera orientation based on device orientation
+        if (window.isOrientationEnabled) {
+            updateCameraOrientation();
+        }
+
         // VR or Desktop
         if (renderer.xr.isPresenting) {
             handleVRMovement(delta);
@@ -611,6 +622,27 @@ function animate() {
 
         renderer.render(scene, camera);
     });
+}
+
+// ------------------------------
+// Update Camera Orientation Based on Device Orientation
+// ------------------------------
+function updateCameraOrientation() {
+    // Use the orientationData to update camera rotation
+    // Assuming alpha (0-360) is the compass direction (yaw)
+    // beta (-180 to 180) is front to back tilt (pitch)
+    // gamma (-90 to 90) is left to right tilt (roll) - we will ignore roll
+
+    const alpha = THREE.MathUtils.degToRad(orientationData.alpha || 0);
+    const beta = THREE.MathUtils.degToRad(orientationData.beta || 0);
+    // const gamma = THREE.MathUtils.degToRad(orientationData.gamma || 0); // Ignored for camera rotation
+
+    // Update yaw and pitch
+    yaw = alpha;
+    pitch = THREE.MathUtils.clamp(beta, pitchMin, pitchMax);
+
+    // Update camera rotation
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
 }
 
 // ------------------------------
@@ -1257,3 +1289,18 @@ window.addEventListener('appPermissionsChanged', () => {
 
 // Initial check (if permissions are already set)
 checkPermissions();
+
+// ------------------------------
+// Swipe Gesture Controls Integration
+// ------------------------------
+// This section handles mapping swipe gestures to WASD controls
+// The swipe detection is handled in index.html, but we need to listen to the corresponding key events here
+
+// Function to handle camera orientation based on device orientation data
+// This is already handled in the animate loop by updating camera.rotation
+
+// Function to handle swipe gestures mapped to WASD
+// Swipes are translated into keydown and keyup events which are already handled
+
+// No additional code needed here since swipe gestures trigger key events that are handled by the existing key event listeners
+
