@@ -91,7 +91,7 @@ let lastState = {}
 
 // Speed
 const walkSpeed = 2
-const runSpeed = 100 // Adjusted to a realistic running speed
+const runSpeed = 5
 
 // Terrain
 const terrainSize = 200
@@ -838,7 +838,7 @@ function* terrainLineDrawingGenerator(savedPoints) {
     scene.add(terrainLineSegments);
 
     yield; // Final yield to indicate completion
-}const gridRows = 200; // Number of rows in the grid
+} const gridRows = 200; // Number of rows in the grid
 const gridCols = 200; // Number of columns in the grid
 
 function createTerrainMesh(savedPoints) {
@@ -991,7 +991,7 @@ function createTerrainMesh(savedPoints) {
             const y = (point.elevation - referenceElevation) * scaleMultiplier; // y
             const z = (point.latitude - originLatitude) * metersPerDegLat; // z
 
-            vertices[vertexIndex]     = x;
+            vertices[vertexIndex] = x;
             vertices[vertexIndex + 1] = y;
             vertices[vertexIndex + 2] = z;
 
@@ -1002,7 +1002,7 @@ function createTerrainMesh(savedPoints) {
                 new THREE.Color(0xffaaaa), // Red for high elevation
                 normalizedElevation
             );
-            colors[vertexIndex]     = color.r;
+            colors[vertexIndex] = color.r;
             colors[vertexIndex + 1] = color.g;
             colors[vertexIndex + 2] = color.b;
         }
@@ -1041,13 +1041,13 @@ function createTerrainMesh(savedPoints) {
 
             // Validate distances for the first triangle (a, c, b)
             const isTriangle1Valid = distanceACSq <= maxTriangleSizeSq &&
-                                      distanceCBSq <= maxTriangleSizeSq &&
-                                      distanceABSq <= maxTriangleSizeSq;
+                distanceCBSq <= maxTriangleSizeSq &&
+                distanceABSq <= maxTriangleSizeSq;
 
             // Validate distances for the second triangle (b, c, d)
             const isTriangle2Valid = distanceBCSq <= maxTriangleSizeSq &&
-                                      distanceCDSq <= maxTriangleSizeSq &&
-                                      distanceBDSq <= maxTriangleSizeSq;
+                distanceCDSq <= maxTriangleSizeSq &&
+                distanceBDSq <= maxTriangleSizeSq;
 
             // Only add triangles if they pass the distance validation
             if (isTriangle1Valid && isTriangle2Valid) {
@@ -1265,10 +1265,12 @@ function setupVRControllers() {
             baseReferenceSpace.getOffsetReferenceSpace(transform)
         renderer.xr.setReferenceSpace(teleportSpaceOffset)
 
+        const terrainHeight = getTerrainHeightAt(localModel.position.x, localModel.position.z);
+
         // Move localModel
         localModel.position.set(
             INTERSECTION.x,
-            localModel.position.y,
+            terrainHeight,
             INTERSECTION.z
         )
         emitMovementIfChanged({
@@ -1625,7 +1627,7 @@ function checkTeleportIntersections() {
 
             // Raycast
             const raycaster = new THREE.Raycaster(rayOrigin, rayDirection, 0, 100);
-            const intersects = raycaster.intersectObject(floorMesh);
+            const intersects = raycaster.intersectObject(terrainMesh);
             if (intersects.length > 0) {
                 INTERSECTION = intersects[0].point;
                 markerMesh.position.copy(INTERSECTION);

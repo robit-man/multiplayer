@@ -14,7 +14,7 @@ import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
-
+import { Sky } from 'three/addons/objects/Sky.js';
 import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js'
 // import './terrain.js'
 import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.min.js'
@@ -91,7 +91,7 @@ let lastState = {}
 
 // Speed
 const walkSpeed = 2
-const runSpeed = 100 // Adjusted to a realistic running speed
+const runSpeed = 5 // Adjusted to a realistic running speed
 
 // Terrain
 const terrainSize = 200
@@ -233,7 +233,7 @@ function init() {
 
     // Scene
     scene = new THREE.Scene()
-    scene.background = new THREE.Color(0xffeeaa)
+    scene.background = new THREE.Color(0x333333)
 
     // Camera
     camera = new THREE.PerspectiveCamera(
@@ -262,14 +262,10 @@ function init() {
         baseReferenceSpace = renderer.xr.getReferenceSpace()
     })
 
-    // Lights
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5)
-    hemiLight.position.set(0, 50, 0)
-    scene.add(hemiLight)
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5)
-    dirLight.position.set(10, 50, 10)
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1)
+    dirLight.position.set(100, 200, 100)
     dirLight.castShadow = true
+    dirLight.target.position.set(-5, 0, 0);
     dirLight.shadow.mapSize.set(1024, 1024)
     scene.add(dirLight)
 
@@ -284,6 +280,36 @@ function init() {
     )
     floorMesh.name = 'teleport_floor'
     scene.add(floorMesh)
+
+    // Initialize Sky
+    const sky = new Sky();
+    sky.scale.setScalar(450000); // Scale the sky to encompass the scene
+    scene.add(sky);
+
+    // Configure Sky Parameters
+    const sun = new THREE.Vector3();
+
+    // Define sun parameters
+    const elevation = 2; // degrees above the horizon
+    const azimuth = 180;  // degrees around the Y-axis
+
+    // Convert spherical coordinates to Cartesian coordinates
+    const phi = THREE.MathUtils.degToRad(90 - elevation);
+    const theta = THREE.MathUtils.degToRad(azimuth);
+    sun.setFromSphericalCoords(1, phi, theta);
+
+    // Update Sky's sun position
+    sky.material.uniforms['sunPosition'].value.copy(sun);
+
+    // Adjust Sky's uniforms to customize appearance
+    sky.material.uniforms['turbidity'].value = 10;        // Controls haziness
+    sky.material.uniforms['rayleigh'].value = 3;         // Controls sky color
+    sky.material.uniforms['mieCoefficient'].value = 0.005; // Controls scattering
+    sky.material.uniforms['mieDirectionalG'].value = 0.6;   // Controls scattering direction
+
+    // Add Ambient Light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Soft white light
+    scene.add(ambientLight);
 
     // Teleport marker
     markerMesh = new THREE.Mesh(
@@ -376,6 +402,7 @@ let terrainMaterial = null;
 let terrainPointCloud = null;
 let terrainLineSegments = null; // Line segments for connecting points
 let terrainMesh = null; // Mesh surface for the terrain
+let terrainMeshWire = null; // Mesh surface for the terrain
 
 // Render Control
 const POINTS_BATCH_SIZE = 10; // Number of points to render per frame
@@ -603,10 +630,10 @@ function initializeTerrainPointCloud() {
     terrainGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     terrainMaterial = new THREE.PointsMaterial({
-        size: 0.1,
+        size: 0.05,
         vertexColors: true,
         transparent: true,
-        opacity: 1
+        opacity: 0.5
     });
 
     terrainPointCloud = new THREE.Points(terrainGeometry, terrainMaterial);
@@ -629,10 +656,10 @@ function populateTerrainFromSavedPoints(savedPoints) {
         positions[baseIndex + 1] = (point.elevation - referenceElevation) * scaleMultiplier;
         positions[baseIndex + 2] = (point.latitude - window.latitude) * metersPerDegLat;
 
-        const normalizedElevation = Math.min(Math.max(point.elevation - referenceElevation, 0), 100) / 100;
+        const normalizedElevation = Math.min(Math.max(point.elevation - referenceElevation, 0), 80) / 80;
         const color = new THREE.Color().lerpColors(
-            new THREE.Color(0x0000ff), // Blue for low elevation
-            new THREE.Color(0xff0000), // Red for high elevation
+            new THREE.Color(0x5555ff), // Blue for low elevation
+            new THREE.Color(0xff5555), // Red for high elevation
             normalizedElevation
         );
 
@@ -678,10 +705,10 @@ function renderTerrainPoints() {
         positions[baseIndex + 1] = (point.elevation - referenceElevation) * scaleMultiplier;
         positions[baseIndex + 2] = (point.latitude - window.latitude) * 111320 * scaleMultiplier;
 
-        const normalizedElevation = Math.min(Math.max(point.elevation - referenceElevation, 0), 100) / 100;
+        const normalizedElevation = Math.min(Math.max(point.elevation - referenceElevation, 0), 80) / 80;
         const color = new THREE.Color().lerpColors(
-            new THREE.Color(0x0000ff), // Blue for low elevation
-            new THREE.Color(0xff0000), // Red for high elevation
+            new THREE.Color(0x5555ff), // Blue for low elevation
+            new THREE.Color(0xff5555), // Red for high elevation
             normalizedElevation
         );
 
@@ -838,7 +865,9 @@ function* terrainLineDrawingGenerator(savedPoints) {
     scene.add(terrainLineSegments);
 
     yield; // Final yield to indicate completion
-}const gridRows = 200; // Number of rows in the grid
+}
+
+const gridRows = 200; // Number of rows in the grid
 const gridCols = 200; // Number of columns in the grid
 
 function createTerrainMesh(savedPoints) {
@@ -991,7 +1020,7 @@ function createTerrainMesh(savedPoints) {
             const y = (point.elevation - referenceElevation) * scaleMultiplier; // y
             const z = (point.latitude - originLatitude) * metersPerDegLat; // z
 
-            vertices[vertexIndex]     = x;
+            vertices[vertexIndex] = x;
             vertices[vertexIndex + 1] = y;
             vertices[vertexIndex + 2] = z;
 
@@ -1002,7 +1031,7 @@ function createTerrainMesh(savedPoints) {
                 new THREE.Color(0xffaaaa), // Red for high elevation
                 normalizedElevation
             );
-            colors[vertexIndex]     = color.r;
+            colors[vertexIndex] = color.r;
             colors[vertexIndex + 1] = color.g;
             colors[vertexIndex + 2] = color.b;
         }
@@ -1041,13 +1070,13 @@ function createTerrainMesh(savedPoints) {
 
             // Validate distances for the first triangle (a, c, b)
             const isTriangle1Valid = distanceACSq <= maxTriangleSizeSq &&
-                                      distanceCBSq <= maxTriangleSizeSq &&
-                                      distanceABSq <= maxTriangleSizeSq;
+                distanceCBSq <= maxTriangleSizeSq &&
+                distanceABSq <= maxTriangleSizeSq;
 
             // Validate distances for the second triangle (b, c, d)
             const isTriangle2Valid = distanceBCSq <= maxTriangleSizeSq &&
-                                      distanceCDSq <= maxTriangleSizeSq &&
-                                      distanceBDSq <= maxTriangleSizeSq;
+                distanceCDSq <= maxTriangleSizeSq &&
+                distanceBDSq <= maxTriangleSizeSq;
 
             // Only add triangles if they pass the distance validation
             if (isTriangle1Valid && isTriangle2Valid) {
@@ -1069,17 +1098,43 @@ function createTerrainMesh(savedPoints) {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
-    // Step 7: Create Material with Vertex Colors
-    const material = new THREE.MeshBasicMaterial({
-        vertexColors: true,
-        wireframe: false, // Set to true if wireframe is desired
-        transparent: true,
-        opacity: 0.6
+    // Step 7: Create Material with Vertex Colors, Shading, and Reflectivity
+    const materialWire = new THREE.MeshStandardMaterial({
+        vertexColors: true,        // Enable vertex colors
+        wireframe: true,          // Set to true if wireframe is desired
+        transparent: true,         // Enable transparency
+        opacity: 0.5,              // Set opacity level
+        metalness: 0.5,            // Slight reflectivity (range: 0.0 - 1.0)
+        roughness: 0.2,            // Moderate roughness for shading (range: 0.0 - 1.0)
+
+        // Optional: Add an environment map for enhanced reflections
+        // envMap: yourEnvironmentMap,      // Replace with your environment map texture
+        // envMapIntensity: 1.0,            // Adjust the intensity of the environment map
     });
+
+    // Step 7: Create Material with Vertex Colors, Shading, and Reflectivity
+    const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,        // Enable vertex colors
+        wireframe: false,          // Set to true if wireframe is desired
+        transparent: true,         // Enable transparency
+        opacity: 0.95,              // Set opacity level
+        metalness: 0.3,            // Slight reflectivity (range: 0.0 - 1.0)
+        roughness: 0.7,            // Moderate roughness for shading (range: 0.0 - 1.0)
+
+        // Optional: Add an environment map for enhanced reflections
+        // envMap: yourEnvironmentMap,      // Replace with your environment map texture
+        // envMapIntensity: 1.0,            // Adjust the intensity of the environment map
+    });
+
 
     // Step 8: Create and Add the Terrain Mesh to the Scene
     terrainMesh = new THREE.Mesh(geometry, material);
+    terrainMesh.receiveShadow = true;
     scene.add(terrainMesh);
+
+    // Step 8: Create and Add the Terrain Mesh to the Scene
+    terrainMeshWire = new THREE.Mesh(geometry, materialWire);
+    scene.add(terrainMeshWire);
 
     console.log("Terrain mesh created and added to the scene.");
 }
@@ -1261,6 +1316,8 @@ function setupVRControllers() {
         }
         const offsetRotation = new THREE.Quaternion()
         const transform = new XRRigidTransform(offsetPosition, offsetRotation)
+        const terrainHeight = getTerrainHeightAt(localModel.position.x, localModel.position.z);
+
         const teleportSpaceOffset =
             baseReferenceSpace.getOffsetReferenceSpace(transform)
         renderer.xr.setReferenceSpace(teleportSpaceOffset)
@@ -1268,7 +1325,7 @@ function setupVRControllers() {
         // Move localModel
         localModel.position.set(
             INTERSECTION.x,
-            localModel.position.y,
+            terrainHeight,
             INTERSECTION.z
         )
         emitMovementIfChanged({
@@ -1686,6 +1743,10 @@ function animate() {
             // Handle teleportation intersections and marker placement
             checkTeleportIntersections();
 
+            // Ensure the camera is correctly positioned above the terrain
+            const terrainHeight = getTerrainHeightAt(localModel.position.x, localModel.position.z);
+            localModel.position.y = terrainHeight;
+
             // **Render the scene for VR without post-processing**
             renderer.render(scene, camera);
         } else {
@@ -2073,7 +2134,8 @@ function createRemotePlayer(id, data) {
         modelPath,
         gltf => {
             const remoteModel = gltf.scene
-            remoteModel.position.set(data.x, 0, data.z)
+            const terrainHeight = getTerrainHeightAt(localModel.position.x, localModel.position.z);
+            remoteModel.position.set(data.x, terrainHeight, data.z)
             remoteModel.rotation.y = data.rotation
             remoteModel.castShadow = true
 
@@ -2136,7 +2198,8 @@ function updateRemotePlayer(id, data) {
     if (!player) return
 
     if (!player.initialized) {
-        player.model.position.set(data.x, 0, data.z)
+        const terrainHeight = getTerrainHeightAt(localModel.position.x, localModel.position.z);
+        player.model.position.set(data.x, terrainHeight, data.z)
         player.model.rotation.y = data.rotation
         player.initialized = true
         return
