@@ -341,6 +341,8 @@ function init() {
     // Generate terrain
     //initializeTerrain();
 
+    initializeGeolocation();
+    
     loadLocalModel()
 
     // Keyboard events (Desktop)
@@ -370,7 +372,6 @@ function init() {
     checkPermissions()
 
     // Call the geolocation initializer
-    initializeGeolocation();
     //generateTerrain()
 }
 // Flag to prevent multiple initializations
@@ -1829,13 +1830,13 @@ function loadLocalModel() {
     } else {
         console.log('Loaded saved position from localStorage:', finalSpawn)
     }
-
     const loader = new GLTFLoader()
     loader.load(
         modelPath,
         gltf => {
             localModel = gltf.scene
-            localModel.position.set(finalSpawn.x, 0, finalSpawn.z)
+            
+            localModel.position.set(finalSpawn.x, terrainHeight || 0, finalSpawn.z)
             localModel.rotation.y = finalSpawn.rotation || 0
 
             scene.add(localModel)
