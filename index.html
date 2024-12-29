@@ -68,7 +68,8 @@
       z-index: 1000;
       left: 0px;
       top: 0px;
-      background: rgba(0, 0, 0, 0.8); /* Semi-transparent background */
+      background: rgba(0, 0, 0, 0.8);
+      /* Semi-transparent background */
       color: white;
       font-size: 1.5rem;
       text-align: center;
@@ -84,18 +85,21 @@
       border: none;
       border-radius: 0.5rem;
       cursor: pointer;
-      background-color: #28a745; /* Green */
+      background-color: #28a745;
+      /* Green */
       color: white;
       margin-top: 1rem;
       transition: background-color 0.3s ease;
     }
 
     #start_demo.btn-danger {
-      background-color: #dc3545; /* Red */
+      background-color: #dc3545;
+      /* Red */
     }
 
     #start_demo.btn-success {
-      background-color: #28a745; /* Green */
+      background-color: #28a745;
+      /* Green */
     }
 
     .touch-controls {
@@ -213,7 +217,7 @@
         backdrop-filter: blur(15px)brightness(0.1);
         opacity: 1;
         z-index: 99;
-        filter:blur(0px);
+        filter: blur(0px);
       }
 
       100% {
@@ -221,7 +225,7 @@
         backdrop-filter: blur(0px)brightness(1);
         opacity: 0;
         z-index: 99;
-        filter:blur(100px);
+        filter: blur(100px);
       }
     }
 
@@ -233,7 +237,8 @@
       opacity: 1;
       font-size: 0.8rem;
       font-family: "Rajdhani", sans-serif;
-      cursor: pointer; /* Indicate that it's clickable */
+      cursor: pointer;
+      /* Indicate that it's clickable */
     }
 
     /* Updated Location Display */
@@ -263,18 +268,21 @@
       border: none;
       border-radius: 0.5rem;
       cursor: pointer;
-      background-color: #28a745; /* Green */
+      background-color: #28a745;
+      /* Green */
       color: white;
       margin-top: 1rem;
       transition: background-color 0.3s ease;
     }
 
     #start_demo.btn-danger {
-      background-color: #dc3545; /* Red */
+      background-color: #dc3545;
+      /* Red */
     }
 
     #start_demo.btn-success {
-      background-color: #28a745; /* Green */
+      background-color: #28a745;
+      /* Green */
     }
   </style>
 </head>
@@ -320,21 +328,32 @@
       <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
       <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
       <hr style="display:none!important;">
-      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span id="Accelerometer_gx">N/A</span></p>
-      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Y:</span> <span id="Accelerometer_gy">N/A</span></p>
-      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Z:</span> <span id="Accelerometer_gz">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span
+          id="Accelerometer_gx">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Y:</span> <span
+          id="Accelerometer_gy">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Z:</span> <span
+          id="Accelerometer_gz">N/A</span></p>
       <hr style="display:none!important;">
-      <p style="display:none!important;"><span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span></p>
-      <p style="display:none!important;"><span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span></p>
-      <p style="display:none!important;"><span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span>
+      </p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span>
+      </p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span>
+      </p>
       <hr style="display:none!important;">
-      <p style="display:none!important;"><span class="sensor-label">Interval (ms):</span> <span id="Accelerometer_i">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Interval (ms):</span> <span
+          id="Accelerometer_i">N/A</span></p>
       <hr style="display:none!important;">
-      <p style="display:none!important;"><span class="sensor-label">Gyro alpha (Z):</span> <span id="Gyroscope_z">N/A</span></p>
-      <p style="display:none!important;"><span class="sensor-label">Gyro beta (X):</span> <span id="Gyroscope_x">N/A</span></p>
-      <p style="display:none!important;"><span class="sensor-label">Gyro gamma (Y):</span> <span id="Gyroscope_y">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Gyro alpha (Z):</span> <span
+          id="Gyroscope_z">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Gyro beta (X):</span> <span
+          id="Gyroscope_x">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Gyro gamma (Y):</span> <span
+          id="Gyroscope_y">N/A</span></p>
       <hr style="display:none!important;">
-      <p style="display:none!important;"><span class="sensor-label">Total Events:</span> <span id="num-observed-events">0</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Total Events:</span> <span
+          id="num-observed-events">0</span></p>
     </div>
   </div>
 
@@ -365,8 +384,16 @@
       function geoSuccess(position) {
         window.isGPSEnabled = true;
         const { latitude, longitude } = position.coords;
-        locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        window.latitude = latitude;
+        window.longitude = longitude;
+        const locationElement = document.getElementById("location");
+        if (locationElement) {
+          locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        }
+        // Dispatch the custom event
+        window.dispatchEvent(new Event('locationUpdated'));
       }
+
 
       // Error callback
       function geoError(err) {
