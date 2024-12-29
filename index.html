@@ -437,6 +437,13 @@
       updateFieldIfNotNull("Orientation_b", event.beta);
       updateFieldIfNotNull("Orientation_g", event.gamma);
       incrementEventCount();
+
+      // Expose values globally
+      window.deviceOrientation = {
+        alpha: event.alpha,
+        beta: event.beta,
+        gamma: event.gamma
+      };
     }
 
     // Device Motion Handler

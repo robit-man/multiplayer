@@ -113,28 +113,11 @@ let lastSavedPos = { x: null, z: null, rotation: null }
 // ------------------------------
 // Device Orientation Data
 // ------------------------------
-
 window.orientationData = {
     alpha: 0, // Yaw-like angle (degrees)
     beta: 0, // Pitch-like angle (degrees)
     gamma: 0 // Roll-like angle (degrees) - typically unused here
 }
-
-async function initializeGeolocation() {
-    try {
-        const position = await navigator.geolocation.getCurrentPosition();
-        window.latitude = position.coords.latitude;
-        window.longitude = position.coords.longitude;
-        document.getElementById('location').innerText = `Location: ${window.latitude.toFixed(5)}, ${window.longitude.toFixed(5)}`;
-        window.dispatchEvent(new Event('locationUpdated'));
-    } catch (error) {
-        console.error("Geolocation error:", error);
-        document.getElementById('location').innerText = "Location: Not Available";
-    }
-}
-
-// Call the geolocation initializer
-initializeGeolocation();
 
 // ------------------------------
 // Initialize Sensor Listeners
@@ -2490,6 +2473,11 @@ function disableLocationFeatures() {
     console.log('Disabling location-based features.')
 }
 
+
+// Listen for changes in permissions
+window.addEventListener('appPermissionsChanged', () => {
+    checkPermissions()
+  })
 // ------------------------------
 // Swipe Gesture Controls Integration
 // ------------------------------
