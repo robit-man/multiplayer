@@ -303,7 +303,7 @@ function init() {
     scene.add(markerMesh)
 
     // Pointer Lock Controls (Desktop)
-    controls = new PointerLockControls(camera, document.body)
+    controls = new PointerLockControls(camera, document.getElementById('app'))
 
     const instructions = document.getElementById('app')
     instructions.addEventListener('click', function () {
