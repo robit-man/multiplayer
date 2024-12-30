@@ -681,6 +681,30 @@
       initializeGeolocation(); // Start watching geolocation
       initializeDemo();
     });
+
+    
+  // Attach event listeners to the Start Demo button
+  demoButton.addEventListener("click", async (e) => {
+    e.preventDefault();
+    // Reset cover message and hide the button before requesting again
+    coverMessage.innerHTML = "Requesting permissions...";
+    demoButton.style.display = "none";
+    const permissions = await requestAllPermissions();
+
+    // Restart geolocation watching in case it was stopped
+    if (permissions.locationGranted && window.geolocationWatchId === undefined) {
+      initializeGeolocation();
+    }
+
+    if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+      toggleDemo();
+      cover.style.display = "none"; // Hide the cover after starting
+    } else {
+      // Permissions still not granted
+      coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
+      demoButton.style.display = "block";
+    }
+  });
   </script>
 
   <!-- The main 3D or WebXR app container -->
