@@ -91,7 +91,7 @@ let lastState = {}
 
 // Speed
 const walkSpeed = 2
-const runSpeed = 150 // Adjusted to a realistic running speed
+const runSpeed = 5 // Adjusted to a realistic running speed
 
 // Terrain
 const terrainSize = 200
