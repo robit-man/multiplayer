@@ -374,6 +374,7 @@ function init() {
     // Call the geolocation initializer
     //generateTerrain()
 }
+
 // Flag to prevent multiple initializations
 let terrainInitialized = false;
 
@@ -1125,9 +1126,10 @@ function createTerrainMesh(savedPoints) {
 
 
 /**
- * Helper function to find the closest grid point and reposition the camera.
+ * Reports the player's current geographic position by finding the closest terrain point.
+ * Updates the HTML element with ID 'position' to display latitude and longitude.
  */
-function repositionCameraAboveClosestGridPoint() {
+function reportPosition() {
     if (!terrainPointCloud || !localModel) return;
 
     // Extract the local model's current x and z positions
@@ -1138,30 +1140,27 @@ function repositionCameraAboveClosestGridPoint() {
     const closestPoint = findClosestGridPoint(userX, userZ);
 
     if (closestPoint) {
-        // Set the camera's position to be 1.7 units above the closest grid point
-        camera.position.set(
-            closestPoint.x,
-            closestPoint.y + 1.7,
-            closestPoint.z
-        );
+        // Format latitude and longitude to 5 decimal places for readability
+        const formattedLat = closestPoint.latitude.toFixed(5);
+        const formattedLon = closestPoint.longitude.toFixed(5);
 
-        // Optionally, update the local model's position to match the closest point
-        localModel.position.set(
-            closestPoint.x,
-            closestPoint.y,
-            closestPoint.z
-        );
+        // Update the HTML element with the formatted latitude and longitude
+        updateField('position', `Lat: ${formattedLat}, Lon: ${formattedLon}`);
 
-        // Update the camera to look at the local model
-        //camera.lookAt(localModel.position);
+        // Optional: Update the camera to look at the local model
+        // camera.lookAt(localModel.position);
+    } else {
+        // Handle cases where no closest point is found
+        updateField('position', 'Position: Unknown');
     }
 }
 
+
 /**
- * Finds the closest grid point to the given x and z coordinates.
- * @param {number} x - The x-coordinate of the user.
- * @param {number} z - The z-coordinate of the user.
- * @returns {Object|null} The closest grid point with x, y, z properties or null if not found.
+ * Finds the closest grid point to the given x and z coordinates and returns its latitude and longitude.
+ * @param {number} x - The x-coordinate of the user in the scene.
+ * @param {number} z - The z-coordinate of the user in the scene.
+ * @returns {Object|null} The closest grid point with latitude and longitude or null if not found.
  */
 function findClosestGridPoint(x, z) {
     if (!terrainPointCloud) return null;
@@ -1169,6 +1168,14 @@ function findClosestGridPoint(x, z) {
     const positions = terrainPointCloud.geometry.attributes.position.array;
     let minDistance = Infinity;
     let closestPoint = null;
+
+    // Define meters per degree based on scaleMultiplier
+    const metersPerDegLat = 111320 * scaleMultiplier; // Approximately meters per degree latitude
+    const metersPerDegLon = 110540 * scaleMultiplier; // Approximately meters per degree longitude
+
+    // Reference origin from window object
+    const originLongitude = window.longitude; // Ensure window.longitude is defined
+    const originLatitude = window.latitude;   // Ensure window.latitude is defined
 
     // Iterate through all points to find the closest one
     for (let i = 0; i < positions.length; i += 3) {
@@ -1178,16 +1185,24 @@ function findClosestGridPoint(x, z) {
 
         const dx = x - pointX;
         const dz = z - pointZ;
-        const distance = dx * dx + dz * dz; // Compare squared distances for efficiency
+        const distance = dx * dx + dz * dz; // Squared distance for efficiency
 
         if (distance < minDistance) {
             minDistance = distance;
-            closestPoint = { x: pointX, y: pointY, z: pointZ };
+            // Convert x and z back to latitude and longitude
+            const generatedLongitude = pointX / metersPerDegLon + originLongitude;
+            const generatedLatitude = pointZ / metersPerDegLat + originLatitude;
+
+            closestPoint = {
+                latitude: generatedLatitude,
+                longitude: generatedLongitude
+            };
         }
     }
 
     return closestPoint;
 }
+
 
 // ------------------------------
 // Save + Load local position
@@ -1698,6 +1713,20 @@ function emitMovementIfChanged(newState) {
         lastEmittedState = newState
     }
 }
+/**
+ * Updates the innerHTML of an element with the given ID.
+ * @param {string} elementId - The ID of the HTML element to update.
+ * @param {string} content - The content to set as innerHTML.
+ */
+function updateField(elementId, content) {
+    const element = document.getElementById(elementId);
+    if (!element) {
+        console.warn(`Element with ID '${elementId}' not found.`);
+        return;
+    }
+    element.innerHTML = content;
+}
+
 
 // ------------------------------
 // Render loop
@@ -1740,10 +1769,12 @@ function animate() {
             if (localModel) {
                 // Ensure the camera is correctly positioned above the terrain
                 const terrainHeight = getTerrainHeightAt(localModel.position.x, localModel.position.z);
+
                 localModel.position.y = terrainHeight;
 
+                //updateField('position', currentPos)
                 // Automatically reposition the camera 1.7 units above the closest grid point
-                //repositionCameraAboveClosestGridPoint();
+                reportPosition();
 
                 // Optional: Smooth camera movement (if needed)
                 // camera.position.lerp(targetPosition, 0.1);
@@ -2443,7 +2474,7 @@ function checkPermissions() {
     } else {
         console.log('Permissions not yet set.')
         // Optionally, you can create a generic overlay prompting the user to grant all permissions
-        createGenericPermissionOverlay()
+        //createGenericPermissionOverlay()
     }
 }
 
@@ -2487,168 +2518,6 @@ window.addEventListener('appPermissionsChanged', () => {
     checkPermissions()
 })
 
-// ------------------------------
-// Permission Overlay Management
-// ------------------------------
-
-/**
- * Creates an overlay prompting the user to grant a specific permission.
- * @param {string} permissionName - The name of the permission (e.g., 'Motion').
- * @param {Function} requestPermissionFunc - The function to call when the user clicks to grant permission.
- */
-function createPermissionOverlay(permissionName, requestPermissionFunc) {
-    // Check if an overlay for this permission already exists
-    if (document.getElementById(`${permissionName}-permission-overlay`)) return
-
-    // Create overlay elements
-    const overlay = document.createElement('div')
-    overlay.id = `${permissionName}-permission-overlay`
-    overlay.className = 'permission-overlay'
-
-    const message = document.createElement('div')
-    message.className = 'permission-message'
-    message.innerHTML = `Press to enable ${permissionName} permission`
-
-    const button = document.createElement('button')
-    button.className = 'permission-button'
-    button.innerText = `Enable ${permissionName}`
-    button.addEventListener('click', async () => {
-        await requestPermissionFunc()
-        // After attempting to request permission, re-check permissions
-        checkPermissions()
-    })
-
-    overlay.appendChild(message)
-    overlay.appendChild(button)
-    document.body.appendChild(overlay)
-}
-
-/**
- * Removes the overlay for a specific permission.
- * @param {string} permissionName - The name of the permission (e.g., 'Motion').
- */
-function removePermissionOverlay(permissionName) {
-    const overlay = document.getElementById(`${permissionName}-permission-overlay`)
-    if (overlay) {
-        document.body.removeChild(overlay)
-    }
-}
-
-/**
- * Creates a generic overlay prompting the user to grant all permissions.
- * Optional: Customize as needed.
- */
-function createGenericPermissionOverlay() {
-    // Implement if you want a generic overlay for all permissions not set yet
-    // For this scenario, it's optional and can be left empty or removed
-}
-
-// ------------------------------
-// Permission Request Functions
-// ------------------------------
-
-/**
- * Requests Motion permission (for DeviceMotionEvent).
- */
-async function requestMotionPermission() {
-    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
-        try {
-            const response = await DeviceMotionEvent.requestPermission()
-            if (response === 'granted') {
-                window.appPermissions.motionGranted = true
-                console.log('Motion permission granted.')
-                removePermissionOverlay('Motion')
-                enableMotionFeatures()
-            } else {
-                console.log('Motion permission denied.')
-            }
-        } catch (error) {
-            console.error('Error requesting Motion permission:', error)
-        }
-    } else {
-        // For non-iOS devices or browsers that don't require permission
-        window.appPermissions.motionGranted = true
-        console.log('Motion permission assumed granted.')
-        removePermissionOverlay('Motion')
-        enableMotionFeatures()
-    }
-}
-
-/**
- * Requests Orientation permission (for DeviceOrientationEvent).
- */
-async function requestOrientationPermission() {
-    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-            const response = await DeviceOrientationEvent.requestPermission()
-            if (response === 'granted') {
-                window.appPermissions.orientationGranted = true
-                console.log('Orientation permission granted.')
-                removePermissionOverlay('Orientation')
-                enableOrientationFeatures()
-            } else {
-                console.log('Orientation permission denied.')
-            }
-        } catch (error) {
-            console.error('Error requesting Orientation permission:', error)
-        }
-    } else {
-        // For non-iOS devices or browsers that don't require permission
-        window.appPermissions.orientationGranted = true
-        console.log('Orientation permission assumed granted.')
-        removePermissionOverlay('Orientation')
-        enableOrientationFeatures()
-    }
-}
-
-/**
- * Requests Location permission (for Geolocation).
- */
-async function requestLocationPermission() {
-    return new Promise((resolve) => {
-        if (!navigator.geolocation) {
-            console.error("Geolocation is not supported by this browser.")
-            resolve(false)
-            return
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords
-                window.latitude = latitude
-                window.longitude = longitude
-                const locationElement = document.getElementById("location")
-                if (locationElement) {
-                    locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-                }
-                window.appPermissions.locationGranted = true
-                console.log('Location permission granted.')
-                removePermissionOverlay('Location')
-                initializeLocationFeatures()
-                resolve(true)
-            },
-            (error) => {
-                console.error("Error getting location:", error)
-                if (error.code === error.PERMISSION_DENIED) {
-                    alert("Location permissions denied. Location data will be unavailable.")
-                    const locationElement = document.getElementById("location")
-                    if (locationElement) {
-                        locationElement.innerHTML = `Location: Permission Denied`
-                    }
-                } else {
-                    alert("Unable to retrieve location data.")
-                }
-                window.appPermissions.locationGranted = false
-                resolve(false)
-            },
-            {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 5000
-            }
-        )
-    })
-}
 // ------------------------------
 // Swipe Gesture Controls Integration
 // ------------------------------
