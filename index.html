@@ -79,28 +79,6 @@
       margin-bottom: 1rem;
     }
 
-    #start_demo {
-      padding: 1rem 2rem;
-      font-size: 1rem;
-      border: none;
-      border-radius: 0.5rem;
-      cursor: pointer;
-      background-color: #28a745;
-      /* Green */
-      color: white;
-      margin-top: 1rem;
-      transition: background-color 0.3s ease;
-    }
-
-    #start_demo.btn-danger {
-      background-color: #dc3545;
-      /* Red */
-    }
-
-    #start_demo.btn-success {
-      background-color: #28a745;
-      /* Green */
-    }
 
     .touch-controls {
       display: none !important;
@@ -251,6 +229,11 @@
 
     }
 
+    #position {
+      margin: unset;
+      overflow: visible;
+    }
+
     /* Optional clearer styling for new sensor readouts */
     .sensor-readouts {
       opacity: 0.9;
@@ -274,25 +257,31 @@
 
     /* Start Demo Button Styles */
     #start_demo {
-      padding: 1rem 2rem;
+      padding: 0.5rem 1rem;
       font-size: 1rem;
       border: none;
       border-radius: 0.5rem;
+      margin-top: 0.5rem;
       cursor: pointer;
-      background-color: #28a745;
+      background-color: #000000;
       /* Green */
       color: white;
-      margin-top: 1rem;
       transition: background-color 0.3s ease;
+      font-family: "Rajdhani", serif;
+      font-weight: 700;
+      font-style: normal;
+
     }
 
     #start_demo.btn-danger {
-      background-color: #dc3545;
+      background-color: #000000;
+      color: white;
       /* Red */
     }
 
     #start_demo.btn-success {
-      background-color: #28a745;
+      background-color: #ffffff;
+      color: black;
       /* Green */
     }
   </style>
@@ -334,10 +323,13 @@
   <!-- Data Overlay -->
   <div class="data" id="data">
     <p id="location">Location: N/A</p>
+    <p id="position">Position: N/A</p>
     <div class="sensor-readouts">
       <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
       <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
       <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
+      <button id="start_demo" class="btn btn-success">Permission Request</button>
+
       <hr style="display:none!important;">
       <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span
           id="Accelerometer_gx">N/A</span></p>
