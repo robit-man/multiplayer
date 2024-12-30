@@ -192,7 +192,7 @@
 
       80% {
         display: flex;
-        backdrop-filter: blur(15px)brightness(0.1);
+        backdrop-filter: blur(15px) brightness(0.1);
         opacity: 1;
         z-index: 99;
         filter: blur(0px);
@@ -200,7 +200,7 @@
 
       100% {
         display: flex;
-        backdrop-filter: blur(0px)brightness(1);
+        backdrop-filter: blur(0px) brightness(1);
         opacity: 0;
         z-index: 99;
         filter: blur(100px);
@@ -286,6 +286,40 @@
       color: black;
       /* Green */
     }
+
+    #password {
+      font-family: "Rajdhani", serif;
+      font-weight: 700;
+      font-style: normal;
+      border: unset;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+    }
+
+    #encryptDecryptBtn {
+      font-family: "Rajdhani", serif;
+      font-weight: 700;
+      font-style: normal;
+      border: unset;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+    }
+
+    .button-stack {
+      gap: 0.25rem;
+      display: flex;
+      flex-flow: column;
+    }
+
+    .button-stack div {
+      display: none;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+    }
   </style>
 </head>
 
@@ -317,6 +351,11 @@
     </div>
   </div>
 
+  <!-- Cover Overlay -->
+  <div id="cover">
+    <div id="cover-message">Welcome to NOCLIP Multi User Demo</div>
+  </div>
+
   <!-- Data Overlay -->
   <div class="data" id="data">
     <p id="location">Location: N/A</p>
@@ -326,8 +365,11 @@
       <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
       <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
       <p><span id="progress"></span></p>
-      <button id="start_demo" class="btn btn-success">Permission Request</button>
-
+      <div class="button-stack">
+        <button id="start_demo" class="btn btn-success">Permission Request</button>
+        <input type="password" id="password" placeholder="Enter Password">
+        <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
+      </div>
       <hr style="display:none!important;">
       <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span
           id="Accelerometer_gx">N/A</span></p>
@@ -588,7 +630,7 @@
           // Stop reading
           window.removeEventListener("devicemotion", handleMotion);
           window.removeEventListener("deviceorientation", handleOrientation);
-          demoButton.innerHTML = "Start Demo";
+          demoButton.innerHTML = "Permission Request";
           demoButton.classList.add("btn-success");
           demoButton.classList.remove("btn-danger");
         } else {
@@ -606,105 +648,96 @@
         isRunning = !isRunning;
       }
 
-      // Automatically request permissions on join
-      async function autoRequestPermissions() {
-        coverMessage.innerHTML = "Initializing Demo...";
-        const permissions = await requestAllPermissions();
-
-        // Start geolocation watching
-        initializeGeolocation();
-
-        if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
-          // Start the demo if at least one permission is granted
-          toggleDemo();
-          cover.style.display = "none"; // Hide the cover after starting
-        } else {
-          // Show the fallback button for manual permission request
-          coverMessage.innerHTML = "Please enable sensor and location permissions to start the demo.";
-          demoButton.style.display = "block";
-        }
-      }
-
-      // Attach event listeners to the Start Demo button
-      demoButton.addEventListener("click", async (e) => {
-        e.preventDefault();
-        // Reset cover message and hide the button before requesting again
-        coverMessage.innerHTML = "Requesting permissions...";
-        demoButton.style.display = "none";
-        const permissions = await requestAllPermissions();
-
-        // Restart geolocation watching in case it was stopped
-        if (permissions.locationGranted && window.geolocationWatchId === undefined) {
-          initializeGeolocation();
-        }
-
-        if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
-          toggleDemo();
-          cover.style.display = "none"; // Hide the cover after starting
-        } else {
-          // Permissions still not granted
-          coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
-          demoButton.style.display = "block";
-        }
-      });
-
-      // Add click listener to #data for re-requesting permissions if needed
-      const dataDiv = document.getElementById("data");
-      dataDiv.addEventListener("click", async () => {
-        // Check if any permissions are not granted
-        const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
-        if (!motionGranted || !orientationGranted || !locationGranted) {
-          alert("Re-requesting permissions...");
-          const permissions = await requestAllPermissions();
-
-          // Restart geolocation watching if location was granted
-          if (permissions.locationGranted && window.geolocationWatchId === undefined) {
-            initializeGeolocation();
-          }
-
-          if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
-            toggleDemo();
-            cover.style.display = "none"; // Hide the cover if permissions are now granted
-          } else {
-            coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
-            demoButton.style.display = "block";
-          }
-        }
-      });
-
-      // Attempt to request permissions automatically
-      autoRequestPermissions();
+      // The event listener for the demo button is moved outside this function
+      // to ensure it remains active and can always be clicked.
     }
 
     // =========== INITIALIZATION ===========
     document.addEventListener("DOMContentLoaded", () => {
       initializeGeolocation(); // Start watching geolocation
       initializeDemo();
+
+      // Attach event listener to the Start Demo button outside initializeDemo
+      const demoButton = document.getElementById("start_demo");
+      const cover = document.getElementById("cover");
+      const coverMessage = document.getElementById("cover-message");
+
+      if (demoButton && coverMessage) {
+        demoButton.addEventListener("click", async (e) => {
+          e.preventDefault();
+          // Reset cover message and hide the button before requesting again
+          coverMessage.innerHTML = "Requesting permissions...";
+          demoButton.style.display = "none";
+          const permissions = await requestAllPermissions();
+
+          // Restart geolocation watching in case it was stopped
+          if (permissions.locationGranted && window.geolocationWatchId === undefined) {
+            initializeGeolocation();
+          }
+
+          if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+            // Start or stop the demo based on current state
+            toggleDemoState();
+            cover.style.display = "none"; // Hide the cover after starting
+          } else {
+            // Permissions still not granted
+            coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
+            demoButton.style.display = "block";
+          }
+        });
+      }
+
+      // Function to toggle demo state (start/stop)
+      let isRunning = false;
+      function toggleDemoState() {
+        if (isRunning) {
+          // Stop reading
+          window.removeEventListener("devicemotion", handleMotion);
+          window.removeEventListener("deviceorientation", handleOrientation);
+          demoButton.innerHTML = "Permission Request";
+          demoButton.classList.add("btn-success");
+          demoButton.classList.remove("btn-danger");
+        } else {
+          // Start reading
+          if (window.appPermissions && window.appPermissions.motionGranted) {
+            window.addEventListener("devicemotion", handleMotion);
+          }
+          if (window.appPermissions && window.appPermissions.orientationGranted) {
+            window.addEventListener("deviceorientation", handleOrientation);
+          }
+          demoButton.innerHTML = "Stop Demo";
+          demoButton.classList.remove("btn-success");
+          demoButton.classList.add("btn-danger");
+        }
+        isRunning = !isRunning;
+      }
+
+      // Add click listener to #data for re-requesting permissions if needed
+      const dataDiv = document.getElementById("data");
+      if (dataDiv) {
+        dataDiv.addEventListener("click", async () => {
+          // Check if any permissions are not granted
+          const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
+          if (!motionGranted || !orientationGranted || !locationGranted) {
+            alert("Re-requesting permissions...");
+            const permissions = await requestAllPermissions();
+
+            // Restart geolocation watching if location was granted
+            if (permissions.locationGranted && window.geolocationWatchId === undefined) {
+              initializeGeolocation();
+            }
+
+            if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+              toggleDemoState();
+              cover.style.display = "none"; // Hide the cover if permissions are now granted
+            } else {
+              coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
+              demoButton.style.display = "block";
+            }
+          }
+        });
+      }
     });
-
-    
-  // Attach event listeners to the Start Demo button
-  demoButton.addEventListener("click", async (e) => {
-    e.preventDefault();
-    // Reset cover message and hide the button before requesting again
-    coverMessage.innerHTML = "Requesting permissions...";
-    demoButton.style.display = "none";
-    const permissions = await requestAllPermissions();
-
-    // Restart geolocation watching in case it was stopped
-    if (permissions.locationGranted && window.geolocationWatchId === undefined) {
-      initializeGeolocation();
-    }
-
-    if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
-      toggleDemo();
-      cover.style.display = "none"; // Hide the cover after starting
-    } else {
-      // Permissions still not granted
-      coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
-      demoButton.style.display = "block";
-    }
-  });
   </script>
 
   <!-- The main 3D or WebXR app container -->
@@ -993,10 +1026,12 @@
     }
 
     // Add event listeners for multi-touch
-    touchControls.addEventListener("touchstart", handleTouchStart, false);
-    touchControls.addEventListener("touchmove", handleTouchMove, false);
-    touchControls.addEventListener("touchend", handleTouchEnd, false);
-    touchControls.addEventListener("touchcancel", handleTouchCancel, false);
+    if (touchControls) {
+      touchControls.addEventListener("touchstart", handleTouchStart, false);
+      touchControls.addEventListener("touchmove", handleTouchMove, false);
+      touchControls.addEventListener("touchend", handleTouchEnd, false);
+      touchControls.addEventListener("touchcancel", handleTouchCancel, false);
+    }
 
     // Additional gesture prevention
     document.addEventListener('gesturestart', function (event) {
@@ -1016,11 +1051,15 @@
     });
 
     function showControls() {
-      touchControls.classList.add("active");
+      if (touchControls) {
+        touchControls.classList.add("active");
+      }
     }
 
     function hideControls() {
-      touchControls.classList.remove("active");
+      if (touchControls) {
+        touchControls.classList.remove("active");
+      }
     }
 
     function resetVisibilityTimeout() {
