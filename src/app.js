@@ -391,8 +391,8 @@ let terrainLineSegments = null // Line segments for connecting points
 let terrainMesh = null // Mesh surface for the terrain
 let terrainMeshWire = null // Mesh surface for the terrain
 
-const gridSizeMeters = 500
-const gridResolution = 100
+const gridSizeMeters = 1000
+const gridResolution = 200
 
 // Render Control
 const POINTS_BATCH_SIZE = 100 // Number of points to render per frame
