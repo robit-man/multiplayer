@@ -2400,11 +2400,14 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight)
 }
 
+// ------------------------------
+// Permission Handling
+// ------------------------------
+
 // Check Permissions and Initialize Listeners
 function checkPermissions() {
     if (window.appPermissions) {
-        const { motionGranted, orientationGranted, locationGranted } =
-            window.appPermissions
+        const { motionGranted, orientationGranted, locationGranted } = window.appPermissions
         console.log('Accessing Global Permissions:', window.appPermissions)
 
         // Modify behavior based on permissions
@@ -2414,6 +2417,7 @@ function checkPermissions() {
         } else {
             console.log('Motion permissions denied.')
             disableMotionFeatures()
+            createPermissionOverlay('Motion', requestMotionPermission)
         }
 
         if (orientationGranted) {
@@ -2422,6 +2426,7 @@ function checkPermissions() {
         } else {
             console.log('Orientation permissions denied.')
             disableOrientationFeatures()
+            createPermissionOverlay('Orientation', requestOrientationPermission)
         }
 
         if (locationGranted) {
@@ -2430,12 +2435,15 @@ function checkPermissions() {
         } else {
             console.log('Location permissions denied.')
             disableLocationFeatures()
+            createPermissionOverlay('Location', requestLocationPermission)
         }
 
         // Initialize sensor listeners after checking permissions
         initializeSensorListeners()
     } else {
         console.log('Permissions not yet set.')
+        // Optionally, you can create a generic overlay prompting the user to grant all permissions
+        createGenericPermissionOverlay()
     }
 }
 
@@ -2474,11 +2482,173 @@ function disableLocationFeatures() {
     console.log('Disabling location-based features.')
 }
 
-
 // Listen for changes in permissions
 window.addEventListener('appPermissionsChanged', () => {
     checkPermissions()
-  })
+})
+
+// ------------------------------
+// Permission Overlay Management
+// ------------------------------
+
+/**
+ * Creates an overlay prompting the user to grant a specific permission.
+ * @param {string} permissionName - The name of the permission (e.g., 'Motion').
+ * @param {Function} requestPermissionFunc - The function to call when the user clicks to grant permission.
+ */
+function createPermissionOverlay(permissionName, requestPermissionFunc) {
+    // Check if an overlay for this permission already exists
+    if (document.getElementById(`${permissionName}-permission-overlay`)) return
+
+    // Create overlay elements
+    const overlay = document.createElement('div')
+    overlay.id = `${permissionName}-permission-overlay`
+    overlay.className = 'permission-overlay'
+
+    const message = document.createElement('div')
+    message.className = 'permission-message'
+    message.innerHTML = `Press to enable ${permissionName} permission`
+
+    const button = document.createElement('button')
+    button.className = 'permission-button'
+    button.innerText = `Enable ${permissionName}`
+    button.addEventListener('click', async () => {
+        await requestPermissionFunc()
+        // After attempting to request permission, re-check permissions
+        checkPermissions()
+    })
+
+    overlay.appendChild(message)
+    overlay.appendChild(button)
+    document.body.appendChild(overlay)
+}
+
+/**
+ * Removes the overlay for a specific permission.
+ * @param {string} permissionName - The name of the permission (e.g., 'Motion').
+ */
+function removePermissionOverlay(permissionName) {
+    const overlay = document.getElementById(`${permissionName}-permission-overlay`)
+    if (overlay) {
+        document.body.removeChild(overlay)
+    }
+}
+
+/**
+ * Creates a generic overlay prompting the user to grant all permissions.
+ * Optional: Customize as needed.
+ */
+function createGenericPermissionOverlay() {
+    // Implement if you want a generic overlay for all permissions not set yet
+    // For this scenario, it's optional and can be left empty or removed
+}
+
+// ------------------------------
+// Permission Request Functions
+// ------------------------------
+
+/**
+ * Requests Motion permission (for DeviceMotionEvent).
+ */
+async function requestMotionPermission() {
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+            const response = await DeviceMotionEvent.requestPermission()
+            if (response === 'granted') {
+                window.appPermissions.motionGranted = true
+                console.log('Motion permission granted.')
+                removePermissionOverlay('Motion')
+                enableMotionFeatures()
+            } else {
+                console.log('Motion permission denied.')
+            }
+        } catch (error) {
+            console.error('Error requesting Motion permission:', error)
+        }
+    } else {
+        // For non-iOS devices or browsers that don't require permission
+        window.appPermissions.motionGranted = true
+        console.log('Motion permission assumed granted.')
+        removePermissionOverlay('Motion')
+        enableMotionFeatures()
+    }
+}
+
+/**
+ * Requests Orientation permission (for DeviceOrientationEvent).
+ */
+async function requestOrientationPermission() {
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const response = await DeviceOrientationEvent.requestPermission()
+            if (response === 'granted') {
+                window.appPermissions.orientationGranted = true
+                console.log('Orientation permission granted.')
+                removePermissionOverlay('Orientation')
+                enableOrientationFeatures()
+            } else {
+                console.log('Orientation permission denied.')
+            }
+        } catch (error) {
+            console.error('Error requesting Orientation permission:', error)
+        }
+    } else {
+        // For non-iOS devices or browsers that don't require permission
+        window.appPermissions.orientationGranted = true
+        console.log('Orientation permission assumed granted.')
+        removePermissionOverlay('Orientation')
+        enableOrientationFeatures()
+    }
+}
+
+/**
+ * Requests Location permission (for Geolocation).
+ */
+async function requestLocationPermission() {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+            console.error("Geolocation is not supported by this browser.")
+            resolve(false)
+            return
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords
+                window.latitude = latitude
+                window.longitude = longitude
+                const locationElement = document.getElementById("location")
+                if (locationElement) {
+                    locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+                }
+                window.appPermissions.locationGranted = true
+                console.log('Location permission granted.')
+                removePermissionOverlay('Location')
+                initializeLocationFeatures()
+                resolve(true)
+            },
+            (error) => {
+                console.error("Error getting location:", error)
+                if (error.code === error.PERMISSION_DENIED) {
+                    alert("Location permissions denied. Location data will be unavailable.")
+                    const locationElement = document.getElementById("location")
+                    if (locationElement) {
+                        locationElement.innerHTML = `Location: Permission Denied`
+                    }
+                } else {
+                    alert("Unable to retrieve location data.")
+                }
+                window.appPermissions.locationGranted = false
+                resolve(false)
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
+            }
+        )
+    })
+}
 // ------------------------------
 // Swipe Gesture Controls Integration
 // ------------------------------
