@@ -678,13 +678,18 @@
       });
 
       // Attempt to request permissions automatically
-      autoRequestPermissions();
+      //autoRequestPermissions();
     }
 
     // =========== INITIALIZATION ===========
     document.addEventListener("DOMContentLoaded", () => {
-      initializeGeolocation(); // Start watching geolocation
-      initializeDemo();
+
+      if (!window.isGPSEnabled) {
+        initializeGeolocation(); // Start watching geolocation
+      }
+      if (!window.isOrientationEnabled) {
+        initializeDemo(); // Start watching geolocation
+      }
     });
   </script>
 
