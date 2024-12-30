@@ -122,7 +122,7 @@ window.orientationData = {
 // ------------------------------
 // Initialize Sensor Listeners
 // ------------------------------
-function initializeSensorListeners () {
+function initializeSensorListeners() {
   if (window.appPermissions && window.appPermissions.orientationGranted) {
     window.addEventListener('deviceorientation', handleOrientation)
     console.log('DeviceOrientation event listener added.')
@@ -136,7 +136,7 @@ function initializeSensorListeners () {
 // ------------------------------
 // Device Orientation Handler
 // ------------------------------
-function handleOrientation (event) {
+function handleOrientation(event) {
   if (!window.appPermissions || !window.appPermissions.orientationGranted)
     return
   window.isOrientationEnabled = true
@@ -160,7 +160,7 @@ function handleOrientation (event) {
 // ------------------------------
 // Device Motion Handler
 // ------------------------------
-function handleMotion (event) {
+function handleMotion(event) {
   if (!window.appPermissions || !window.appPermissions.motionGranted) return
 
   if (event.accelerationIncludingGravity) {
@@ -204,7 +204,9 @@ animate()
 // ------------------------------
 // init()
 // ------------------------------
-function init () {
+function init() {
+
+
   // 1) Ensure localStorage ID
   let storedID = localStorage.getItem(LS_ID_KEY)
   if (!storedID) {
@@ -246,7 +248,7 @@ function init () {
   })
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 1)
-  dirLight.position.set(100, 200, 100)
+  dirLight.position.set(0, 200, -200)
   dirLight.castShadow = true
   dirLight.target.position.set(-5, 0, 0)
   dirLight.shadow.mapSize.set(1024, 1024)
@@ -368,11 +370,11 @@ function init () {
   // Save local position on unload
   window.addEventListener('beforeunload', savePositionToLocalStorage)
 
-  // Check and initialize sensor listeners based on permissions
-  checkPermissions()
-
   // Call the geolocation initializer
   //generateTerrain()
+
+  // Check and initialize sensor listeners based on permissions
+  checkPermissions()
 }
 
 // Flag to prevent multiple initializations
@@ -410,7 +412,7 @@ let referenceElevation = window.location?.elevation || 0
  * Saves a batch of points to localStorage.
  * @param {Array} pointsBatch - Array of point objects to save.
  */
-function savePointsToLocalStorage (pointsBatch) {
+function savePointsToLocalStorage(pointsBatch) {
   let savedPoints =
     JSON.parse(localStorage.getItem(LS_TERRAIN_POINTS_KEY)) || []
   savedPoints = savedPoints.concat(pointsBatch)
@@ -426,7 +428,7 @@ function savePointsToLocalStorage (pointsBatch) {
  * Loads saved points from localStorage.
  * @returns {Array} Array of saved point objects.
  */
-function loadPointsFromLocalStorage () {
+function loadPointsFromLocalStorage() {
   return JSON.parse(localStorage.getItem(LS_TERRAIN_POINTS_KEY)) || []
 }
 
@@ -438,7 +440,7 @@ function loadPointsFromLocalStorage () {
  * @param {number} retries - Number of retries for failed fetches.
  * @returns {Promise<void>}
  */
-async function fetchElevationGrid (
+async function fetchElevationGrid(
   points,
   units = 'Meters',
   concurrency = 10,
@@ -489,8 +491,7 @@ async function fetchElevationGrid (
         console.log(
           `Lat: ${elevationPoint.latitude.toFixed(
             5
-          )}, Lon: ${elevationPoint.longitude.toFixed(5)}, Elevation: ${
-            elevationPoint.elevation
+          )}, Lon: ${elevationPoint.longitude.toFixed(5)}, Elevation: ${elevationPoint.elevation
           } meters`
         )
       } else {
@@ -522,7 +523,7 @@ async function fetchElevationGrid (
  * @param {string} units - 'Meters' or 'Feet'.
  * @returns {number|null} Elevation value or null if failed.
  */
-async function fetchElevation (longitude, latitude, units = 'Meters') {
+async function fetchElevation(longitude, latitude, units = 'Meters') {
   const endpoint = 'https://epqs.nationalmap.gov/v1/json'
   const url = `${endpoint}?x=${longitude}&y=${latitude}&units=${units}&output=json`
 
@@ -614,8 +615,8 @@ window.addEventListener('locationUpdated', async () => {
  * @returns {Array} Array of point objects with latitude and longitude.
  * @param {Array} savedPoints - Array of saved point objects.
  */
- 
-function generateGrid (center, gridSizeMeters, gridResolution) {
+
+function generateGrid(center, gridSizeMeters, gridResolution) {
   const points = []
   const stepMeters = (2 * gridSizeMeters) / gridResolution
 
@@ -641,7 +642,7 @@ function generateGrid (center, gridSizeMeters, gridResolution) {
 /**
  * Initializes the Three.js terrain point cloud.
  */
-function initializeTerrainPointCloud () {
+function initializeTerrainPointCloud() {
   const positions = new Float32Array(totalPoints * 3)
   const colors = new Float32Array(totalPoints * 3)
 
@@ -663,7 +664,7 @@ function initializeTerrainPointCloud () {
   scene.add(terrainPointCloud)
 }
 
-function populateTerrainFromSavedPoints (savedPoints) {
+function populateTerrainFromSavedPoints(savedPoints) {
   const positions = terrainPointCloud.geometry.attributes.position.array
   const colors = terrainPointCloud.geometry.attributes.color.array
   const metersPerDegLat = 111320 * scaleMultiplier
@@ -700,7 +701,7 @@ function populateTerrainFromSavedPoints (savedPoints) {
 /**
  * Renders new terrain points into the scene.
  */
-function renderTerrainPoints () {
+function renderTerrainPoints() {
   if (!terrainPointCloud || window.elevationData.length === 0) return
 
   const positions = terrainPointCloud.geometry.attributes.position.array
@@ -747,6 +748,7 @@ function renderTerrainPoints () {
     colors[baseIndex + 2] = color.b
 
     pointsBatch.push(point)
+    // point.position.copy(camera.position.clone())
     nextPointIndex++
   }
 
@@ -769,7 +771,7 @@ function renderTerrainPoints () {
   }
 }
 
-function drawTerrainLinesAsync (savedPoints) {
+function drawTerrainLinesAsync(savedPoints) {
   if (!lineDrawingGenerator) {
     lineDrawingGenerator = terrainLineDrawingGenerator(savedPoints)
   }
@@ -783,7 +785,7 @@ function drawTerrainLinesAsync (savedPoints) {
 
 let lineDrawingGenerator = null
 
-function* terrainLineDrawingGenerator (savedPoints) {
+function* terrainLineDrawingGenerator(savedPoints) {
   const linePositions = []
   const metersPerDegLat = 111320 * scaleMultiplier
   const metersPerDegLon = 110540 * scaleMultiplier
@@ -932,7 +934,7 @@ function* terrainLineDrawingGenerator (savedPoints) {
 const gridRows = gridResolution // Number of rows in the grid
 const gridCols = gridResolution // Number of columns in the grid
 
-function createTerrainMesh (savedPoints) {
+function createTerrainMesh(savedPoints) {
   // Ensure gridRows and gridCols are defined
   if (typeof gridRows === 'undefined' || typeof gridCols === 'undefined') {
     console.error(
@@ -944,8 +946,7 @@ function createTerrainMesh (savedPoints) {
   // Validate the length of savedPoints
   if (savedPoints.length > gridRows * gridCols) {
     console.error(
-      `Expected at most ${gridRows * gridCols} points, but got ${
-        savedPoints.length
+      `Expected at most ${gridRows * gridCols} points, but got ${savedPoints.length
       }.`
     )
     return
@@ -1203,9 +1204,9 @@ function createTerrainMesh (savedPoints) {
     wireframe: false, // Set to true if wireframe is desired
     transparent: true, // Enable transparency
     side: THREE.DoubleSide,
-    opacity: 0.95, // Set opacity level
-    metalness: 0.3, // Slight reflectivity (range: 0.0 - 1.0)
-    roughness: 0.7 // Moderate roughness for shading (range: 0.0 - 1.0)
+    opacity: 1, // Set opacity level
+    metalness: 0.8, // Slight reflectivity (range: 0.0 - 1.0)
+    roughness: 0.2 // Moderate roughness for shading (range: 0.0 - 1.0)
 
     // Optional: Add an environment map for enhanced reflections
     // envMap: yourEnvironmentMap,      // Replace with your environment map texture
@@ -1228,7 +1229,7 @@ function createTerrainMesh (savedPoints) {
  * Reports the player's current geographic position by finding the closest terrain point.
  * Updates the HTML element with ID 'position' to display latitude and longitude.
  */
-function reportPosition () {
+function reportPosition() {
   if (!terrainPointCloud || !localModel) return
 
   // Extract the local model's current x and z positions
@@ -1260,7 +1261,7 @@ function reportPosition () {
  * @param {number} z - The z-coordinate of the user in the scene.
  * @returns {Object|null} The closest grid point with latitude and longitude or null if not found.
  */
-function findClosestGridPoint (x, z) {
+function findClosestGridPoint(x, z) {
   if (!terrainPointCloud) return null
 
   const positions = terrainPointCloud.geometry.attributes.position.array
@@ -1304,7 +1305,7 @@ function findClosestGridPoint (x, z) {
 // ------------------------------
 // Save + Load local position
 // ------------------------------
-function savePositionToLocalStorage () {
+function savePositionToLocalStorage() {
   if (!camera) return
 
   // Grab camera position and yaw
@@ -1319,7 +1320,7 @@ function savePositionToLocalStorage () {
   console.log('Saved camera position to LS:', pos)
 }
 
-function loadPositionFromLocalStorage () {
+function loadPositionFromLocalStorage() {
   const raw = localStorage.getItem(LS_POS_KEY)
   if (!raw) return null
   try {
@@ -1339,7 +1340,7 @@ function loadPositionFromLocalStorage () {
 }
 
 // Given Changes in location
-function maybeSavePositionToLocalStorage () {
+function maybeSavePositionToLocalStorage() {
   if (!camera) return // camera is authority
   const x = camera.position.x
   const y = camera.position.y
@@ -1359,12 +1360,13 @@ function maybeSavePositionToLocalStorage () {
     console.log('Saved camera to localStorage:', pos)
     lastSavedPos = { x, y, z, rotation: r }
   }
+
 }
 
 // ------------------------------
 // Pointer Lock for Desktop
 // ------------------------------
-function enablePointerLock () {
+function enablePointerLock() {
   const canvas = renderer.domElement
   canvas.addEventListener('click', () => {
     if (!renderer.xr.isPresenting) {
@@ -1392,14 +1394,14 @@ function enablePointerLock () {
 // ------------------------------
 // VR Controllers / Teleport
 // ------------------------------
-function setupVRControllers () {
+function setupVRControllers() {
   const controller1 = renderer.xr.getController(0)
   const controller2 = renderer.xr.getController(1)
 
-  function onSelectStart () {
+  function onSelectStart() {
     this.userData.isSelecting = true
   }
-  function onSelectEnd () {
+  function onSelectEnd() {
     this.userData.isSelecting = false
     if (!INTERSECTION || !baseReferenceSpace) return
 
@@ -1465,7 +1467,7 @@ function setupVRControllers () {
   scene.add(controllerGrip2)
 }
 
-function buildControllerRay (data) {
+function buildControllerRay(data) {
   let geometry, material
   switch (data.targetRayMode) {
     case 'tracked-pointer':
@@ -1498,7 +1500,7 @@ function buildControllerRay (data) {
 // ------------------------------
 // Desktop Key Events
 // ------------------------------
-function onKeyDown (e) {
+function onKeyDown(e) {
   switch (e.key.toLowerCase()) {
     case 'w':
       keyStates.w = true
@@ -1523,7 +1525,7 @@ function onKeyDown (e) {
   handleKeyStates()
 }
 
-function onKeyUp (e) {
+function onKeyUp(e) {
   switch (e.key.toLowerCase()) {
     case 'w':
       keyStates.w = false
@@ -1548,7 +1550,7 @@ function onKeyUp (e) {
   handleKeyStates()
 }
 
-function handleKeyStates () {
+function handleKeyStates() {
   moveForward = keyStates.w
   moveBackward = keyStates.s
   strafeLeft = keyStates.a
@@ -1567,7 +1569,7 @@ function handleKeyStates () {
 // ------------------------------
 // Desktop Movement + Mouse Look
 // ------------------------------
-function moveLocalCharacterDesktop (delta) {
+function moveLocalCharacterDesktop(delta) {
   if (!localModel) return
 
   const speed = isRunning ? runSpeed : walkSpeed
@@ -1632,7 +1634,7 @@ function moveLocalCharacterDesktop (delta) {
  * @param {number} z - The z-coordinate in the world.
  * @returns {number} The y-coordinate (elevation) of the terrain at the specified x and z.
  */
-function getTerrainHeightAt (x, z) {
+function getTerrainHeightAt(x, z) {
   if (!terrainMesh) return 0
 
   // Create a raycaster pointing downwards from a high y value
@@ -1652,7 +1654,7 @@ function getTerrainHeightAt (x, z) {
 // ------------------------------
 // VR Movement
 // ------------------------------
-function handleVRMovement (delta) {
+function handleVRMovement(delta) {
   const session = renderer.xr.getSession()
   if (!session || !localModel) return
 
@@ -1760,7 +1762,7 @@ function handleVRMovement (delta) {
 }
 
 // Teleport intersection + marker
-function checkTeleportIntersections () {
+function checkTeleportIntersections() {
   INTERSECTION = null
   markerMesh.visible = false
 
@@ -1805,7 +1807,7 @@ function checkTeleportIntersections () {
 // ------------------------------
 // getCameraYaw() - Helper to retrieve camera's yaw
 // ------------------------------
-function getCameraYaw () {
+function getCameraYaw() {
   const euler = new THREE.Euler()
   euler.setFromQuaternion(camera.quaternion, 'YXZ')
   return euler.y
@@ -1814,7 +1816,7 @@ function getCameraYaw () {
 // ------------------------------
 // Add `myId` to all emits
 // ------------------------------
-function emitMovementIfChanged (newState) {
+function emitMovementIfChanged(newState) {
   const newString = JSON.stringify(newState)
   const oldString = lastEmittedState ? JSON.stringify(lastEmittedState) : null
 
@@ -1829,7 +1831,7 @@ function emitMovementIfChanged (newState) {
  * @param {string} elementId - The ID of the HTML element to update.
  * @param {string} content - The content to set as innerHTML.
  */
-function updateField (elementId, content) {
+function updateField(elementId, content) {
   const element = document.getElementById(elementId)
   if (!element) {
     console.warn(`Element with ID '${elementId}' not found.`)
@@ -1842,7 +1844,7 @@ function updateField (elementId, content) {
 // Render loop
 // ------------------------------
 
-function animate () {
+function animate() {
   renderer.setAnimationLoop(() => {
     const delta = clock.getDelta()
 
@@ -1919,7 +1921,7 @@ function animate () {
 // ------------------------------
 // Update Camera Orientation Based on Device Orientation
 // ------------------------------
-function updateCameraOrientation () {
+function updateCameraOrientation() {
   const alphaDeg = window.orientationData.alpha || 0 // 0..360 degrees
   const betaDeg = window.orientationData.beta || 0 // -180..180 degrees
 
@@ -1959,7 +1961,7 @@ function updateCameraOrientation () {
 // ------------------------------
 // Load local model
 // ------------------------------
-function loadLocalModel () {
+function loadLocalModel() {
   // Check if a VR session is active; if so, do not load the local model
   if (renderer.xr.isPresenting) {
     console.log(
@@ -1982,8 +1984,7 @@ function loadLocalModel () {
     modelPath,
     gltf => {
       localModel = gltf.scene
-
-      localModel.position.set(finalSpawn.x, terrainHeight || 0, finalSpawn.z)
+      localModel.position.set(finalSpawn.x, 0, finalSpawn.z)
       localModel.rotation.y = finalSpawn.rotation || 0
 
       scene.add(localModel)
@@ -2018,7 +2019,7 @@ function loadLocalModel () {
 // ------------------------------
 // Unload local model
 // ------------------------------
-function unloadLocalModel () {
+function unloadLocalModel() {
   if (localModel) {
     scene.remove(localModel)
     localModel.traverse(obj => {
@@ -2034,7 +2035,7 @@ function unloadLocalModel () {
 // ------------------------------
 // Terrain
 // ------------------------------
-function generateTerrain () {
+function generateTerrain() {
   const size = terrainSize
   const segments = terrainSegments
   const halfSize = size / 2
@@ -2134,7 +2135,7 @@ function generateTerrain () {
 // ------------------------------
 // setLocalAction: crossfade
 // ------------------------------
-function setLocalAction (name, direction = 'forward') {
+function setLocalAction(name, direction = 'forward') {
   if (currentAction !== name) {
     if (localActions[currentAction]) {
       localActions[currentAction].fadeOut(0.5)
@@ -2169,7 +2170,7 @@ function setLocalAction (name, direction = 'forward') {
 // ------------------------------
 // Sockets
 // ------------------------------
-function setupSocketEvents () {
+function setupSocketEvents() {
   socket.on('init', data => {
     console.log('[Socket] init => received init data:', data)
 
@@ -2234,7 +2235,7 @@ function setupSocketEvents () {
   })
 }
 
-function addOrUpdatePlayer (id, data) {
+function addOrUpdatePlayer(id, data) {
   // Should skip if it's the local player's ID
   if (id === myId) {
     console.warn(`Skipping addOrUpdatePlayer for local ID = ${id}`)
@@ -2248,7 +2249,7 @@ function addOrUpdatePlayer (id, data) {
   }
 }
 
-function createRemotePlayer (id, data) {
+function createRemotePlayer(id, data) {
   if (players[id] || loadingPlayers.has(id)) {
     console.warn(
       `Skipping creation for player ${id}. Already exists or is loading.`
@@ -2266,8 +2267,8 @@ function createRemotePlayer (id, data) {
     gltf => {
       const remoteModel = gltf.scene
       const terrainHeight = getTerrainHeightAt(
-        localModel.position.x,
-        localModel.position.z
+        data.x,
+        data.z
       )
       remoteModel.position.set(data.x, terrainHeight, data.z)
       remoteModel.rotation.y = data.rotation
@@ -2303,7 +2304,7 @@ function createRemotePlayer (id, data) {
 }
 
 // 1) Normalize an angle to [0..2π)
-function normalizeAngle (angle) {
+function normalizeAngle(angle) {
   angle = angle % (2 * Math.PI)
   if (angle < 0) {
     angle += 2 * Math.PI
@@ -2312,7 +2313,7 @@ function normalizeAngle (angle) {
 }
 
 // 2) Lerp angles using the shortest path
-function lerpAngle (currentAngle, targetAngle, alpha) {
+function lerpAngle(currentAngle, targetAngle, alpha) {
   currentAngle = normalizeAngle(currentAngle)
   targetAngle = normalizeAngle(targetAngle)
 
@@ -2327,22 +2328,21 @@ function lerpAngle (currentAngle, targetAngle, alpha) {
 }
 
 // 3) updateRemotePlayer
-function updateRemotePlayer (id, data) {
+function updateRemotePlayer(id, data) {
   const player = players[id]
   if (!player) return
 
+  const terrainHeight = getTerrainHeightAt(
+    data.x,
+    data.z
+  )
   if (!player.initialized) {
-    const terrainHeight = getTerrainHeightAt(
-      localModel.position.x,
-      localModel.position.z
-    )
     player.model.position.set(data.x, terrainHeight, data.z)
     player.model.rotation.y = data.rotation
     player.initialized = true
     return
   }
-
-  player.position.set(data.x, 0, data.z)
+  player.position.set(data.x, terrainHeight, data.z)
   player.model.position.lerp(player.position, 0.1)
 
   const currentAngle = player.model.rotation.y
@@ -2383,7 +2383,7 @@ function updateRemotePlayer (id, data) {
   }
 }
 
-function removeRemotePlayer (id) {
+function removeRemotePlayer(id) {
   if (players[id]) {
     scene.remove(players[id].model)
     delete players[id]
@@ -2391,7 +2391,7 @@ function removeRemotePlayer (id) {
   removeRemoteAudioStream(id)
 }
 
-function updatePlayers (playersData) {
+function updatePlayers(playersData) {
   Object.keys(playersData).forEach(id => {
     if (playersData[id].localId === myId) return
     addOrUpdatePlayer(id, playersData[id])
@@ -2406,7 +2406,7 @@ function updatePlayers (playersData) {
 // ------------------------------
 // Audio streaming
 // ------------------------------
-function handleUserInteraction () {
+function handleUserInteraction() {
   if (listener.context.state === 'suspended') {
     listener.context
       .resume()
@@ -2421,7 +2421,7 @@ function handleUserInteraction () {
   document.removeEventListener('keydown', handleUserInteraction)
 }
 
-async function startBroadcast () {
+async function startBroadcast() {
   if (localStream) return
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
@@ -2454,7 +2454,7 @@ async function startBroadcast () {
   }
 }
 
-function stopBroadcast () {
+function stopBroadcast() {
   if (!localStream) return
   if (processor) {
     processor.disconnect()
@@ -2471,7 +2471,7 @@ function stopBroadcast () {
   console.log('Stopped broadcasting audio.')
 }
 
-function addRemoteAudioStream (id) {
+function addRemoteAudioStream(id) {
   if (!listener.context) {
     console.warn(
       'AudioContext not initialized. Cannot add remote audio stream.'
@@ -2494,7 +2494,7 @@ function addRemoteAudioStream (id) {
   remoteAudioStreams[id] = { positionalAudio }
 }
 
-function removeRemoteAudioStream (id) {
+function removeRemoteAudioStream(id) {
   const remoteAudio = remoteAudioStreams[id]
   if (remoteAudio) {
     remoteAudio.positionalAudio.stop()
@@ -2504,7 +2504,7 @@ function removeRemoteAudioStream (id) {
   }
 }
 
-function receiveAudioStream (id, audioBuffer) {
+function receiveAudioStream(id, audioBuffer) {
   if (!listener.context) {
     console.warn('AudioContext not initialized. Cannot receive audio stream.')
     return
@@ -2540,14 +2540,14 @@ function receiveAudioStream (id, audioBuffer) {
 // ------------------------------
 // Utility
 // ------------------------------
-function getRandomSpawnPoint () {
+function getRandomSpawnPoint() {
   const x = (Math.random() - 0.5) * 50
   const z = (Math.random() - 0.5) * 50
   const rotation = Math.random() * Math.PI * 2
   return { x, z, rotation }
 }
 
-function onWindowResize () {
+function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
@@ -2558,7 +2558,7 @@ function onWindowResize () {
 // ------------------------------
 
 // Check Permissions and Initialize Listeners
-function checkPermissions () {
+function checkPermissions() {
   if (window.appPermissions) {
     const { motionGranted, orientationGranted, locationGranted } =
       window.appPermissions
@@ -2602,36 +2602,36 @@ function checkPermissions () {
 }
 
 // Example functions to enable/disable features based on permissions
-function enableMotionFeatures () {
+function enableMotionFeatures() {
   // Add or activate motion-related event listeners or controls
   if (window.appPermissions.motionGranted) {
     window.addEventListener('devicemotion', handleMotion)
   }
 }
 
-function disableMotionFeatures () {
+function disableMotionFeatures() {
   // Remove or deactivate motion-related event listeners or controls
   window.removeEventListener('devicemotion', handleMotion)
 }
 
-function enableOrientationFeatures () {
+function enableOrientationFeatures() {
   // Enable orientation-specific functionalities
   if (window.appPermissions.orientationGranted) {
     window.addEventListener('deviceorientation', handleOrientation)
   }
 }
 
-function disableOrientationFeatures () {
+function disableOrientationFeatures() {
   // Disable orientation-specific functionalities
   window.removeEventListener('deviceorientation', handleOrientation)
 }
 
-function initializeLocationFeatures () {
+function initializeLocationFeatures() {
   // Initialize features that rely on location data
   console.log('Initializing location-based features.')
 }
 
-function disableLocationFeatures () {
+function disableLocationFeatures() {
   // Disable or adjust features that rely on location data
   console.log('Disabling location-based features.')
 }
