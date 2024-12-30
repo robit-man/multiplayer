@@ -392,6 +392,7 @@ let terrainMeshWire = null; // Mesh surface for the terrain
 // Render Control
 const POINTS_BATCH_SIZE = 10; // Number of points to render per frame
 let nextPointIndex = 0; // Tracks the next point to fill in the buffer
+const totalPoints = 200 * 200;
 
 // Terrain scale multiplier
 const scaleMultiplier = 1; // Default scale (1/100)
@@ -606,7 +607,6 @@ function generateGrid(center, gridSizeMeters = 1000, gridResolution = 200) {
  * Initializes the Three.js terrain point cloud.
  */
 function initializeTerrainPointCloud() {
-    const totalPoints = 200 * 200;
     const positions = new Float32Array(totalPoints * 3);
     const colors = new Float32Array(totalPoints * 3);
 
@@ -667,7 +667,6 @@ function renderTerrainPoints() {
 
     const positions = terrainPointCloud.geometry.attributes.position.array;
     const colors = terrainPointCloud.geometry.attributes.color.array;
-    const totalPoints = 200 * 200;
 
     const pointsToAdd = Math.min(POINTS_BATCH_SIZE, window.elevationData.length, totalPoints - nextPointIndex);
 
@@ -710,8 +709,9 @@ function renderTerrainPoints() {
 
     savePointsToLocalStorage(pointsBatch);
 
-    console.log(`Rendered ${nextPointIndex} / 40000 points.`);
-
+    console.log(`Rendered ${nextPointIndex} / ${totalPoints} points.`);
+    const progress = `Rendered ${nextPointIndex} / ${totalPoints} points.`
+    updateField('progress', progress)
     if (nextPointIndex >= totalPoints) {
         // All points rendered, draw lines and create mesh
         const allSavedPoints = loadPointsFromLocalStorage();
