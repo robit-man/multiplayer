@@ -12,6 +12,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 
 import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js'
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js'
+import Stats from 'three/addons/libs/stats.module.js';
 
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { Sky } from 'three/addons/objects/Sky.js'
@@ -57,13 +58,16 @@ let isRunning = false
 // Mouse look (desktop)
 let yaw = 0 // Horizontal rotation (around Y-axis)
 let pitch = 0 // Vertical rotation (around X-axis)
-const mouseSensitivity = 0.002
-const pitchMin = -Math.PI / 2 + 0.01 // Slightly above -90°
-const pitchMax = Math.PI / 2 - 0.01 // Slightly below +90°
+// Mouse sensitivity (radians per pixel)
+const mouseSensitivity = 0.002; // Adjust as needed
+
+// Pitch limits to prevent camera flipping
+const pitchMin = -Math.PI / 2 + 0.1; // Slightly above -90 degrees
+const pitchMax = Math.PI / 2 - 0.1;  // Slightly below +90 degrees
 
 // VR Teleport
 let baseReferenceSpace = null
-let floorMesh, markerMesh
+let markerMesh
 let INTERSECTION = null
 const tempMatrix = new THREE.Matrix4()
 
@@ -254,18 +258,6 @@ function init() {
   dirLight.target.position.set(-5, 0, 0)
   dirLight.shadow.mapSize.set(1024, 1024)
   scene.add(dirLight)
-
-  // Floor (teleport)
-  floorMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0
-    })
-  )
-  floorMesh.name = 'teleport_floor'
-  scene.add(floorMesh)
 
   // Initialize Sky
   const sky = new Sky()
@@ -1365,34 +1357,55 @@ function maybeSavePositionToLocalStorage() {
   }
 
 }
-
-// ------------------------------
-// Pointer Lock for Desktop
-// ------------------------------
-function enablePointerLock() {
-  const canvas = renderer.domElement
-  canvas.addEventListener('click', () => {
-    if (!renderer.xr.isPresenting) {
-      canvas.requestPointerLock()
-    }
-  })
-  document.addEventListener('mousemove', e => {
-    if (document.pointerLockElement === canvas && !renderer.xr.isPresenting) {
-      yaw -= e.movementX * mouseSensitivity
-      pitch -= e.movementY * mouseSensitivity
-      if (pitch < pitchMin) pitch = pitchMin
-      if (pitch > pitchMax) pitch = pitchMax
-      console.log(
-        `Pitch: ${THREE.MathUtils.radToDeg(pitch).toFixed(
-          2
-        )}°, Yaw: ${THREE.MathUtils.radToDeg(yaw).toFixed(2)}°`
-      )
-
-      // Update camera rotation
-      camera.rotation.set(pitch, yaw, 0, 'YXZ')
-    }
-  })
+// Normalize an angle to the range [-π, π] using Math.atan2
+function normalizeAngle(angle) {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
+// Flag to indicate which system is controlling the camera
+let controllingSystem = null; // 'pointerLock' or 'deviceOrientation'
+
+// Update Camera Quaternion based on mouse movement
+function updateCameraQuaternion(deltaYaw, deltaPitch) {
+  const euler = new THREE.Euler(deltaPitch, deltaYaw, 0, 'YXZ');
+  const q = new THREE.Quaternion().setFromEuler(euler);
+  cameraQuaternion.multiply(q);
+  cameraQuaternion.normalize();
+  camera.quaternion.copy(cameraQuaternion);
+}
+
+// Enable Pointer Lock Controls
+function enablePointerLock() {
+  const canvas = renderer.domElement;
+
+  // Request pointer lock on canvas click
+  canvas.addEventListener("click", () => {
+    if (!renderer.xr.isPresenting) {
+      canvas.requestPointerLock();
+    }
+  });
+
+}
+
+// ------------------------------
+// getCameraYaw() - Helper to retrieve camera's yaw
+// ------------------------------
+function getCameraYaw() {
+  // Create a new Euler object with the desired rotation order
+  const euler = new THREE.Euler(0, 0, 0, "YXZ");
+
+  // Set the Euler angles from the camera's quaternion
+  euler.setFromQuaternion(camera.quaternion, "YXZ"); // Ensure correct rotation order
+
+  // Extract the yaw (rotation around Y-axis)
+  const yaw = euler.y;
+
+  // Normalize the yaw to [-π, π]
+  const normalizedYaw = normalizeAngle(yaw);
+
+  return normalizedYaw;
+}
+
+
 
 // ------------------------------
 // VR Controllers / Teleport
@@ -1639,6 +1652,7 @@ function moveLocalCharacterDesktop(delta) {
  */
 function getTerrainHeightAt(x, z) {
   if (!terrainMesh) return 0
+  if (terrainMesh === NaN) return 0
 
   // Create a raycaster pointing downwards from a high y value
   const rayOrigin = new THREE.Vector3(x, 1000, z)
@@ -1797,7 +1811,7 @@ function checkTeleportIntersections() {
 
       // Raycast
       const raycaster = new THREE.Raycaster(rayOrigin, rayDirection, 0, 100)
-      const intersects = raycaster.intersectObject(floorMesh)
+      const intersects = raycaster.intersectObject(terrainMesh)
       if (intersects.length > 0) {
         INTERSECTION = intersects[0].point
         markerMesh.position.copy(INTERSECTION)
@@ -1807,14 +1821,6 @@ function checkTeleportIntersections() {
   })
 }
 
-// ------------------------------
-// getCameraYaw() - Helper to retrieve camera's yaw
-// ------------------------------
-function getCameraYaw() {
-  const euler = new THREE.Euler()
-  euler.setFromQuaternion(camera.quaternion, 'YXZ')
-  return euler.y
-}
 
 // ------------------------------
 // Add `myId` to all emits
@@ -2236,6 +2242,47 @@ function setupSocketEvents() {
     const { id, audio } = data
     receiveAudioStream(id, audio)
   })
+  
+  /**
+   * Handle 'position' event: Receive encrypted position data from a player
+   */
+  socket.on('position', async (data) => {
+    const { id, encryptedPosition } = data;
+    console.log(`[Socket] position => Received encrypted position from ID: ${id}`);
+
+    // Retrieve the password from localStorage
+    const password = loadPassword();
+    if (!password) {
+      console.error('Password not found. Cannot decrypt position data.');
+      return;
+    }
+
+    try {
+      // Decrypt the received data
+      const decryptedData = await decryptLatLon(encryptedPosition, password);
+      if (decryptedData) {
+        const { latitude, longitude } = decryptedData;
+        console.log(`[Socket] position => Decrypted Position from ID: ${id}: Lat=${latitude}, Lon=${longitude}`);
+        
+        // Map latitude and longitude to your game's coordinate system
+        const x = mapLongitudeToX(longitude);
+        const z = mapLatitudeToZ(latitude);
+
+        // Update the player's position in your game
+        if (players[id]) {
+          // Assuming players[id].position is a THREE.Vector3
+          players[id].position.set(x, getTerrainHeightAt(x, z), z);
+          players[id].model.position.lerp(players[id].position, 0.1); // Smooth transition
+        } else {
+          console.warn(`[Socket] position => Player with ID: ${id} not found.`);
+        }
+      } else {
+        console.warn(`[Socket] position => Failed to decrypt position data from ID: ${id}.`);
+      }
+    } catch (error) {
+      console.error(`[Socket] position => Error decrypting position data from ID: ${id}:`, error);
+    }
+  })
 }
 
 function addOrUpdatePlayer(id, data) {
@@ -2306,14 +2353,13 @@ function createRemotePlayer(id, data) {
   )
 }
 
-// 1) Normalize an angle to [0..2π)
-function normalizeAngle(angle) {
-  angle = angle % (2 * Math.PI)
-  if (angle < 0) {
-    angle += 2 * Math.PI
-  }
-  return angle
-}
+
+
+/**
+ * Normalizes an angle to the range of -PI to PI radians.
+ * @param {number} angle - The angle in radians to normalize.
+ * @returns {number} - The normalized angle within [-PI, PI].
+ */
 
 // 2) Lerp angles using the shortest path
 function lerpAngle(currentAngle, targetAngle, alpha) {
@@ -2574,7 +2620,6 @@ function checkPermissions() {
     } else {
       console.log('Motion permissions denied.')
       disableMotionFeatures()
-      createPermissionOverlay('Motion', requestMotionPermission)
     }
 
     if (orientationGranted) {
@@ -2583,7 +2628,6 @@ function checkPermissions() {
     } else {
       console.log('Orientation permissions denied.')
       disableOrientationFeatures()
-      createPermissionOverlay('Orientation', requestOrientationPermission)
     }
 
     if (locationGranted) {
@@ -2592,7 +2636,6 @@ function checkPermissions() {
     } else {
       console.log('Location permissions denied.')
       disableLocationFeatures()
-      createPermissionOverlay('Location', requestLocationPermission)
     }
 
     // Initialize sensor listeners after checking permissions
@@ -2669,11 +2712,35 @@ function base64ToArrayBuffer(base64) {
   const binary = window.atob(base64);
   const bytes = new Uint8Array(binary.length);
   Array.from(binary).forEach((char, i) => {
-      bytes[i] = char.charCodeAt(0);
+    bytes[i] = char.charCodeAt(0);
   });
   return bytes.buffer;
 }
+/**
+ * Maps latitude to the game's Z-coordinate.
+ * @param {number} latitude - The latitude value.
+ * @returns {number} - The corresponding Z-coordinate in the game world.
+ */
+function mapLatitudeToZ(latitude) {
+  // Implement your mapping logic here
+  // Example: Each degree latitude equals 100 units in Z-axis
+  const scale = 100; // Adjust based on your terrain size
+  const referenceLatitude = 0; // Replace with your reference point
+  return (latitude - referenceLatitude) * scale;
+}
 
+/**
+ * Maps longitude to the game's X-coordinate.
+ * @param {number} longitude - The longitude value.
+ * @returns {number} - The corresponding X-coordinate in the game world.
+ */
+function mapLongitudeToX(longitude) {
+  // Implement your mapping logic here
+  // Example: Each degree longitude equals 100 units in X-axis
+  const scale = 100; // Adjust based on your terrain size
+  const referenceLongitude = 0; // Replace with your reference point
+  return (longitude - referenceLongitude) * scale;
+}
 // Helper Functions for Password Management
 
 /**
@@ -2719,24 +2786,24 @@ async function encryptLatLon(latitude, longitude, password) {
 
   // 3. Derive a key from the password and salt
   const keyMaterial = await window.crypto.subtle.importKey(
-      'raw',
-      encoder.encode(password),
-      { name: 'PBKDF2' },
-      false,
-      ['deriveKey']
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
   );
 
   const key = await window.crypto.subtle.deriveKey(
-      {
-          name: 'PBKDF2',
-          salt: salt,
-          iterations: 100000,
-          hash: 'SHA-256'
-      },
-      keyMaterial,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt']
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt']
   );
 
   // 4. Generate a random IV
@@ -2744,19 +2811,19 @@ async function encryptLatLon(latitude, longitude, password) {
 
   // 5. Encrypt the data
   const encrypted = await window.crypto.subtle.encrypt(
-      {
-          name: 'AES-GCM',
-          iv: iv
-      },
-      key,
-      dataBuffer
+    {
+      name: 'AES-GCM',
+      iv: iv
+    },
+    key,
+    dataBuffer
   );
 
   // 6. Package the encrypted data with salt and iv for transmission/storage
   const encryptedPackage = {
-      ciphertext: arrayBufferToBase64(encrypted),
-      iv: arrayBufferToBase64(iv.buffer),
-      salt: arrayBufferToBase64(salt.buffer)
+    ciphertext: arrayBufferToBase64(encrypted),
+    iv: arrayBufferToBase64(iv.buffer),
+    salt: arrayBufferToBase64(salt.buffer)
   };
 
   return JSON.stringify(encryptedPackage);
@@ -2782,45 +2849,45 @@ async function decryptLatLon(encryptedPackageStr, password) {
   // 2. Derive the key from the password and salt
   const encoder = new TextEncoder();
   const keyMaterial = await window.crypto.subtle.importKey(
-      'raw',
-      encoder.encode(password),
-      { name: 'PBKDF2' },
-      false,
-      ['deriveKey']
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
   );
 
   const key = await window.crypto.subtle.deriveKey(
-      {
-          name: 'PBKDF2',
-          salt: new Uint8Array(salt),
-          iterations: 100000,
-          hash: 'SHA-256'
-      },
-      keyMaterial,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt']
+    {
+      name: 'PBKDF2',
+      salt: new Uint8Array(salt),
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
   );
 
   try {
-      // 3. Decrypt the data
-      const decryptedBuffer = await window.crypto.subtle.decrypt(
-          {
-              name: 'AES-GCM',
-              iv: new Uint8Array(iv)
-          },
-          key,
-          ciphertext
-      );
+    // 3. Decrypt the data
+    const decryptedBuffer = await window.crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: new Uint8Array(iv)
+      },
+      key,
+      ciphertext
+    );
 
-      // 4. Decode the decrypted data
-      const decryptedData = decoder.decode(decryptedBuffer);
-      const { latitude, longitude } = JSON.parse(decryptedData);
+    // 4. Decode the decrypted data
+    const decryptedData = decoder.decode(decryptedBuffer);
+    const { latitude, longitude } = JSON.parse(decryptedData);
 
-      return { latitude, longitude };
+    return { latitude, longitude };
   } catch (e) {
-      console.error('Decryption failed:', e);
-      return null;
+    console.error('Decryption failed:', e);
+    return null;
   }
 }
 
@@ -2834,26 +2901,26 @@ async function encryptAndEmitLatLon() {
   // 1. Retrieve latitude and longitude from the window object
   const { latitude, longitude } = window;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-      console.error('window.latitude and window.longitude must be set to numerical values.');
-      return;
+    console.error('window.latitude and window.longitude must be set to numerical values.');
+    return;
   }
 
   // 2. Retrieve the password from localStorage
   const password = loadPassword();
   if (!password) {
-      console.error('Password not found. Please enter a password.');
-      return;
+    console.error('Password not found. Please enter a password.');
+    return;
   }
 
   try {
-      // 3. Encrypt the lat/lon data
-      const encryptedPackageStr = await encryptLatLon(latitude, longitude, password);
-      console.log('Encrypted Package:', encryptedPackageStr);
+    // 3. Encrypt the lat/lon data
+    const encryptedPackageStr = await encryptLatLon(latitude, longitude, password);
+    console.log('Encrypted Package:', encryptedPackageStr);
 
-      // 4. Emit the encrypted data via Socket.IO
-      socket.emit('position', encryptedPackageStr);
+    // 4. Emit the encrypted data via Socket.IO
+    socket.emit('position', encryptedPackageStr);
   } catch (error) {
-      console.error('Encryption failed:', error);
+    console.error('Encryption failed:', error);
   }
 }
 
@@ -2864,8 +2931,9 @@ document.getElementById('encryptDecryptBtn').addEventListener('click', async () 
   const password = passwordInput.value.trim();
 
   if (!password) {
-      console.error('Password cannot be empty.');
-      return;
+    console.error('Password cannot be empty.');
+    document.getElementById('encryptDecryptBtn').innerHTML = "Password cannot be empty."
+    return;
   }
 
   // Save the password to localStorage
@@ -2883,8 +2951,8 @@ document.getElementById('password').addEventListener('change', async () => {
   const newPassword = passwordInput.value.trim();
 
   if (!newPassword) {
-      console.error('Password cannot be empty.');
-      return;
+    console.error('Password cannot be empty.');
+    return;
   }
 
   // Save the new password to localStorage
@@ -2900,6 +2968,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const passwordInput = document.getElementById('password');
   const savedPassword = loadPassword();
   if (savedPassword) {
-      passwordInput.value = savedPassword;
+    passwordInput.value = savedPassword;
   }
 });
