@@ -3,26 +3,21 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image" href="/nc.png" />
+  <link rel="icon" type="image/png" href="/nc.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>NOCLIP MULTI USER DEMO</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
 
+    /* General Styles */
     * {
       -webkit-user-select: none;
-      /* Disable text selection */
       user-select: none;
-      /* Standard */
       -webkit-touch-callout: none;
-      /* Disable long-press menu */
       -webkit-tap-highlight-color: transparent;
-      /* Remove tap highlight */
       overflow: hidden;
       touch-action: manipulation;
-      /* Prevents zooming */
       overscroll-behavior: none;
-      /* Prevents elastic scrolling */
     }
 
     body {
@@ -32,18 +27,6 @@
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
-      -webkit-user-select: none;
-      /* Disable text selection */
-      user-select: none;
-      /* Standard */
-      -webkit-touch-callout: none;
-      /* Disable long-press menu */
-      -webkit-tap-highlight-color: transparent;
-      /* Remove tap highlight */
-      touch-action: manipulation;
-      /* Prevents zooming */
-      overscroll-behavior: none;
-      /* Prevents elastic scrolling */
     }
 
     #app {
@@ -57,6 +40,7 @@
       user-select: none;
     }
 
+    /* Cover Overlay */
     #cover {
       display: flex;
       flex-direction: column;
@@ -69,17 +53,18 @@
       left: 0px;
       top: 0px;
       background: rgba(0, 0, 0, 0.8);
-      /* Semi-transparent background */
       color: white;
       font-size: 1.5rem;
       text-align: center;
+      cursor: pointer;
+      display: none; /* Hidden by default */
     }
 
     #cover-message {
       margin-bottom: 1rem;
     }
 
-
+    /* Touch Controls */
     .touch-controls {
       display: none !important;
       position: absolute;
@@ -158,15 +143,7 @@
       left: 70%;
     }
 
-    .text {
-      text-align: left;
-      color: white;
-      font-size: calc(1.5vw + 1.5vh);
-      position: relative;
-      width: max-content;
-      margin: auto;
-    }
-
+    /* Instructional Overlay */
     .info {
       user-select: none;
       pointer-events: none;
@@ -192,7 +169,7 @@
 
       80% {
         display: flex;
-        backdrop-filter: blur(15px)brightness(0.1);
+        backdrop-filter: blur(15px) brightness(0.1);
         opacity: 1;
         z-index: 99;
         filter: blur(0px);
@@ -200,13 +177,14 @@
 
       100% {
         display: flex;
-        backdrop-filter: blur(0px)brightness(1);
+        backdrop-filter: blur(0px) brightness(1);
         opacity: 0;
         z-index: 99;
         filter: blur(100px);
       }
     }
 
+    /* Data Overlay */
     .data {
       position: absolute;
       top: 10px;
@@ -216,7 +194,6 @@
       font-size: 0.8rem;
       font-family: "Rajdhani", sans-serif;
       cursor: pointer;
-      /* Indicate that it's clickable */
       mix-blend-mode: exclusion;
       text-shadow: 0px 0px 10px;
       overflow: visible;
@@ -225,12 +202,7 @@
     }
 
     /* Updated Location Display */
-    #location {
-      margin: unset;
-      overflow: visible;
-
-    }
-
+    #location,
     #position {
       margin: unset;
       overflow: visible;
@@ -241,60 +213,82 @@
       opacity: 0.9;
       margin-top: 0rem;
       overflow: visible;
-
     }
 
     .sensor-readouts p {
       margin: unset !important;
       overflow: visible;
-
     }
 
     .sensor-label {
       font-weight: 400;
       margin-right: 0.5rem;
       overflow: visible;
-
     }
 
     /* Start Demo Button Styles */
-    #start_demo {
+    #start_demo_button {
       padding: 0.5rem 1rem;
       font-size: 1rem;
       border: none;
       border-radius: 0.5rem;
       margin-top: 0.5rem;
       cursor: pointer;
-      background-color: #000000;
-      /* Green */
+      background-color: black; /* Green */
       color: white;
       transition: background-color 0.3s ease;
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
-
     }
 
-    #start_demo.btn-danger {
-      background-color: #000000;
+    #start_demo_button.btn-danger {
+      background-color: #ffffff; /* Red */
+      color: rgb(0, 0, 0);
+    }
+
+    #start_demo_button.btn-success {
+      background-color: #000000; /* Green */
       color: white;
-      /* Red */
     }
 
-    #start_demo.btn-success {
-      background-color: #ffffff;
-      color: black;
-      /* Green */
+    #password {
+      font-family: "Rajdhani", serif;
+      font-weight: 700;
+      font-style: normal;
+      border: unset;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+    }
+
+    #encryptDecryptBtn {
+      font-family: "Rajdhani", serif;
+      font-weight: 700;
+      font-style: normal;
+      border: unset;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+    }
+
+    .button-stack {
+      gap: 0.25rem;
+      display: flex;
+      flex-flow: column;
+    }
+
+    .button-stack div {
+      display: none;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
     }
   </style>
 </head>
 
 <body>
-  <!-- Cover Overlay -->
-  <div id="cover">
-    <div id="cover-message">Initializing Demo...</div>
-    <button id="start_demo" class="btn btn-success" style="display: none;">Start Demo</button>
-  </div>
 
   <!-- Instructional Overlay -->
   <div style="display:none!important;" class="info">
@@ -322,6 +316,11 @@
     </div>
   </div>
 
+  <!-- Cover Overlay -->
+  <div id="cover">
+    <div id="cover-message">Welcome to NOCLIP Multi User Demo</div>
+  </div>
+
   <!-- Data Overlay -->
   <div class="data" id="data">
     <p id="location">Location: N/A</p>
@@ -331,8 +330,11 @@
       <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
       <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
       <p><span id="progress"></span></p>
-      <button id="start_demo" class="btn btn-success">Permission Request</button>
-
+      <div class="button-stack">
+        <button id="start_demo_button" class="btn btn-success">Permission Request</button>
+        <input type="password" id="password" placeholder="Enter Password">
+        <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
+      </div>
       <hr style="display:none!important;">
       <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span
           id="Accelerometer_gx">N/A</span></p>
@@ -365,12 +367,18 @@
 
   <!-- Geolocation and Sensor Permissions Script -->
   <script>
-    // Global flags to track sensor availability
-    window.isGPSEnabled = false;
+    // Global flags to track sensor and location availability
+    window.isGPSEnabled = false; // Indicates if precise Geolocation API is available
+    window.isLocationAvailable = false; // Indicates if any location data is available (API or fallback)
     window.isOrientationEnabled = false;
 
+    // =========== DEVICE DETECTION ===========
+    function isMobileDevice() {
+      return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
     // =========== GEOLOCATION ===========
-    function initializeGeolocation() {
+    async function initializeGeolocation() {
       const locationElement = document.getElementById("location");
       if (!navigator.geolocation || !locationElement) {
         if (locationElement) {
@@ -389,10 +397,10 @@
       // Success callback
       function geoSuccess(position) {
         window.isGPSEnabled = true;
+        window.isLocationAvailable = true;
         const { latitude, longitude } = position.coords;
         window.latitude = latitude;
         window.longitude = longitude;
-        const locationElement = document.getElementById("location");
         if (locationElement) {
           locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
         }
@@ -400,23 +408,55 @@
         window.dispatchEvent(new Event('locationUpdated'));
       }
 
-
       // Error callback
-      function geoError(err) {
+      async function geoError(err) {
         console.error("Geolocation error:", err);
         window.isGPSEnabled = false;
-        if (err.code === err.PERMISSION_DENIED) {
-          locationElement.innerHTML = `Location: Permission Denied`;
-        } else {
-          locationElement.innerHTML = `Location: Error (${err.message})`;
+        // Do not update the locationElement here to prevent premature error messages
+        // Errors will be handled after attempting fallback
+
+        // Fallback to IP-based location
+        try {
+          // Use a different IP-based API that allows client-side requests
+          const response = await fetch('https://ipapi.co/json/');
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          if (data.latitude && data.longitude) {
+            window.latitude = data.latitude;
+            window.longitude = data.longitude;
+            window.isLocationAvailable = true; // Location data is now available via fallback
+            if (locationElement) {
+              locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+            }
+            // Dispatch the custom event
+            window.dispatchEvent(new Event('locationUpdated'));
+          } else {
+            throw new Error("IP-based location data incomplete");
+          }
+        } catch (ipError) {
+          console.error("IP-based location fetch error:", ipError);
+          if (locationElement) {
+            locationElement.innerHTML = `Location: Unable to determine location via IP`;
+          }
+          window.isLocationAvailable = false; // Location data is unavailable
+          // Show the cover overlay since both methods failed
+          const cover = document.getElementById("cover");
+          if (cover) {
+            cover.style.display = "block";
+            const coverMessage = document.getElementById("cover-message");
+            coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
+            const demoButton = document.getElementById("start_demo_button");
+            if (demoButton) {
+              demoButton.style.display = "block";
+            }
+          }
         }
       }
 
       // Start watching position
-      const watchId = navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
-
-      // Store watchId to allow stopping if needed
-      window.geolocationWatchId = watchId;
+      navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
     }
 
     // =========== ORIENTATION HANDLERS ===========
@@ -455,7 +495,6 @@
     // Device Motion Handler
     function handleMotion(event) {
       if (!window.appPermissions || !window.appPermissions.motionGranted) return;
-      // window.isGPSEnabled = true; // Removed assumption that motion relates to GPS
 
       if (event.accelerationIncludingGravity) {
         updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x);
@@ -496,8 +535,8 @@
         }
       }
 
-      // Request Orientation Permission for iOS 13+ devices
-      if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+      // Request Orientation Permission for iOS 13+ devices and only if on mobile
+      if (isMobileDevice() && window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
         try {
           const orientationPermission = await DeviceOrientationEvent.requestPermission();
           console.log("Orientation permission:", orientationPermission);
@@ -509,6 +548,9 @@
           console.error("Orientation Permission request error:", err);
           orientationGranted = false;
         }
+      } else if (!isMobileDevice()) {
+        // On desktop, do not request orientation permissions
+        orientationGranted = false;
       }
 
       return { motionGranted, orientationGranted };
@@ -529,20 +571,66 @@
             if (locationElement) {
               locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
             }
+            // Assign to window variables
+            window.latitude = latitude;
+            window.longitude = longitude;
+            window.isLocationAvailable = true; // Location data is available via Geolocation API
             resolve(true);
           },
-          (error) => {
+          async (error) => {
             console.error("Error getting location:", error);
+            const locationElement = document.getElementById("location");
             if (error.code === error.PERMISSION_DENIED) {
-              alert("Location permissions denied. Location data will be unavailable.");
-              const locationElement = document.getElementById("location");
+              alert("Location permissions denied. Attempting to fetch location via IP.");
               if (locationElement) {
                 locationElement.innerHTML = `Location: Permission Denied`;
               }
             } else {
-              alert("Unable to retrieve location data.");
+              alert("Unable to retrieve location data. Attempting to fetch location via IP.");
+              if (locationElement) {
+                locationElement.innerHTML = `Location: Error (${error.message})`;
+              }
             }
-            resolve(false);
+            // Fallback to IP-based location
+            try {
+              // Use a different IP-based API that allows client-side requests
+              const response = await fetch('https://ipapi.co/json/');
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const data = await response.json();
+              if (data.latitude && data.longitude) {
+                window.latitude = data.latitude;
+                window.longitude = data.longitude;
+                window.isLocationAvailable = true; // Location data is now available via fallback
+                if (locationElement) {
+                  locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+                }
+                // Dispatch the custom event
+                window.dispatchEvent(new Event('locationUpdated'));
+                resolve(true);
+              } else {
+                throw new Error("IP-based location data incomplete");
+              }
+            } catch (ipError) {
+              console.error("IP-based location fetch error:", ipError);
+              if (locationElement) {
+                locationElement.innerHTML = `Location: Unable to determine location via IP`;
+              }
+              window.isLocationAvailable = false; // Location data is unavailable
+              // Show the cover overlay since both methods failed
+              const cover = document.getElementById("cover");
+              if (cover) {
+                cover.style.display = "block";
+                const coverMessage = document.getElementById("cover-message");
+                coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
+                const demoButton = document.getElementById("start_demo_button");
+                if (demoButton) {
+                  demoButton.style.display = "block";
+                }
+              }
+              resolve(false);
+            }
           },
           {
             enableHighAccuracy: true,
@@ -565,6 +653,11 @@
         locationGranted: locationGranted
       };
 
+      // Initialize geolocation if location is granted and not already initialized
+      if (locationGranted && !window.geolocationWatchId) {
+        initializeGeolocation();
+      }
+
       // Dispatch a custom event to notify that permissions have been updated
       window.dispatchEvent(new Event('appPermissionsChanged'));
 
@@ -572,19 +665,12 @@
     }
 
     // =========== DEMO CONTROL LOGIC ===========
-    async function initializeDemo() {
+    function initializeDemo() {
       let isRunning = false;
-      const cover = document.getElementById("cover");
-      const coverMessage = document.getElementById("cover-message");
-      const demoButton = document.getElementById("start_demo");
-
-      if (!cover) {
-        console.warn("Cover element not found in the DOM.");
-        return;
-      }
+      const demoButton = document.getElementById("start_demo_button");
 
       if (!demoButton) {
-        console.error('Demo button with id "start_demo" not found in the DOM.');
+        console.error('Demo button with id "start_demo_button" not found in the DOM.');
         return;
       }
 
@@ -593,7 +679,7 @@
           // Stop reading
           window.removeEventListener("devicemotion", handleMotion);
           window.removeEventListener("deviceorientation", handleOrientation);
-          demoButton.innerHTML = "Start Demo";
+          demoButton.innerHTML = "Permission Request";
           demoButton.classList.add("btn-success");
           demoButton.classList.remove("btn-danger");
         } else {
@@ -611,86 +697,108 @@
         isRunning = !isRunning;
       }
 
-      // Automatically request permissions on join
-      async function autoRequestPermissions() {
-        coverMessage.innerHTML = "Initializing Demo...";
-        const permissions = await requestAllPermissions();
-
-        // Start geolocation watching
-        initializeGeolocation();
-
-        if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
-          // Start the demo if at least one permission is granted
-          toggleDemo();
-          cover.style.display = "none"; // Hide the cover after starting
-        } else {
-          // Show the fallback button for manual permission request
-          coverMessage.innerHTML = "Please enable sensor and location permissions to start the demo.";
-          demoButton.style.display = "block";
-        }
-      }
-
       // Attach event listeners to the Start Demo button
       demoButton.addEventListener("click", async (e) => {
         e.preventDefault();
         // Reset cover message and hide the button before requesting again
+        const cover = document.getElementById("cover");
+        const coverMessage = document.getElementById("cover-message");
         coverMessage.innerHTML = "Requesting permissions...";
         demoButton.style.display = "none";
-        const permissions = await requestAllPermissions();
 
-        // Restart geolocation watching in case it was stopped
-        if (permissions.locationGranted && window.geolocationWatchId === undefined) {
-          initializeGeolocation();
-        }
+        const permissions = await requestAllPermissions();
 
         if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
           toggleDemo();
-          cover.style.display = "none"; // Hide the cover after starting
+          if (cover) cover.style.display = "none"; // Hide the cover after starting
         } else {
           // Permissions still not granted
           coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
           demoButton.style.display = "block";
+          if (cover) cover.style.display = "block"; // Show the cover if permissions are denied
         }
       });
 
-      // Add click listener to #data for re-requesting permissions if needed
-      const dataDiv = document.getElementById("data");
-      dataDiv.addEventListener("click", async () => {
-        // Check if any permissions are not granted
-        const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
-        if (!motionGranted || !orientationGranted || !locationGranted) {
-          alert("Re-requesting permissions...");
-          const permissions = await requestAllPermissions();
-
-          // Restart geolocation watching if location was granted
-          if (permissions.locationGranted && window.geolocationWatchId === undefined) {
-            initializeGeolocation();
+      // Add click listener to cover to remove it (optional)
+      const cover = document.getElementById("cover");
+      if (cover) {
+        cover.addEventListener("click", async (e) => {
+          // Prevent the click from triggering button click
+          if (e.target === cover || e.target.id === "cover-message") {
+            // Optionally, you can decide whether to request permissions on cover click
+            // Here, we'll just hide the cover
+            cover.style.display = "none";
           }
+        });
 
-          if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
-            toggleDemo();
-            cover.style.display = "none"; // Hide the cover if permissions are now granted
-          } else {
-            coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
-            demoButton.style.display = "block";
+        // Add a timeout to automatically hide the cover after 10 seconds if it's visible
+        setTimeout(() => {
+          if (cover && cover.style.display === "block") {
+            cover.style.display = "none";
           }
-        }
-      });
-
-      // Attempt to request permissions automatically
-      //autoRequestPermissions();
+        }, 10000); // 10,000 milliseconds = 10 seconds
+      }
     }
 
     // =========== INITIALIZATION ===========
     document.addEventListener("DOMContentLoaded", () => {
+      initializeDemo();
 
-      if (!window.isGPSEnabled) {
-        initializeGeolocation(); // Start watching geolocation
-      }
-      if (!window.isOrientationEnabled) {
-        initializeDemo(); // Start watching geolocation
+      // Attach event listener to the data div for re-requesting permissions if needed
+      const dataDiv = document.getElementById("data");
+      if (dataDiv) {
+        dataDiv.addEventListener("click", async () => {
+          // Check if any permissions are not granted
+          const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
+          if (!motionGranted || !orientationGranted || !locationGranted) {
+            alert("Re-requesting permissions...");
+            const permissions = await requestAllPermissions();
+
+            if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+              toggleDemoState();
+              const cover = document.getElementById("cover");
+              if (cover) cover.style.display = "none"; // Hide the cover if permissions are now granted
+            } else {
+              const coverMessage = document.getElementById("cover-message");
+              const demoButton = document.getElementById("start_demo_button");
+              if (coverMessage && demoButton) {
+                coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
+                demoButton.style.display = "block";
+                if (coverMessage.parentElement) coverMessage.parentElement.style.display = "block"; // Ensure cover is visible
+              }
+            }
+          }
+        });
       }
     });
+
+    // Function to toggle demo state (start/stop)
+    let isRunningGlobal = false;
+    function toggleDemoState() {
+      const demoButton = document.getElementById("start_demo_button");
+      if (!demoButton) return;
+
+      if (isRunningGlobal) {
+        // Stop reading
+        window.removeEventListener("devicemotion", handleMotion);
+        window.removeEventListener("deviceorientation", handleOrientation);
+        demoButton.innerHTML = "Permission Request";
+        demoButton.classList.add("btn-success");
+        demoButton.classList.remove("btn-danger");
+      } else {
+        // Start reading
+        if (window.appPermissions && window.appPermissions.motionGranted) {
+          window.addEventListener("devicemotion", handleMotion);
+        }
+        if (window.appPermissions && window.appPermissions.orientationGranted) {
+          window.addEventListener("deviceorientation", handleOrientation);
+        }
+        demoButton.innerHTML = "Stop Demo";
+        demoButton.classList.remove("btn-success");
+        demoButton.classList.add("btn-danger");
+      }
+      isRunningGlobal = !isRunningGlobal;
+    }
   </script>
 
   <!-- The main 3D or WebXR app container -->
@@ -979,10 +1087,12 @@
     }
 
     // Add event listeners for multi-touch
-    touchControls.addEventListener("touchstart", handleTouchStart, false);
-    touchControls.addEventListener("touchmove", handleTouchMove, false);
-    touchControls.addEventListener("touchend", handleTouchEnd, false);
-    touchControls.addEventListener("touchcancel", handleTouchCancel, false);
+    if (touchControls) {
+      touchControls.addEventListener("touchstart", handleTouchStart, false);
+      touchControls.addEventListener("touchmove", handleTouchMove, false);
+      touchControls.addEventListener("touchend", handleTouchEnd, false);
+      touchControls.addEventListener("touchcancel", handleTouchCancel, false);
+    }
 
     // Additional gesture prevention
     document.addEventListener('gesturestart', function (event) {
@@ -1002,11 +1112,15 @@
     });
 
     function showControls() {
-      touchControls.classList.add("active");
+      if (touchControls) {
+        touchControls.classList.add("active");
+      }
     }
 
     function hideControls() {
-      touchControls.classList.remove("active");
+      if (touchControls) {
+        touchControls.classList.remove("active");
+      }
     }
 
     function resetVisibilityTimeout() {

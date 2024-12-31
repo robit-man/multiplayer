@@ -91,7 +91,7 @@ let lastState = {}
 
 // Speed
 const walkSpeed = 2
-const runSpeed = 150 // Adjusted to a realistic running speed
+const runSpeed = 7 // Adjusted to a realistic running speed
 
 // Terrain
 const terrainSize = 200
@@ -109,6 +109,7 @@ let lastEmittedState = null
 let lastSaveTime = 0
 const SAVE_INTERVAL = 1000 // only save at most once per second
 let lastSavedPos = { x: null, z: null, rotation: null }
+
 
 // ------------------------------
 // Device Orientation Data
@@ -342,9 +343,6 @@ function init() {
 
   // Generate terrain
   //initializeTerrain();
-
-  initializeGeolocation()
-
   loadLocalModel()
 
   // Keyboard events (Desktop)
@@ -760,11 +758,16 @@ function renderTerrainPoints() {
   console.log(`Rendered ${nextPointIndex} / ${totalPoints} points.`)
   const progress = `Rendered ${nextPointIndex} / ${totalPoints} points.`
   updateField('progress', progress)
+
   if (nextPointIndex >= totalPoints) {
     // All points rendered, draw lines and create mesh
     const allSavedPoints = loadPointsFromLocalStorage()
     drawTerrainLinesAsync(allSavedPoints) // Asynchronous line drawing
     createTerrainMesh(allSavedPoints)
+  } else if (nextPointIndex <= totalPoints) {
+    // All points rendered, draw lines and create mesh
+    requestAnimationFrame(renderTerrainPoints)
+
   } else {
     // Continue rendering in the next frame
     requestAnimationFrame(renderTerrainPoints)
@@ -2641,16 +2644,262 @@ window.addEventListener('appPermissionsChanged', () => {
   checkPermissions()
 })
 
-// ------------------------------
-// Swipe Gesture Controls Integration
-// ------------------------------
-// This section handles mapping swipe gestures to WASD controls
-// The swipe detection is handled in index.html, but we need to listen to the corresponding key events here
 
-// Function to handle camera orientation based on device orientation data
-// This is already handled in the animate loop by updating camera.rotation
 
-// Function to handle swipe gestures mapped to WASD
-// Swipes are translated into keydown and keyup events which are already handled by the existing key event listeners
+// Utility Functions
 
-// No additional code needed here since swipe gestures trigger key events that are handled by the existing key event listeners
+/**
+ * Converts an ArrayBuffer to a Base64 string.
+ * @param {ArrayBuffer} buffer - The buffer to convert.
+ * @returns {string} - The Base64 encoded string.
+ */
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  bytes.forEach((b) => binary += String.fromCharCode(b));
+  return window.btoa(binary);
+}
+
+/**
+* Converts a Base64 string to an ArrayBuffer.
+* @param {string} base64 - The Base64 string to convert.
+* @returns {ArrayBuffer} - The resulting ArrayBuffer.
+*/
+function base64ToArrayBuffer(base64) {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  Array.from(binary).forEach((char, i) => {
+      bytes[i] = char.charCodeAt(0);
+  });
+  return bytes.buffer;
+}
+
+// Helper Functions for Password Management
+
+/**
+* Saves the password to localStorage.
+* @param {string} password - The password to save.
+*/
+function savePassword(password) {
+  localStorage.setItem('encryptedPassword', password);
+}
+
+/**
+* Loads the password from localStorage.
+* @returns {string} - The loaded password or an empty string if not found.
+*/
+function loadPassword() {
+  return localStorage.getItem('encryptedPassword') || '';
+}
+
+/**
+* Clears the password from localStorage.
+*/
+function clearPassword() {
+  localStorage.removeItem('encryptedPassword');
+}
+
+// Encryption Function
+
+/**
+* Encrypts latitude and longitude data using a password.
+* @param {number} latitude - The latitude value.
+* @param {number} longitude - The longitude value.
+* @param {string} password - The password for encryption.
+* @returns {Promise<string>} - A JSON string containing the encrypted data, IV, and salt.
+*/
+async function encryptLatLon(latitude, longitude, password) {
+  // 1. Serialize the data
+  const data = JSON.stringify({ latitude, longitude });
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+
+  // 2. Generate a random salt
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+
+  // 3. Derive a key from the password and salt
+  const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+  );
+
+  const key = await window.crypto.subtle.deriveKey(
+      {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: 100000,
+          hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt']
+  );
+
+  // 4. Generate a random IV
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+  // 5. Encrypt the data
+  const encrypted = await window.crypto.subtle.encrypt(
+      {
+          name: 'AES-GCM',
+          iv: iv
+      },
+      key,
+      dataBuffer
+  );
+
+  // 6. Package the encrypted data with salt and iv for transmission/storage
+  const encryptedPackage = {
+      ciphertext: arrayBufferToBase64(encrypted),
+      iv: arrayBufferToBase64(iv.buffer),
+      salt: arrayBufferToBase64(salt.buffer)
+  };
+
+  return JSON.stringify(encryptedPackage);
+}
+
+// Decryption Function
+
+/**
+* Decrypts the encrypted latitude and longitude data using a password.
+* @param {string} encryptedPackageStr - The JSON string containing encrypted data, IV, and salt.
+* @param {string} password - The password for decryption.
+* @returns {Promise<{latitude: number, longitude: number} | null>} - The decrypted lat/lon data or null if decryption fails.
+*/
+async function decryptLatLon(encryptedPackageStr, password) {
+  const decoder = new TextDecoder();
+
+  // 1. Parse the encrypted package
+  const encryptedPackage = JSON.parse(encryptedPackageStr);
+  const ciphertext = base64ToArrayBuffer(encryptedPackage.ciphertext);
+  const iv = base64ToArrayBuffer(encryptedPackage.iv);
+  const salt = base64ToArrayBuffer(encryptedPackage.salt);
+
+  // 2. Derive the key from the password and salt
+  const encoder = new TextEncoder();
+  const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+  );
+
+  const key = await window.crypto.subtle.deriveKey(
+      {
+          name: 'PBKDF2',
+          salt: new Uint8Array(salt),
+          iterations: 100000,
+          hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+  );
+
+  try {
+      // 3. Decrypt the data
+      const decryptedBuffer = await window.crypto.subtle.decrypt(
+          {
+              name: 'AES-GCM',
+              iv: new Uint8Array(iv)
+          },
+          key,
+          ciphertext
+      );
+
+      // 4. Decode the decrypted data
+      const decryptedData = decoder.decode(decryptedBuffer);
+      const { latitude, longitude } = JSON.parse(decryptedData);
+
+      return { latitude, longitude };
+  } catch (e) {
+      console.error('Decryption failed:', e);
+      return null;
+  }
+}
+
+// Dedicated Function: Encrypt and Emit Lat/Lon Data
+
+/**
+* Retrieves latitude and longitude from the global window object and password from localStorage,
+* then encrypts and emits the data via Socket.IO.
+*/
+async function encryptAndEmitLatLon() {
+  // 1. Retrieve latitude and longitude from the window object
+  const { latitude, longitude } = window;
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+      console.error('window.latitude and window.longitude must be set to numerical values.');
+      return;
+  }
+
+  // 2. Retrieve the password from localStorage
+  const password = loadPassword();
+  if (!password) {
+      console.error('Password not found. Please enter a password.');
+      return;
+  }
+
+  try {
+      // 3. Encrypt the lat/lon data
+      const encryptedPackageStr = await encryptLatLon(latitude, longitude, password);
+      console.log('Encrypted Package:', encryptedPackageStr);
+
+      // 4. Emit the encrypted data via Socket.IO
+      socket.emit('position', encryptedPackageStr);
+  } catch (error) {
+      console.error('Encryption failed:', error);
+  }
+}
+
+// Event Listener for the Encrypt & Decrypt Button
+
+document.getElementById('encryptDecryptBtn').addEventListener('click', async () => {
+  const passwordInput = document.getElementById('password');
+  const password = passwordInput.value.trim();
+
+  if (!password) {
+      console.error('Password cannot be empty.');
+      return;
+  }
+
+  // Save the password to localStorage
+  savePassword(password);
+
+  // Encrypt and emit the current lat/lon data
+  await encryptAndEmitLatLon();
+});
+
+// Event Listener for Password Input Changes
+// This will re-encrypt and emit data whenever the password is updated
+
+document.getElementById('password').addEventListener('change', async () => {
+  const passwordInput = document.getElementById('password');
+  const newPassword = passwordInput.value.trim();
+
+  if (!newPassword) {
+      console.error('Password cannot be empty.');
+      return;
+  }
+
+  // Save the new password to localStorage
+  savePassword(newPassword);
+
+  // Re-encrypt and emit the current lat/lon data with the new password
+  await encryptAndEmitLatLon();
+});
+
+// Load Password from localStorage on Page Load and Populate the Password Input
+
+window.addEventListener('DOMContentLoaded', () => {
+  const passwordInput = document.getElementById('password');
+  const savedPassword = loadPassword();
+  if (savedPassword) {
+      passwordInput.value = savedPassword;
+  }
+});
