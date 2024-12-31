@@ -95,7 +95,7 @@ let lastState = {}
 
 // Speed
 const walkSpeed = 2
-const runSpeed = 7 // Adjusted to a realistic running speed
+const runSpeed = 107 // Adjusted to a realistic running speed
 
 // Terrain
 const terrainSize = 200
@@ -263,6 +263,9 @@ function init() {
   const sky = new Sky()
   sky.scale.setScalar(450000) // Scale the sky to encompass the scene
   scene.add(sky)
+  const color = 0xc6aca6;
+  const density = 0.01;
+  scene.fog = new THREE.FogExp2(color, density);
 
   // Configure Sky Parameters
   const sun = new THREE.Vector3()
@@ -367,6 +370,9 @@ function init() {
   checkPermissions()
 }
 
+// Ensure Three.js is included in your project
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
 // Flag to prevent multiple initializations
 let terrainInitialized = false
 
@@ -379,7 +385,7 @@ let terrainMaterial = null
 let terrainPointCloud = null
 let terrainLineSegments = null // Line segments for connecting points
 let terrainMesh = null // Mesh surface for the terrain
-let terrainMeshWire = null // Mesh surface for the terrain
+let terrainMeshWire = null // Wireframe mesh surface for the terrain
 
 const gridSizeMeters = 500
 const gridResolution = 100
@@ -398,17 +404,84 @@ const LS_TERRAIN_POINTS_KEY = 'terrainPoints'
 // Reference elevation for normalization
 let referenceElevation = window.location?.elevation || 0
 
+// Grid Boundaries
+let gridMinLat = null
+let gridMaxLat = null
+let gridMinLon = null
+let gridMaxLon = null
+
+// Previous Location for Movement Detection
+let previousLocation = {
+  latitude: null,
+  longitude: null
+}
+
+// Origin for coordinate mapping (fixed at initial location)
+let originLatitude = null
+let originLongitude = null
+
+
+
+/**
+ * Generates a grid of geographic points around a center location.
+ * Ensures exactly gridResolution^2 points are generated.
+ * @param {Object} center - Object with latitude and longitude.
+ * @param {number} gridSizeMeters - Size of the grid in meters.
+ * @param {number} gridResolution - Number of points per axis.
+ * @returns {Array} Array of point objects with latitude and longitude.
+ */
+function generateGrid(center, gridSizeMeters, gridResolution) {
+  const points = []
+  const stepMeters = (2 * gridSizeMeters) / (gridResolution - 1) // Adjust step to fit grid exactly
+
+  const deltaLat = stepMeters / 111000
+  const deltaLon =
+    stepMeters / (111000 * Math.cos(THREE.MathUtils.degToRad(center.latitude)))
+
+  for (let i = 0; i < gridResolution; i++) {
+    for (let j = 0; j < gridResolution; j++) {
+      const latOffset = (i - (gridResolution - 1) / 2) * deltaLat
+      const lonOffset = (j - (gridResolution - 1) / 2) * deltaLon
+
+      points.push({
+        latitude: center.latitude + latOffset,
+        longitude: center.longitude + lonOffset
+      })
+    }
+  }
+
+  return points
+}
+
 /**
  * Saves a batch of points to localStorage.
+ * Ensures that the total saved points do not exceed totalPoints.
  * @param {Array} pointsBatch - Array of point objects to save.
  */
 function savePointsToLocalStorage(pointsBatch) {
   let savedPoints =
     JSON.parse(localStorage.getItem(LS_TERRAIN_POINTS_KEY)) || []
-  savedPoints = savedPoints.concat(pointsBatch)
+
+  // Calculate available space
+  const availableSpace = totalPoints - savedPoints.length
+  if (availableSpace <= 0) {
+    console.warn('LocalStorage is full. Cannot save more terrain points.')
+    return
+  }
+
+  // Limit pointsBatch to availableSpace
+  const pointsToSave = pointsBatch.slice(0, availableSpace)
+  if (pointsBatch.length > pointsToSave.length) {
+    console.warn(
+      `Only ${pointsToSave.length} out of ${pointsBatch.length} points were saved to localStorage to prevent overflow.`
+    )
+  }
+
+  savedPoints = savedPoints.concat(pointsToSave)
 
   try {
     localStorage.setItem(LS_TERRAIN_POINTS_KEY, JSON.stringify(savedPoints))
+    console.log(`Saved ${pointsToSave.length} points to localStorage.`)
   } catch (e) {
     console.error('Failed to save terrain points to localStorage:', e)
   }
@@ -416,14 +489,26 @@ function savePointsToLocalStorage(pointsBatch) {
 
 /**
  * Loads saved points from localStorage.
+ * Ensures that no more than totalPoints are loaded.
  * @returns {Array} Array of saved point objects.
  */
 function loadPointsFromLocalStorage() {
-  return JSON.parse(localStorage.getItem(LS_TERRAIN_POINTS_KEY)) || []
+  let savedPoints = JSON.parse(localStorage.getItem(LS_TERRAIN_POINTS_KEY)) || []
+
+  if (savedPoints.length > totalPoints) {
+    console.warn(
+      `LocalStorage has ${savedPoints.length} points, which exceeds the expected ${totalPoints}. Truncating excess points.`
+    )
+    savedPoints = savedPoints.slice(0, totalPoints)
+    localStorage.setItem(LS_TERRAIN_POINTS_KEY, JSON.stringify(savedPoints))
+  }
+
+  return savedPoints
 }
 
 /**
  * Fetches elevation data for a grid of geographic points.
+ * Limits the number of points fetched to prevent exceeding totalPoints.
  * @param {Array} points - Array of points with latitude and longitude.
  * @param {string} units - 'Meters' or 'Feet'.
  * @param {number} concurrency - Number of concurrent fetches.
@@ -541,12 +626,8 @@ async function fetchElevation(longitude, latitude, units = 'Meters') {
 
 // Listen for the custom 'locationUpdated' event
 window.addEventListener('locationUpdated', async () => {
-  if (terrainInitialized) {
-    console.log('Terrain has already been initialized.')
-    return
-  }
-
   const { latitude, longitude } = window
+
   if (typeof latitude !== 'number' || typeof longitude !== 'number') {
     console.error(
       'Latitude and Longitude must be set on the window object as numbers.'
@@ -554,80 +635,123 @@ window.addEventListener('locationUpdated', async () => {
     return
   }
 
-  console.log(
-    `Initializing terrain for Latitude: ${latitude}, Longitude: ${longitude}`
-  )
-  terrainInitialized = true
+  if (!terrainInitialized) {
+    console.log(
+      `Initializing terrain for Latitude: ${latitude}, Longitude: ${longitude}`
+    )
+    terrainInitialized = true
 
-  try {
-    const gridPoints = generateGrid(
-      { latitude, longitude },
-      gridSizeMeters,
-      gridResolution
+    try {
+      // Set origin at initial location
+      originLatitude = latitude
+      originLongitude = longitude
+
+      const gridPoints = generateGrid(
+        { latitude, longitude },
+        gridSizeMeters,
+        gridResolution
+      )
+
+      console.log(`Generated ${gridPoints.length} grid points.`)
+
+      // Initialize Terrain Point Cloud
+      initializeTerrainPointCloud()
+
+      // Set initial grid boundaries
+      gridMinLat = latitude - (gridSizeMeters / 111000)
+      gridMaxLat = latitude + (gridSizeMeters / 111000)
+      gridMinLon = longitude - (gridSizeMeters / (111000 * Math.cos(THREE.MathUtils.degToRad(latitude))))
+      gridMaxLon = longitude + (gridSizeMeters / (111000 * Math.cos(THREE.MathUtils.degToRad(latitude))))
+
+      // Load saved points from localStorage
+      const savedPoints = loadPointsFromLocalStorage()
+      if (savedPoints.length > 0) {
+        console.log(`Loaded ${savedPoints.length} points from localStorage.`)
+        populateTerrainFromSavedPoints(savedPoints)
+        nextPointIndex = savedPoints.length
+      }
+
+      // Fetch remaining elevation data
+      const remainingSpace = totalPoints - savedPoints.length
+      if (remainingSpace > 0) {
+        const remainingPoints = gridPoints.slice(nextPointIndex, nextPointIndex + remainingSpace)
+        if (remainingPoints.length > 0) {
+          await fetchElevationGrid(remainingPoints, 'Meters', 10, 3)
+          console.log('Started fetching elevation data for remaining points.')
+          // After fetching, render the points
+          requestAnimationFrame(renderTerrainPoints)
+        }
+      } else {
+        console.log('All terrain points loaded from localStorage.')
+        // Draw lines and create mesh if all points are loaded
+        drawTerrainLinesAsync(savedPoints) // Use asynchronous line drawing
+        createTerrainMesh(savedPoints)
+      }
+
+      // Handle excess points if any
+      const totalSavedPoints = loadPointsFromLocalStorage().length
+      if (totalSavedPoints > totalPoints) {
+        console.warn(
+          `Total saved points (${totalSavedPoints}) exceed the expected grid size (${totalPoints}). Truncating excess points.`
+        )
+        const truncatedPoints = loadPointsFromLocalStorage().slice(0, totalPoints)
+        localStorage.setItem(LS_TERRAIN_POINTS_KEY, JSON.stringify(truncatedPoints))
+        populateTerrainFromSavedPoints(truncatedPoints)
+        nextPointIndex = truncatedPoints.length
+        drawTerrainLinesAsync(truncatedPoints)
+        createTerrainMesh(truncatedPoints)
+      }
+
+      previousLocation = { latitude, longitude }
+    } catch (error) {
+      console.error('Error during terrain initialization:', error)
+    }
+  } else {
+    // Terrain has been initialized, check for movement and expand grid if necessary
+    const movementThreshold = 10 // Meters; adjust as needed
+    const movementDistance = calculateDistance(
+      previousLocation.latitude,
+      previousLocation.longitude,
+      latitude,
+      longitude
     )
 
-    console.log(`Generated ${gridPoints.length} grid points.`)
+    if (movementDistance >= movementThreshold) {
+      console.log(
+        `Detected movement. Previous Location: (${previousLocation.latitude.toFixed(
+          5
+        )}, ${previousLocation.longitude.toFixed(
+          5
+        )}), New Location: (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`
+      )
 
-    // Step 2: Initialize Terrain Point Cloud
-    initializeTerrainPointCloud()
+      // Determine direction of movement
+      const deltaLat = latitude - previousLocation.latitude
+      const deltaLon = longitude - previousLocation.longitude
 
-    // Step 3: Load saved points from localStorage
-    const savedPoints = loadPointsFromLocalStorage()
-    if (savedPoints.length > 0) {
-      console.log(`Loaded ${savedPoints.length} points from localStorage.`)
-      populateTerrainFromSavedPoints(savedPoints)
-      nextPointIndex = savedPoints.length
-    }
+      // Update grid boundaries based on movement
+      if (deltaLat > 0) {
+        // Moving North; add new row to the north
+        await addNewRow('north')
+      } else if (deltaLat < 0) {
+        // Moving South; add new row to the south
+        await addNewRow('south')
+      }
 
-    // Step 4: Fetch remaining elevation data
-    const remainingPoints = gridPoints.slice(nextPointIndex)
-    if (remainingPoints.length > 0) {
-      await fetchElevationGrid(remainingPoints, 'Meters', 10, 3)
-      console.log('Started fetching elevation data for remaining points.')
-      // After fetching, render the points
-      requestAnimationFrame(renderTerrainPoints)
+      if (deltaLon > 0) {
+        // Moving East; add new column to the east
+        await addNewColumn('east')
+      } else if (deltaLon < 0) {
+        // Moving West; add new column to the west
+        await addNewColumn('west')
+      }
+
+      previousLocation = { latitude, longitude }
     } else {
-      console.log('All terrain points loaded from localStorage.')
-      // Draw lines and create mesh if all points are loaded
-      drawTerrainLinesAsync(savedPoints) // Use asynchronous line drawing
-      createTerrainMesh(savedPoints)
+      console.log(`Movement detected (${movementDistance.toFixed(2)} meters) is below the threshold (${movementThreshold} meters).`)
     }
-  } catch (error) {
-    console.error('Error during terrain initialization:', error)
   }
 })
-
-/**
- * Generates a 200x200 grid of geographic points around a center location.
- * @param {Object} center - Object with latitude and longitude.
- * @param {number} gridSizeMeters - Size of the grid in meters.
- * @param {number} gridResolution - Number of points per axis.
- * @returns {Array} Array of point objects with latitude and longitude.
- * @param {Array} savedPoints - Array of saved point objects.
- */
-
-function generateGrid(center, gridSizeMeters, gridResolution) {
-  const points = []
-  const stepMeters = (2 * gridSizeMeters) / gridResolution
-
-  const deltaLat = stepMeters / 111000
-  const deltaLon =
-    stepMeters / (111000 * Math.cos(THREE.MathUtils.degToRad(center.latitude)))
-
-  for (let i = 0; i < gridResolution; i++) {
-    for (let j = 0; j < gridResolution; j++) {
-      const latOffset = (i - gridResolution / 2) * deltaLat
-      const lonOffset = (j - gridResolution / 2) * deltaLon
-
-      points.push({
-        latitude: center.latitude + latOffset,
-        longitude: center.longitude + lonOffset
-      })
-    }
-  }
-
-  return points
-}
 
 /**
  * Initializes the Three.js terrain point cloud.
@@ -654,20 +778,27 @@ function initializeTerrainPointCloud() {
   scene.add(terrainPointCloud)
 }
 
+/**
+ * Populates the terrain point cloud from saved points.
+ * Ensures that only up to totalPoints are processed.
+ * @param {Array} savedPoints - Array of saved point objects.
+ */
 function populateTerrainFromSavedPoints(savedPoints) {
   const positions = terrainPointCloud.geometry.attributes.position.array
   const colors = terrainPointCloud.geometry.attributes.color.array
   const metersPerDegLat = 111320 * scaleMultiplier
   const metersPerDegLon = 110540 * scaleMultiplier
 
-  savedPoints.forEach((point, index) => {
+  const pointsToPopulate = savedPoints.slice(0, totalPoints) // Ensure no excess points
+
+  pointsToPopulate.forEach((point, index) => {
     const baseIndex = index * 3
     positions[baseIndex] =
-      (point.longitude - window.longitude) * metersPerDegLon
+      (point.longitude - originLongitude) * metersPerDegLon
     positions[baseIndex + 1] =
       (point.elevation - referenceElevation) * scaleMultiplier
     positions[baseIndex + 2] =
-      (point.latitude - window.latitude) * metersPerDegLat
+      (point.latitude - originLatitude) * metersPerDegLat
 
     const normalizedElevation =
       Math.min(Math.max(point.elevation - referenceElevation, 0), 80) / 80
@@ -685,11 +816,12 @@ function populateTerrainFromSavedPoints(savedPoints) {
   terrainPointCloud.geometry.attributes.position.needsUpdate = true
   terrainPointCloud.geometry.attributes.color.needsUpdate = true
 
-  console.log(`Populated terrain with ${savedPoints.length} saved points.`)
+  console.log(`Populated terrain with ${pointsToPopulate.length} saved points.`)
 }
 
 /**
  * Renders new terrain points into the scene.
+ * Ensures that no more than totalPoints are rendered.
  */
 function renderTerrainPoints() {
   if (!terrainPointCloud || window.elevationData.length === 0) return
@@ -719,11 +851,11 @@ function renderTerrainPoints() {
     const baseIndex = nextPointIndex * 3
 
     positions[baseIndex] =
-      (point.longitude - window.longitude) * 110540 * scaleMultiplier
+      (point.longitude - originLongitude) * 110540 * scaleMultiplier
     positions[baseIndex + 1] =
       (point.elevation - referenceElevation) * scaleMultiplier
     positions[baseIndex + 2] =
-      (point.latitude - window.latitude) * 111320 * scaleMultiplier
+      (point.latitude - originLatitude) * 111320 * scaleMultiplier
 
     const normalizedElevation =
       Math.min(Math.max(point.elevation - referenceElevation, 0), 80) / 80
@@ -738,8 +870,12 @@ function renderTerrainPoints() {
     colors[baseIndex + 2] = color.b
 
     pointsBatch.push(point)
-    // point.position.copy(camera.position.clone())
     nextPointIndex++
+
+    // Prevent exceeding totalPoints
+    if (nextPointIndex >= totalPoints) {
+      break
+    }
   }
 
   terrainPointCloud.geometry.attributes.position.needsUpdate = true
@@ -756,16 +892,16 @@ function renderTerrainPoints() {
     const allSavedPoints = loadPointsFromLocalStorage()
     drawTerrainLinesAsync(allSavedPoints) // Asynchronous line drawing
     createTerrainMesh(allSavedPoints)
-  } else if (nextPointIndex <= totalPoints) {
-    // All points rendered, draw lines and create mesh
-    requestAnimationFrame(renderTerrainPoints)
-
   } else {
     // Continue rendering in the next frame
     requestAnimationFrame(renderTerrainPoints)
   }
 }
 
+/**
+ * Draws terrain lines asynchronously to prevent blocking the main thread.
+ * @param {Array} savedPoints - Array of saved point objects.
+ */
 function drawTerrainLinesAsync(savedPoints) {
   if (!lineDrawingGenerator) {
     lineDrawingGenerator = terrainLineDrawingGenerator(savedPoints)
@@ -775,20 +911,28 @@ function drawTerrainLinesAsync(savedPoints) {
   if (result.done) {
     lineDrawingGenerator = null // Reset generator when done
     console.log('Asynchronous terrain lines drawing completed.')
+  } else {
+    // Continue drawing in the next frame
+    requestAnimationFrame(() => drawTerrainLinesAsync(savedPoints))
   }
 }
 
 let lineDrawingGenerator = null
 
+/**
+ * Generator function for drawing terrain lines.
+ * Processes the grid in chunks to avoid blocking.
+ * @param {Array} savedPoints - Array of saved point objects.
+ */
 function* terrainLineDrawingGenerator(savedPoints) {
   const linePositions = []
   const metersPerDegLat = 111320 * scaleMultiplier
   const metersPerDegLon = 110540 * scaleMultiplier
 
-  const gridSize = Math.sqrt(savedPoints.length)
+  const gridSize = gridResolution // Number of rows and columns
   if (!Number.isInteger(gridSize)) {
     console.error(
-      'Grid size is not a perfect square. Cannot draw lines accurately.'
+      'Grid size is not an integer. Cannot draw lines accurately.'
     )
     return
   }
@@ -814,9 +958,9 @@ function* terrainLineDrawingGenerator(savedPoints) {
       if (!currentPoint) continue
 
       const currentX =
-        (currentPoint.longitude - window.longitude) * metersPerDegLon
+        (currentPoint.longitude - originLongitude) * metersPerDegLon
       const currentZ =
-        (currentPoint.latitude - window.latitude) * metersPerDegLat
+        (currentPoint.latitude - originLatitude) * metersPerDegLat
       const currentY =
         (currentPoint.elevation - referenceElevation) * scaleMultiplier
 
@@ -826,9 +970,9 @@ function* terrainLineDrawingGenerator(savedPoints) {
         const rightNeighbor = savedPoints[rightNeighborIndex]
         if (rightNeighbor) {
           const rightX =
-            (rightNeighbor.longitude - window.longitude) * metersPerDegLon
+            (rightNeighbor.longitude - originLongitude) * metersPerDegLon
           const rightZ =
-            (rightNeighbor.latitude - window.latitude) * metersPerDegLat
+            (rightNeighbor.latitude - originLatitude) * metersPerDegLat
           const rightY =
             (rightNeighbor.elevation - referenceElevation) * scaleMultiplier
 
@@ -866,9 +1010,9 @@ function* terrainLineDrawingGenerator(savedPoints) {
         const bottomNeighbor = savedPoints[bottomNeighborIndex]
         if (bottomNeighbor) {
           const bottomX =
-            (bottomNeighbor.longitude - window.longitude) * metersPerDegLon
+            (bottomNeighbor.longitude - originLongitude) * metersPerDegLon
           const bottomZ =
-            (bottomNeighbor.latitude - window.latitude) * metersPerDegLat
+            (bottomNeighbor.latitude - originLatitude) * metersPerDegLat
           const bottomY =
             (bottomNeighbor.elevation - referenceElevation) * scaleMultiplier
 
@@ -921,7 +1065,7 @@ function* terrainLineDrawingGenerator(savedPoints) {
     transparent: true
   })
   terrainLineSegments = new THREE.LineSegments(lineGeometry, lineMaterial)
-  scene.add(terrainLineSegments)
+  //scene.add(terrainLineSegments)
 
   yield // Final yield to indicate completion
 }
@@ -929,6 +1073,11 @@ function* terrainLineDrawingGenerator(savedPoints) {
 const gridRows = gridResolution // Number of rows in the grid
 const gridCols = gridResolution // Number of columns in the grid
 
+/**
+ * Creates the terrain mesh from saved points.
+ * Ensures that the number of points matches the grid's expectation.
+ * @param {Array} savedPoints - Array of saved point objects.
+ */
 function createTerrainMesh(savedPoints) {
   // Ensure gridRows and gridCols are defined
   if (typeof gridRows === 'undefined' || typeof gridCols === 'undefined') {
@@ -940,9 +1089,46 @@ function createTerrainMesh(savedPoints) {
 
   // Validate the length of savedPoints
   if (savedPoints.length > gridRows * gridCols) {
+    console.warn(
+      `Expected at most ${gridRows * gridCols} points, but got ${savedPoints.length}. Truncating excess points.`
+    )
+    savedPoints = savedPoints.slice(0, gridRows * gridCols)
+    localStorage.setItem(LS_TERRAIN_POINTS_KEY, JSON.stringify(savedPoints))
+  }
+
+  if (savedPoints.length < gridRows * gridCols) {
+    console.warn(
+      `Expected ${gridRows * gridCols} points, but got ${savedPoints.length}. Attempting to generate missing points.`
+    )
+    const missingPoints = gridRows * gridCols - savedPoints.length
+    for (let i = 0; i < missingPoints; i++) {
+      // Find the first empty spot in the grid
+      const row = Math.floor(i / gridCols)
+      const col = i % gridCols
+      if (savedPoints[row * gridCols + col] === undefined) {
+        // Generate a new point by interpolating from neighbors
+        const generatedPoint = generateMissingPoint(row, col, sortedGrid)
+        if (generatedPoint) {
+          savedPoints[row * gridCols + col] = generatedPoint
+          window.elevationData.push(generatedPoint)
+        } else {
+          // If unable to generate, assign a default elevation
+          savedPoints[row * gridCols + col] = {
+            longitude: originLongitude,
+            latitude: originLatitude,
+            elevation: referenceElevation
+          }
+          window.elevationData.push(savedPoints[row * gridCols + col])
+        }
+      }
+    }
+    localStorage.setItem(LS_TERRAIN_POINTS_KEY, JSON.stringify(savedPoints))
+  }
+
+  // Re-validate the point count
+  if (savedPoints.length !== gridRows * gridCols) {
     console.error(
-      `Expected at most ${gridRows * gridCols} points, but got ${savedPoints.length
-      }.`
+      `After handling, expected ${gridRows * gridCols} points, but got ${savedPoints.length}. Aborting mesh creation.`
     )
     return
   }
@@ -951,9 +1137,11 @@ function createTerrainMesh(savedPoints) {
   const metersPerDegLat = 111320 * scaleMultiplier
   const metersPerDegLon = 110540 * scaleMultiplier // Adjust based on average latitude if necessary
 
-  // Define origin for global positioning (adjust as needed)
-  const originLongitude = window.longitude // Reference longitude
-  const originLatitude = window.latitude // Reference latitude
+  // Define origin for global positioning (fixed at initial location)
+  const origin = {
+    longitude: originLongitude,
+    latitude: originLatitude
+  }
 
   // Function to calculate squared distance between two points (X and Z axes only)
   const calculateDistanceSq = (x1, z1, x2, z2) => {
@@ -964,10 +1152,10 @@ function createTerrainMesh(savedPoints) {
 
   // Step 1: Determine global min and max for X (longitude) and Z (latitude)
   const xCoords = savedPoints.map(
-    point => (point.longitude - originLongitude) * metersPerDegLon
+    point => (point.longitude - origin.longitude) * metersPerDegLon
   )
   const zCoords = savedPoints.map(
-    point => (point.latitude - originLatitude) * metersPerDegLat
+    point => (point.latitude - origin.latitude) * metersPerDegLat
   )
 
   const minX = Math.min(...xCoords)
@@ -987,8 +1175,8 @@ function createTerrainMesh(savedPoints) {
   // Step 2: Assign each saved point to the appropriate grid cell
   savedPoints.forEach(point => {
     // Convert geographic coordinates to meters relative to origin
-    const x = (point.longitude - originLongitude) * metersPerDegLon
-    const z = (point.latitude - originLatitude) * metersPerDegLat
+    const x = (point.longitude - origin.longitude) * metersPerDegLon
+    const z = (point.latitude - origin.latitude) * metersPerDegLat
 
     // Calculate column and row indices based on grid spacing
     let col = Math.round((x - minX) / deltaX)
@@ -1005,9 +1193,9 @@ function createTerrainMesh(savedPoints) {
       // Handle duplicate assignments by choosing the closest point
       const existingPoint = sortedGrid[row][col]
       const existingX =
-        (existingPoint.longitude - originLongitude) * metersPerDegLon
+        (existingPoint.longitude - origin.longitude) * metersPerDegLon
       const existingZ =
-        (existingPoint.latitude - originLatitude) * metersPerDegLat
+        (existingPoint.latitude - origin.latitude) * metersPerDegLat
       const existingDistanceSq = calculateDistanceSq(existingX, existingZ, x, z)
 
       // Calculate distance for the new point (should be zero if exact duplicate)
@@ -1031,57 +1219,42 @@ function createTerrainMesh(savedPoints) {
           `Missing point at row ${row}, col ${col}. Generating a new point.`
         )
 
-        // Calculate longitude and latitude based on grid indices
-        const x = minX + col * deltaX
-        const z = minZ + row * deltaZ
+        // Generate a new point by interpolating from existing neighbors
+        const generatedPoint = generateMissingPoint(row, col, sortedGrid)
 
-        // Determine neighbors for elevation interpolation
-        const neighbors = []
+        if (generatedPoint) {
+          sortedGrid[row][col] = generatedPoint
+          console.log(
+            `Generated point at row ${row}, col ${col}: Lat=${generatedPoint.latitude.toFixed(
+              5
+            )}, Lon=${generatedPoint.longitude.toFixed(
+              5
+            )}, Elevation=${generatedPoint.elevation}`
+          )
+        } else {
+          // If unable to generate, assign a default elevation
+          const defaultElevation = referenceElevation
+          const generatedLongitude =
+            minX + col * deltaX / metersPerDegLon + origin.longitude
+          const generatedLatitude =
+            minZ + row * deltaZ / metersPerDegLat + origin.latitude
 
-        // Define neighbor offsets (Left, Right, Below, Above)
-        const neighborOffsets = [
-          [row, col - 1], // Left
-          [row, col + 1], // Right
-          [row - 1, col], // Below
-          [row + 1, col] // Above
-        ]
-
-        neighborOffsets.forEach(offset => {
-          const [nRow, nCol] = offset
-          if (nRow >= 0 && nRow < gridRows && nCol >= 0 && nCol < gridCols) {
-            const neighborPoint = sortedGrid[nRow][nCol]
-            if (neighborPoint !== null) {
-              neighbors.push(neighborPoint.elevation)
-            }
+          const defaultPoint = {
+            longitude: generatedLongitude,
+            latitude: generatedLatitude,
+            elevation: defaultElevation
           }
-        })
 
-        // Calculate average elevation from neighbors
-        let averageElevation = referenceElevation // Default elevation if no neighbors
-        if (neighbors.length > 0) {
-          const sum = neighbors.reduce((acc, val) => acc + val, 0)
-          averageElevation = sum / neighbors.length
+          sortedGrid[row][col] = defaultPoint
+          console.warn(
+            `Assigned default elevation for missing point at row ${row}, col ${col}.`
+          )
         }
-
-        // Convert x and z back to longitude and latitude
-        const generatedLongitude = x / metersPerDegLon + originLongitude
-        const generatedLatitude = z / metersPerDegLat + originLatitude
-
-        // Create the generated point
-        const generatedPoint = {
-          longitude: generatedLongitude,
-          latitude: generatedLatitude,
-          elevation: averageElevation
-        }
-
-        // Assign the generated point to the grid
-        sortedGrid[row][col] = generatedPoint
       }
     }
   }
 
   // Step 4: Populate Vertices and Colors
-  const totalPoints = gridRows * gridCols
   const vertices = new Float32Array(totalPoints * 3) // x, y, z for each point
   const colors = new Float32Array(totalPoints * 3) // r, g, b for each point
 
@@ -1092,9 +1265,9 @@ function createTerrainMesh(savedPoints) {
       const vertexIndex = index * 3
 
       // Convert geographic coordinates to meters relative to origin
-      const x = (point.longitude - originLongitude) * metersPerDegLon // x
+      const x = (point.longitude - origin.longitude) * metersPerDegLon // x
       const y = (point.elevation - referenceElevation) * scaleMultiplier // y
-      const z = (point.latitude - originLatitude) * metersPerDegLat // z
+      const z = (point.latitude - origin.latitude) * metersPerDegLat // z
 
       vertices[vertexIndex] = x
       vertices[vertexIndex + 1] = y
@@ -1182,7 +1355,7 @@ function createTerrainMesh(savedPoints) {
   // Step 7: Create Material with Vertex Colors, Shading, and Reflectivity
   const materialWire = new THREE.MeshStandardMaterial({
     vertexColors: true, // Enable vertex colors
-    wireframe: true, // Set to true if wireframe is desired
+    wireframe: true, // Wireframe for visual clarity
     transparent: true, // Enable transparency
     opacity: 0.5, // Set opacity level
     metalness: 0.5, // Slight reflectivity (range: 0.0 - 1.0)
@@ -1193,15 +1366,14 @@ function createTerrainMesh(savedPoints) {
     // envMapIntensity: 1.0,            // Adjust the intensity of the environment map
   })
 
-  // Step 7: Create Material with Vertex Colors, Shading, and Reflectivity
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true, // Enable vertex colors
-    wireframe: false, // Set to true if wireframe is desired
+    wireframe: false, // Solid mesh
     transparent: true, // Enable transparency
     side: THREE.DoubleSide,
-    opacity: 1, // Set opacity level
-    metalness: 0.8, // Slight reflectivity (range: 0.0 - 1.0)
-    roughness: 0.2 // Moderate roughness for shading (range: 0.0 - 1.0)
+    opacity: 1, // Full opacity
+    metalness: 0.8, // Higher reflectivity
+    roughness: 0.2 // Moderate roughness
 
     // Optional: Add an environment map for enhanced reflections
     // envMap: yourEnvironmentMap,      // Replace with your environment map texture
@@ -1213,11 +1385,67 @@ function createTerrainMesh(savedPoints) {
   terrainMesh.receiveShadow = true
   scene.add(terrainMesh)
 
-  // Step 8: Create and Add the Terrain Mesh to the Scene
+  // Step 8: Create and Add the Terrain Mesh Wireframe to the Scene
   terrainMeshWire = new THREE.Mesh(geometry, materialWire)
   scene.add(terrainMeshWire)
 
   console.log('Terrain mesh created and added to the scene.')
+}
+
+/**
+ * Generates a missing point by interpolating elevation from neighboring points.
+ * @param {number} row - Row index in the grid.
+ * @param {number} col - Column index in the grid.
+ * @param {Array} sortedGrid - 2D array of sorted points.
+ * @returns {Object|null} Generated point object or null if unable to generate.
+ */
+function generateMissingPoint(row, col, sortedGrid) {
+  const neighbors = []
+
+  // Define neighbor offsets (Left, Right, Below, Above, Top-Left, Top-Right, Bottom-Left, Bottom-Right)
+  const neighborOffsets = [
+    [row, col - 1], // Left
+    [row, col + 1], // Right
+    [row - 1, col], // Below
+    [row + 1, col], // Above
+    [row - 1, col - 1], // Top-Left
+    [row - 1, col + 1], // Top-Right
+    [row + 1, col - 1], // Bottom-Left
+    [row + 1, col + 1]  // Bottom-Right
+  ]
+
+  neighborOffsets.forEach(offset => {
+    const [nRow, nCol] = offset
+    if (nRow >= 0 && nRow < gridResolution && nCol >= 0 && nCol < gridResolution) {
+      const neighborPoint = sortedGrid[nRow][nCol]
+      if (neighborPoint !== null) {
+        neighbors.push(neighborPoint.elevation)
+      }
+    }
+  })
+
+  if (neighbors.length === 0) {
+    return null // Unable to generate without neighbors
+  }
+
+  // Calculate average elevation from neighbors
+  const sum = neighbors.reduce((acc, val) => acc + val, 0)
+  const averageElevation = sum / neighbors.length
+
+  // Calculate longitude and latitude based on grid indices
+  const stepMeters = (2 * gridSizeMeters) / (gridResolution - 1)
+  const deltaLat = stepMeters / 111000
+  const deltaLon =
+    stepMeters / (111000 * Math.cos(THREE.MathUtils.degToRad(originLatitude)))
+
+  const generatedLongitude = originLongitude + (col - (gridResolution - 1) / 2) * deltaLon
+  const generatedLatitude = originLatitude + (row - (gridResolution - 1) / 2) * deltaLat
+
+  return {
+    longitude: generatedLongitude,
+    latitude: generatedLatitude,
+    elevation: averageElevation
+  }
 }
 
 /**
@@ -1252,6 +1480,7 @@ function reportPosition() {
 
 /**
  * Finds the closest grid point to the given x and z coordinates and returns its latitude and longitude.
+ * Also triggers grid expansion if the user is near the grid boundaries.
  * @param {number} x - The x-coordinate of the user in the scene.
  * @param {number} z - The z-coordinate of the user in the scene.
  * @returns {Object|null} The closest grid point with latitude and longitude or null if not found.
@@ -1268,8 +1497,14 @@ function findClosestGridPoint(x, z) {
   const metersPerDegLon = 110540 * scaleMultiplier // Approximately meters per degree longitude
 
   // Reference origin from window object
-  const originLongitude = window.longitude // Ensure window.longitude is defined
-  const originLatitude = window.latitude // Ensure window.latitude is defined
+  const origin = {
+    longitude: originLongitude,
+    latitude: originLatitude
+  }
+
+  // Variables to track user's grid position
+  let userGridRow = null
+  let userGridCol = null
 
   // Iterate through all points to find the closest one
   for (let i = 0; i < positions.length; i += 3) {
@@ -1284,18 +1519,257 @@ function findClosestGridPoint(x, z) {
     if (distance < minDistance) {
       minDistance = distance
       // Convert x and z back to latitude and longitude
-      const generatedLongitude = pointX / metersPerDegLon + originLongitude
-      const generatedLatitude = pointZ / metersPerDegLat + originLatitude
+      const generatedLongitude = pointX / metersPerDegLon + origin.longitude
+      const generatedLatitude = pointZ / metersPerDegLat + origin.latitude
 
       closestPoint = {
         latitude: generatedLatitude,
         longitude: generatedLongitude
       }
+
+      // Determine grid row and column
+      userGridRow = Math.floor((pointZ) / metersPerDegLat) + gridResolution / 2
+      userGridCol = Math.floor((pointX) / metersPerDegLon) + gridResolution / 2
     }
+  }
+
+  // Define a buffer zone to preemptively add new rows/columns
+  const bufferZone = Math.floor(gridResolution * 0.1) // 10% of the grid as buffer (e.g., 10 for 100)
+
+  // Determine proximity to grid boundaries
+  const nearNorth = userGridRow >= gridResolution - bufferZone
+  const nearSouth = userGridRow <= bufferZone
+  const nearEast = userGridCol >= gridResolution - bufferZone
+  const nearWest = userGridCol <= bufferZone
+
+  // Trigger grid expansion based on proximity
+  if (nearNorth) {
+    console.log('User is near the northern boundary. Adding new row to the north.')
+    addNewRow('north')
+  }
+  if (nearSouth) {
+    console.log('User is near the southern boundary. Adding new row to the south.')
+    addNewRow('south')
+  }
+  if (nearEast) {
+    console.log('User is near the eastern boundary. Adding new column to the east.')
+    addNewColumn('east')
+  }
+  if (nearWest) {
+    console.log('User is near the western boundary. Adding new column to the west.')
+    addNewColumn('west')
   }
 
   return closestPoint
 }
+
+/**
+ * Adds a new row to the terrain grid in the specified direction.
+ * @param {string} direction - 'north' or 'south'.
+ */
+async function addNewRow(direction) {
+  console.log(`Adding a new row to the ${direction}.`)
+
+  // Determine new row latitude
+  let newRowLatitude
+  if (direction === 'north') {
+    newRowLatitude = gridMaxLat + (2 * gridSizeMeters) / 111000
+    gridMaxLat = newRowLatitude
+  } else if (direction === 'south') {
+    newRowLatitude = gridMinLat - (2 * gridSizeMeters) / 111000
+    gridMinLat = newRowLatitude
+  } else {
+    console.error(`Invalid direction "${direction}" for adding a new row.`)
+    return
+  }
+
+  // Generate new row points
+  const metersPerDegLat = 111000 // Approximate meters per degree latitude
+  const metersPerDegLon = 111000 * Math.cos(THREE.MathUtils.degToRad(previousLocation.latitude)) // Adjust based on latitude
+
+  const stepMeters = (2 * gridSizeMeters) / (gridResolution - 1)
+  const deltaLon = stepMeters / metersPerDegLon
+
+  const newPoints = []
+  for (let j = 0; j < gridResolution; j++) {
+    const lonOffset = (j - (gridResolution - 1) / 2) * deltaLon
+    const newLongitude = originLongitude + lonOffset
+    const newLatitude = newRowLatitude
+
+    newPoints.push({
+      latitude: newLatitude,
+      longitude: newLongitude
+    })
+  }
+
+  // Fetch elevation data for new points
+  await fetchElevationGrid(newPoints, 'Meters', 10, 3)
+
+  // Render the new points
+  await renderNewPoints(newPoints, direction)
+
+  // Update localStorage
+  savePointsToLocalStorage(window.elevationData)
+
+  // Clear elevationData buffer
+  window.elevationData = []
+
+  // Update mesh
+  const allSavedPoints = loadPointsFromLocalStorage()
+  drawTerrainLinesAsync(allSavedPoints)
+  createTerrainMesh(allSavedPoints)
+}
+
+/**
+ * Adds a new column to the terrain grid in the specified direction.
+ * @param {string} direction - 'east' or 'west'.
+ */
+async function addNewColumn(direction) {
+  console.log(`Adding a new column to the ${direction}.`)
+
+  // Determine new column longitude
+  let newColLongitude
+  if (direction === 'east') {
+    newColLongitude = gridMaxLon + (2 * gridSizeMeters) / (111000 * Math.cos(THREE.MathUtils.degToRad(previousLocation.latitude)))
+    gridMaxLon = newColLongitude
+  } else if (direction === 'west') {
+    newColLongitude = gridMinLon - (2 * gridSizeMeters) / (111000 * Math.cos(THREE.MathUtils.degToRad(previousLocation.latitude)))
+    gridMinLon = newColLongitude
+  } else {
+    console.error(`Invalid direction "${direction}" for adding a new column.`)
+    return
+  }
+
+  // Generate new column points
+  const metersPerDegLat = 111000 // Approximate meters per degree latitude
+  const metersPerDegLon = 111000 * Math.cos(THREE.MathUtils.degToRad(previousLocation.latitude)) // Adjust based on latitude
+
+  const stepMeters = (2 * gridSizeMeters) / (gridResolution - 1)
+  const deltaLat = stepMeters / metersPerDegLat
+
+  const newPoints = []
+  for (let i = 0; i < gridResolution; i++) {
+    const latOffset = (i - (gridResolution - 1) / 2) * deltaLat
+    const newLatitude = originLatitude + latOffset
+    const newLongitude = newColLongitude
+
+    newPoints.push({
+      latitude: newLatitude,
+      longitude: newLongitude
+    })
+  }
+
+  // Fetch elevation data for new points
+  await fetchElevationGrid(newPoints, 'Meters', 10, 3)
+
+  // Render the new points
+  await renderNewPoints(newPoints, direction)
+
+  // Update localStorage
+  savePointsToLocalStorage(window.elevationData)
+
+  // Clear elevationData buffer
+  window.elevationData = []
+
+  // Update mesh
+  const allSavedPoints = loadPointsFromLocalStorage()
+  drawTerrainLinesAsync(allSavedPoints)
+  createTerrainMesh(allSavedPoints)
+}
+
+/**
+ * Renders new terrain points based on the added direction.
+ * @param {Array} newPoints - Array of newly fetched elevation points.
+ * @param {string} direction - Direction where points are added ('north', 'south', 'east', 'west').
+ */
+async function renderNewPoints(newPoints, direction) {
+  if (!terrainPointCloud) {
+    console.error('Terrain Point Cloud is not initialized.')
+    return
+  }
+
+  const positions = terrainPointCloud.geometry.attributes.position.array
+  const colors = terrainPointCloud.geometry.attributes.color.array
+
+  // Determine starting index based on direction
+  let startIndex
+  if (direction === 'north' || direction === 'east') {
+    startIndex = nextPointIndex
+  } else if (direction === 'south' || direction === 'west') {
+    startIndex = 0 // Insert at the beginning
+  } else {
+    console.error(`Invalid direction "${direction}" for rendering new points.`)
+    return
+  }
+
+  for (let i = 0; i < newPoints.length; i++) {
+    const point = newPoints[i]
+    if (!point) continue
+
+    const index = direction === 'south' || direction === 'west' ? i : nextPointIndex
+    const baseIndex = index * 3
+
+    const metersPerDegLat = 111000 * scaleMultiplier
+    const metersPerDegLon = 111000 * Math.cos(THREE.MathUtils.degToRad(point.latitude)) * scaleMultiplier
+
+    const x = (point.longitude - originLongitude) * metersPerDegLon
+    const y = (point.elevation - referenceElevation) * scaleMultiplier
+    const z = (point.latitude - originLatitude) * metersPerDegLat
+
+    positions[baseIndex] = x
+    positions[baseIndex + 1] = y
+    positions[baseIndex + 2] = z
+
+    const normalizedElevation =
+      Math.min(Math.max(point.elevation - referenceElevation, 0), 80) / 80
+    const color = new THREE.Color().lerpColors(
+      new THREE.Color(0x5555ff), // Blue for low elevation
+      new THREE.Color(0xff5555), // Red for high elevation
+      normalizedElevation
+    )
+
+    colors[baseIndex] = color.r
+    colors[baseIndex + 1] = color.g
+    colors[baseIndex + 2] = color.b
+
+    if (direction === 'north' || direction === 'east') {
+      nextPointIndex++
+    }
+  }
+
+  terrainPointCloud.geometry.attributes.position.needsUpdate = true
+  terrainPointCloud.geometry.attributes.color.needsUpdate = true
+
+  console.log(`Rendered ${nextPointIndex} / ${totalPoints} points.`)
+  const progress = `Rendered ${nextPointIndex} / ${totalPoints} points.`
+  updateField('progress', progress)
+}
+
+/**
+ * Calculates the distance between two geographic points using the Haversine formula.
+ * @param {number} lat1 - Latitude of the first point.
+ * @param {number} lon1 - Longitude of the first point.
+ * @param {number} lat2 - Latitude of the second point.
+ * @param {number} lon2 - Longitude of the second point.
+ * @returns {number} Distance in meters.
+ */
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth radius in meters
+  const phi1 = THREE.MathUtils.degToRad(lat1)
+  const phi2 = THREE.MathUtils.degToRad(lat2)
+  const deltaPhi = THREE.MathUtils.degToRad(lat2 - lat1)
+  const deltaLambda = THREE.MathUtils.degToRad(lon2 - lon1)
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) *
+    Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  const distance = R * c
+  return distance
+}
+
 
 // ------------------------------
 // Save + Load local position
@@ -1966,64 +2440,142 @@ function updateCameraOrientation() {
   // Update camera rotation
   camera.rotation.set(pitch, yaw, 0, 'YXZ')
 }
+// Configuration object for geographic settings
+const geoConfig = {
+  originLatitude: window.latitude,    // Replace with your actual origin latitude
+  originLongitude: window.longitude, // Replace with your actual origin longitude
+  scaleMultiplier: 1           // Adjust as needed
+};
+/**
+ * Converts geographic coordinates to Three.js coordinates.
+ * @param {number} latitude
+ * @param {number} longitude
+ * @returns {{x: number, z: number}}
+ */
+function convertGeoToThreeJS(latitude, longitude) {
+  const x = (longitude - originLongitude) * 110540 * geoConfig.scaleMultiplier
+  const z = (latitude - originLatitude) * 111320 * geoConfig.scaleMultiplier
+  return { x, z }
+}
 
-// ------------------------------
-// Load local model
-// ------------------------------
+/**
+ * Converts Three.js coordinates back to geographic coordinates.
+ * @param {number} x
+ * @param {number} z
+ * @returns {{latitude: number, longitude: number}}
+ */
+function convertThreeJSToGeo(x, z) {
+  const latitude = z / (111320 * geoConfig.scaleMultiplier) + originLatitude
+  const longitude = x / (110540 * geoConfig.scaleMultiplier) + originLongitude
+  return { latitude, longitude }
+}
+
 function loadLocalModel() {
   // Check if a VR session is active; if so, do not load the local model
   if (renderer.xr.isPresenting) {
     console.log(
       'VR session active. Skipping loading of local model to prevent camera obstruction.'
-    )
-    return
+    );
+    return;
   }
 
-  const spawnData = loadPositionFromLocalStorage()
-  let finalSpawn = spawnData
+  let finalSpawn = null;
 
-  if (!finalSpawn) {
-    finalSpawn = getRandomSpawnPoint()
-    console.log('No saved position found; using random spawn:', finalSpawn)
+  // Function to convert latitude and longitude to Three.js x and z coordinates
+  const latLonToXZ = (latitude, longitude) => {
+    const metersPerDegLat = 111320 * geoConfig.scaleMultiplier;
+    const metersPerDegLon = 110540 * geoConfig.scaleMultiplier; // Ideally, adjust based on average latitude
+
+    const x = (longitude - geoConfig.originLongitude) * metersPerDegLon;
+    const z = (latitude - geoConfig.originLatitude) * metersPerDegLat;
+    return { x, z };
+  };
+
+  // Check if window.latitude and window.longitude are defined
+  if (
+    typeof window.latitude !== 'undefined' &&
+    typeof window.longitude !== 'undefined'
+  ) {
+    // Convert geographic coordinates to x and z
+    const { x, z } = latLonToXZ(window.latitude, window.longitude);
+
+    finalSpawn = {
+      x: x,
+      z: z,
+      rotation: window.rotation || 0 // Optionally, use window.rotation if available
+    };
+
+    console.log(
+      'Using window.latitude and window.longitude for spawn position:',
+      finalSpawn
+    );
   } else {
-    console.log('Loaded saved position from localStorage:', finalSpawn)
+    // Fallback to loading spawn data from localStorage
+    const spawnData = loadPositionFromLocalStorage();
+
+    if (spawnData) {
+      finalSpawn = spawnData;
+      console.log('Loaded saved position from localStorage:', finalSpawn);
+    } else {
+      // If no saved position, fallback to a random spawn point
+      finalSpawn = getRandomSpawnPoint();
+      console.log('No saved position found; using random spawn:', finalSpawn);
+    }
   }
-  const loader = new GLTFLoader()
+
+  // Ensure finalSpawn has x and z coordinates
+  if (
+    !finalSpawn ||
+    typeof finalSpawn.x !== 'number' ||
+    typeof finalSpawn.z !== 'number'
+  ) {
+    console.error('Final spawn position is invalid. Aborting model loading.');
+    return;
+  }
+
+  const loader = new GLTFLoader();
   loader.load(
     modelPath,
     gltf => {
-      localModel = gltf.scene
-      localModel.position.set(finalSpawn.x, 0, finalSpawn.z)
-      localModel.rotation.y = finalSpawn.rotation || 0
+      localModel = gltf.scene;
 
-      scene.add(localModel)
+      // Set the model's position based on finalSpawn
+      localModel.position.set(finalSpawn.x, 0, finalSpawn.z);
 
+      // Set the model's rotation around the Y-axis
+      localModel.rotation.y = finalSpawn.rotation || 0;
+
+      // Add the model to the scene
+      scene.add(localModel);
+
+      // Enable shadow casting for all meshes within the model
       localModel.traverse(obj => {
-        if (obj.isMesh) obj.castShadow = true
-      })
+        if (obj.isMesh) obj.castShadow = true;
+      });
 
-      // Setup localMixer
-      localMixer = new THREE.AnimationMixer(localModel)
+      // Setup localMixer for animations
+      localMixer = new THREE.AnimationMixer(localModel);
       gltf.animations.forEach(clip => {
-        const action = localMixer.clipAction(clip)
-        action.loop = THREE.LoopRepeat
-        localActions[clip.name] = action
-        if (clip.name === 'idle') action.play()
-      })
+        const action = localMixer.clipAction(clip);
+        action.loop = THREE.LoopRepeat;
+        localActions[clip.name] = action;
+        if (clip.name === 'idle') action.play();
+      });
 
-      // Finally, inform server
+      // Finally, inform the server about the player joining
       socket.emit('player_joined', {
         x: finalSpawn.x,
         z: finalSpawn.z,
         rotation: finalSpawn.rotation,
         action: 'idle',
         id: myId // include localStorage ID
-      })
+      });
     },
     undefined,
     err => console.error('Error loading local model:', err)
-  )
+  );
 }
+
 
 // ------------------------------
 // Unload local model
@@ -2891,6 +3443,13 @@ async function decryptLatLon(encryptedPackageStr, password) {
   }
 }
 
+
+// Function to convert latitude and longitude to Three.js x and z coordinates
+const latLonToXZ = (latitude, longitude) => {
+  const x = (longitude - origin.longitude) * metersPerDegLon;
+  const z = (latitude - origin.latitude) * metersPerDegLat;
+  return { x, z };
+};
 // Dedicated Function: Encrypt and Emit Lat/Lon Data
 
 /**

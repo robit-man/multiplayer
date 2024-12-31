@@ -1,25 +1,7 @@
 [build]
   publish = "dist"
 
-# Existing header for the .glb file
 [[headers]]
   for = "/Xbot.glb" # Ensure the .glb file is accessible
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-
-# New header for .ttf font files
-[[headers]]
-  for = "/fonts/*.ttf" # Adjust the path based on your fonts' actual location
-  [headers.values]
-    Access-Control-Allow-Origin = "*" # Allows all origins; consider restricting in production
-
-# Optional: Headers for other font formats (e.g., .woff, .woff2)
-[[headers]]
-  for = "/fonts/*.woff"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-
-[[headers]]
-  for = "/fonts/*.woff2"
   [headers.values]
     Access-Control-Allow-Origin = "*"
