@@ -612,16 +612,7 @@
           }
           window.isLocationAvailable = false; // Location data is unavailable
           // Show the cover overlay since both methods failed
-          const cover = document.getElementById("cover");
-          if (cover) {
-            cover.style.display = "block";
-            const coverMessage = document.getElementById("cover-message");
-            coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
-            const demoButton = document.getElementById("request_button");
-            if (demoButton) {
-              demoButton.style.display = "block";
-            }
-          }
+        
         }
       }
 
@@ -789,16 +780,7 @@
               }
               window.isLocationAvailable = false; // Location data is unavailable
               // Show the cover overlay since both methods failed
-              const cover = document.getElementById("cover");
-              if (cover) {
-                cover.style.display = "block";
-                const coverMessage = document.getElementById("cover-message");
-                coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
-                const demoButton = document.getElementById("request_button");
-                if (demoButton) {
-                  demoButton.style.display = "block";
-                }
-              }
+           
               resolve(false);
             }
           },
@@ -870,22 +852,13 @@
       // Attach event listeners to the Start Demo button
       demoButton.addEventListener("click", async (e) => {
         e.preventDefault();
-        // Reset cover message and hide the button before requesting again
-        const cover = document.getElementById("cover");
-        const coverMessage = document.getElementById("cover-message");
-        coverMessage.innerHTML = "Requesting permissions...";
-        demoButton.style.display = "none";
-
         const permissions = await requestAllPermissions();
 
         if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
           toggleDemo();
           if (cover) cover.style.display = "none"; // Hide the cover after starting
         } else {
-          // Permissions still not granted
-          coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
-          demoButton.style.display = "block";
-          if (cover) cover.style.display = "block"; // Show the cover if permissions are denied
+        return
         }
       });
 
@@ -929,13 +902,7 @@
               const cover = document.getElementById("cover");
               if (cover) cover.style.display = "none"; // Hide the cover if permissions are now granted
             } else {
-              const coverMessage = document.getElementById("cover-message");
-              const demoButton = document.getElementById("request_button");
-              if (coverMessage && demoButton) {
-                coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
-                demoButton.style.display = "block";
-                if (coverMessage.parentElement) coverMessage.parentElement.style.display = "block"; // Ensure cover is visible
-              }
+           return
             }
           }
      //   });
