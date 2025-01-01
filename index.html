@@ -513,6 +513,20 @@
   window.isLocationAvailable = false; // Indicates if any location data is available (API or fallback)
   window.isOrientationEnabled = false;
 
+  // Initialize orientation data structure
+  window.orientationData = {
+    alpha: 0, // Yaw-like angle (degrees)
+    beta: 0, // Pitch-like angle (degrees)
+    gamma: 0 // Roll-like angle (degrees)
+  };
+
+  // Initialize permissions object
+  window.appPermissions = {
+    motionGranted: false,
+    orientationGranted: false,
+    locationGranted: false
+  };
+
   // =========== DEVICE DETECTION ===========
   function isMobileDevice() {
     return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -538,6 +552,7 @@
       const { latitude, longitude } = position.coords;
       window.latitude = latitude;
       window.longitude = longitude;
+      window.appPermissions.locationGranted = true;
       if (locationElement) {
         locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
       }
@@ -573,6 +588,7 @@
         window.latitude = data.latitude;
         window.longitude = data.longitude;
         window.isLocationAvailable = true;
+        window.appPermissions.locationGranted = true;
         if (locationElement) {
           locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
         }
@@ -586,7 +602,7 @@
       navigator.geolocation.getCurrentPosition(geoSuccess, geoError, {
         enableHighAccuracy: true,
         maximumAge: 0,
-        timeout: 5000,
+        timeout: 5000
       });
     }
 
@@ -594,53 +610,44 @@
   }
 
   // =========== ORIENTATION HANDLERS ===========
-  function updateFieldIfNotNull(fieldName, value, precision = 10) {
-    const field = document.getElementById(fieldName);
-    if (field && value != null) {
-      field.innerHTML = value.toFixed(precision);
-    }
-  }
-
-  function incrementEventCount() {
-    const counterElement = document.getElementById("num-observed-events");
-    if (counterElement) {
-      const eventCount = parseInt(counterElement.innerHTML || "0", 10);
-      counterElement.innerHTML = eventCount + 1;
-    }
-  }
-
   function handleOrientation(event) {
     if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
     window.isOrientationEnabled = true;
-    updateFieldIfNotNull("Orientation_a", event.alpha);
-    updateFieldIfNotNull("Orientation_b", event.beta);
-    updateFieldIfNotNull("Orientation_g", event.gamma);
+
+    // Update orientation data
+    const { alpha = 0, beta = 0, gamma = 0 } = event;
+    window.orientationData.alpha = alpha;
+    window.orientationData.beta = beta;
+    window.orientationData.gamma = gamma;
+
+    // Update UI for debugging
+    updateFieldIfNotNull("Orientation_a", alpha, 2);
+    updateFieldIfNotNull("Orientation_b", beta, 2);
+    updateFieldIfNotNull("Orientation_g", gamma, 2);
+
     incrementEventCount();
-    window.deviceOrientation = {
-      alpha: event.alpha,
-      beta: event.beta,
-      gamma: event.gamma,
-    };
   }
 
   function handleMotion(event) {
     if (!window.appPermissions || !window.appPermissions.motionGranted) return;
+
     if (event.accelerationIncludingGravity) {
-      updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x);
-      updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y);
-      updateFieldIfNotNull("Accelerometer_gz", event.accelerationIncludingGravity.z);
+      updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x, 2);
+      updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y, 2);
+      updateFieldIfNotNull("Accelerometer_gz", event.accelerationIncludingGravity.z, 2);
     }
     if (event.acceleration) {
-      updateFieldIfNotNull("Accelerometer_x", event.acceleration.x);
-      updateFieldIfNotNull("Accelerometer_y", event.acceleration.y);
-      updateFieldIfNotNull("Accelerometer_z", event.acceleration.z);
+      updateFieldIfNotNull("Accelerometer_x", event.acceleration.x, 2);
+      updateFieldIfNotNull("Accelerometer_y", event.acceleration.y, 2);
+      updateFieldIfNotNull("Accelerometer_z", event.acceleration.z, 2);
     }
     if (event.rotationRate) {
-      updateFieldIfNotNull("Gyroscope_z", event.rotationRate.alpha);
-      updateFieldIfNotNull("Gyroscope_x", event.rotationRate.beta);
-      updateFieldIfNotNull("Gyroscope_y", event.rotationRate.gamma);
+      updateFieldIfNotNull("Gyroscope_z", event.rotationRate.alpha, 2);
+      updateFieldIfNotNull("Gyroscope_x", event.rotationRate.beta, 2);
+      updateFieldIfNotNull("Gyroscope_y", event.rotationRate.gamma, 2);
     }
     updateFieldIfNotNull("Accelerometer_i", event.interval, 2);
+
     incrementEventCount();
   }
 
@@ -651,6 +658,7 @@
         const permissionStatus = await DeviceOrientationEvent.requestPermission();
         if (permissionStatus === "granted") {
           window.isOrientationEnabled = true;
+          window.appPermissions.orientationGranted = true;
           return true;
         } else {
           alert("Orientation permissions denied.");
@@ -661,7 +669,8 @@
         return false;
       }
     } else {
-      window.isOrientationEnabled = true;
+      window.isOrientationEnabled = true; // For non-iOS devices
+      window.appPermissions.orientationGranted = true;
       return true;
     }
   }
@@ -674,6 +683,7 @@
       try {
         const motionPermission = await DeviceMotionEvent.requestPermission();
         motionGranted = motionPermission === "granted";
+        window.appPermissions.motionGranted = motionGranted;
         if (!motionGranted) alert("Motion permissions denied.");
       } catch (err) {
         console.error("Motion Permission error:", err);
@@ -684,36 +694,13 @@
     return { motionGranted, orientationGranted };
   }
 
-  async function requestLocationPermission() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve(false);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          window.latitude = latitude;
-          window.longitude = longitude;
-          window.isLocationAvailable = true;
-          resolve(true);
-        },
-        () => resolve(false),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-      );
-    });
-  }
-
   async function requestAllPermissions() {
     const sensorPermissions = await requestSensorPermissions();
     const locationGranted = await requestLocationPermission();
 
-    window.appPermissions = {
-      motionGranted: sensorPermissions.motionGranted,
-      orientationGranted: sensorPermissions.orientationGranted,
-      locationGranted,
-    };
+    window.appPermissions.motionGranted = sensorPermissions.motionGranted;
+    window.appPermissions.orientationGranted = sensorPermissions.orientationGranted;
+    window.appPermissions.locationGranted = locationGranted;
 
     if (locationGranted && !window.geolocationInitialized) {
       initializeGeolocation();
@@ -731,8 +718,7 @@
     if (permissions.motionGranted) window.addEventListener("devicemotion", handleMotion);
     if (permissions.orientationGranted) window.addEventListener("deviceorientation", handleOrientation);
   });
-
-  </script>
+</script>
 
   <!-- The main 3D or WebXR app container -->
   <div id="app"></div>
