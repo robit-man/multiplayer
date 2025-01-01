@@ -571,13 +571,13 @@ function init() {
 
 // Initialize DayNightCycle
 const dayNightCycle = new DayNightCycle(scene, {
-  skyTurbidity: 10,
-  skyRayleigh: 10,
+  skyTurbidity: 1,
+  skyRayleigh: 1,
   skyMieCoefficient: 0.005,
   skyMieDirectionalG: 0.6,
   ambientLightIntensityDay: 0.8,
   ambientLightIntensityNight: 0.2,
-  directionalLightIntensityDay: 1,
+  directionalLightIntensityDay: 0.8,
   directionalLightIntensityNight: 0.1,
   transitionSpeed: 0.05, // Faster transition for demonstration
 });

@@ -46,7 +46,6 @@
 
     /* Touch Controls */
     .touch-controls {
-      display: none !important;
       position: absolute;
       width: 100vw;
       height: 100vh;
@@ -56,7 +55,7 @@
       pointer-events: none;
       user-select: none;
       transition: opacity 0.3s ease;
-      opacity: 0;
+      opacity:1;
     }
 
     .touch-controls.active {
@@ -957,7 +956,6 @@
     <div class="touch-control backward">S</div>
     <!-- Additional controls as needed -->
   </div>
-  <div class="touch-control mic">MIC</div>
 
   <!-- Prevent unintended double-taps from zooming on iOS -->
   <script>
