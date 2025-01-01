@@ -444,7 +444,7 @@
             deltaCircle.style.position = 'absolute';
             deltaCircle.style.width = '20px';
             deltaCircle.style.height = '20px';
-            deltaCircle.style.border = '2px solid green';
+            deltaCircle.style.border = '0 solid green';
             deltaCircle.style.borderRadius = '50%';
             deltaCircle.style.top = `${95 + (deltaOffset.y - offset.y) - 10}px`;
             deltaCircle.style.left = `${95 + (deltaOffset.x - offset.x) - 10}px`;
@@ -464,7 +464,7 @@
         // Set dimensions for the container
         container.style.width = '200px';
         container.style.height = '200px';
-        container.style.position = 'relative';
+        container.style.position = 'fixed';
         container.style.overflow = 'hidden';
 
         // Initial map construction
