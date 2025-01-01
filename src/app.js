@@ -929,13 +929,7 @@ window.addEventListener('locationUpdated', async () => {
     )
 
     if (movementDistance >= movementThreshold) {
-      console.log(
-        `Detected movement. Previous Location: (${previousLocation.latitude.toFixed(
-          5
-        )}, ${previousLocation.longitude.toFixed(
-          5
-        )}), New Location: (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`
-      )
+      
 
       // Determine direction of movement
       const deltaLat = latitude - previousLocation.latitude
