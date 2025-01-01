@@ -2659,15 +2659,15 @@ function updateCameraOrientation() {
   // Update camera rotation
   // Assuming you want to apply yaw and pitch, and optionally roll
   // Here's an example without roll:
-  //camera.rotation.set(pitchAngle, yaw, 0, 'YXZ')
+  camera.rotation.set(pitchAngle, yaw, 0, 'YXZ')
 
   // If you want to include roll, you might need to adjust the rotation order
   // For example, using quaternions:
-  
+  /*
   const quaternion = new THREE.Quaternion()
   quaternion.setFromEuler(new THREE.Euler(pitchAngle, yaw, roll, 'YXZ'))
   camera.quaternion.copy(quaternion)
-
+  */
 }
 // Configuration object for geographic settings
 const geoConfig = {
