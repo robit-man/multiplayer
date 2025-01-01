@@ -476,7 +476,7 @@ function init() {
   camera.add(listener)
 
   // Renderer
-  
+
   renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.shadowMap.enabled = true
@@ -929,7 +929,7 @@ window.addEventListener('locationUpdated', async () => {
     )
 
     if (movementDistance >= movementThreshold) {
-      
+
 
       // Determine direction of movement
       const deltaLat = latitude - previousLocation.latitude
@@ -2620,55 +2620,64 @@ function animate() {
 // ------------------------------
 // Update Camera Orientation Based on Device Orientation
 // ------------------------------
+
+// Update Camera Orientation Based on Device Orientation and Compass
 function updateCameraOrientation() {
-  const alphaDeg = window.orientationData.alpha || 0 // 0..360 degrees
-  const betaDeg = window.orientationData.beta || 0 // -180..180 degrees
-  const gammaDeg = window.orientationData.gamma || 0 // -180..180 degrees
+  const alphaDeg = window.orientationData.alpha || 0; // 0..360 degrees
+  const betaDeg = window.orientationData.beta || 0;   // -180..180 degrees
+  const gammaDeg = window.orientationData.gamma || 0; // -90..90 degrees
 
-  // Convert to radians
-  const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
-  const betaRad = THREE.MathUtils.degToRad(betaDeg)
-  const gammaRad = THREE.MathUtils.degToRad(gammaDeg)
+  // Check if compass data is available and accurate
+  const hasCompass =
+    window.orientationData.webkitCompassHeading !== undefined &&
+    window.orientationData.webkitCompassAccuracy !== undefined &&
+    Math.abs(window.orientationData.webkitCompassAccuracy) <= 10; // Adjust threshold as needed
 
-  // Debugging output: show alpha/beta/gamma in degrees
-  // Corrected the label for gammaDeg
+  let yawDeg;
+
+  if (hasCompass) {
+    // Use compass heading as yaw
+    yawDeg = window.orientationData.webkitCompassHeading;
+  } else {
+    // Fallback: Calculate yaw using gamma
+    // Since the device is rotated 90 degrees on the x-axis,
+    // gamma corresponds to yaw in this orientation.
+    yawDeg = gammaDeg;
+  }
+
+  // Convert degrees to radians
+  const yawRad = THREE.MathUtils.degToRad(yawDeg);
+  const betaRad = THREE.MathUtils.degToRad(betaDeg);
+  const gammaRad = THREE.MathUtils.degToRad(gammaDeg);
+  const alphaRad = THREE.MathUtils.degToRad(alphaDeg);
+
+  // Debugging output: show alpha/beta/gamma and yaw/pitch in degrees
   console.log(
-    `Device Orientation - Alpha: ${alphaDeg.toFixed(
+    `Device Orientation - Alpha: ${alphaDeg.toFixed(2)}°, Beta: ${betaDeg.toFixed(
       2
-    )}°, Beta: ${betaDeg.toFixed(2)}°, Gamma: ${gammaDeg.toFixed(2)}°, Yaw: ${THREE.MathUtils.radToDeg(
-      gammaRad
-    ).toFixed(2)}°, Pitch: ${THREE.MathUtils.radToDeg(
-      betaRad - Math.PI / 2
-    ).toFixed(2)}°`
-  )
+    )}°, Gamma: ${gammaDeg.toFixed(2)}°, Yaw: ${THREE.MathUtils.radToDeg(
+      yawRad
+    ).toFixed(2)}°, Pitch: ${THREE.MathUtils.radToDeg(betaRad - Math.PI / 2).toFixed(2)}°`
+  );
 
   // Calculate pitch based on beta
   // When beta = 90 degrees, pitch = 0 (device upright)
   const pitchAngle = THREE.MathUtils.clamp(
     betaRad - Math.PI / 2,
     pitchMin, // ~ -1.56 radians (-89.4 degrees)
-    pitchMax // ~ +1.56 radians (+89.4 degrees)
-  )
+    pitchMax  // ~ +1.56 radians (+89.4 degrees)
+  );
 
-  // Yaw is now gamma radians due to phone rotation
-  const yaw = gammaRad
+  // Optional: Handle roll if needed using alphaRad
+  // When using compass, roll might introduce unwanted rotation
+  const roll = hasCompass ? 0 : alphaRad;
 
-  // Optionally, handle roll if needed using alphaRad
-  const roll = alphaRad
-
-  // Update camera rotation
-  // Assuming you want to apply yaw and pitch, and optionally roll
-  // Here's an example without roll:
-  camera.rotation.set(pitchAngle, yaw, 0, 'YXZ')
-
-  // If you want to include roll, you might need to adjust the rotation order
-  // For example, using quaternions:
-  /*
-  const quaternion = new THREE.Quaternion()
-  quaternion.setFromEuler(new THREE.Euler(pitchAngle, yaw, roll, 'YXZ'))
-  camera.quaternion.copy(quaternion)
-  */
+  // Update camera rotation using quaternions for smoothness
+  const euler = new THREE.Euler(pitchAngle, yawRad, roll, 'YXZ');
+  const quaternion = new THREE.Quaternion().setFromEuler(euler);
+  camera.quaternion.copy(quaternion);
 }
+
 // Configuration object for geographic settings
 const geoConfig = {
   originLatitude: window.latitude,    // Replace with your actual origin latitude
@@ -3451,6 +3460,19 @@ function enableOrientationFeatures() {
   // Enable orientation-specific functionalities
   if (window.appPermissions.orientationGranted) {
     window.addEventListener('deviceorientation', handleOrientation)
+
+    // Listen for device orientation events
+    window.addEventListener('deviceorientation', (event) => {
+      window.orientationData.alpha = event.alpha;
+      window.orientationData.beta = event.beta;
+      window.orientationData.gamma = event.gamma;
+
+      // For iOS devices (Safari), capture compass heading
+      if (event.webkitCompassHeading !== undefined) {
+        window.orientationData.webkitCompassHeading = event.webkitCompassHeading;
+        window.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+      }
+    });
   }
 }
 
