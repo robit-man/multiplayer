@@ -19,18 +19,39 @@ import { Sky } from 'three/addons/objects/Sky.js'
 import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js'
 // import './terrain.js'
 import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.min.js'
+import SunCalc from 'suncalc';
 
 // ------------------------------
 // Model path (public vs root)
 // ------------------------------
-let modelPath
-if (window.location.pathname.includes('/public/')) {
-  modelPath = '/public/Xbot.glb'
-} else {
-  modelPath = '/Xbot.glb'
-}
-console.log(`Model Path: ${modelPath}`)
+let modelPath;
+let fontPath;
 
+if (window.location.pathname.includes('/public/')) {
+  modelPath = '/public/Xbot.glb';
+  fontPath = '/public/uno.ttf';
+} else {
+  modelPath = '/Xbot.glb';
+  fontPath = '/uno.ttf';
+}
+
+// Log the paths
+console.log(`Model Path: ${modelPath}`);
+console.log(`Font Path: ${fontPath}`);
+
+// Inject the font path into CSS
+const styleSheet = new CSSStyleSheet();
+styleSheet.insertRule(`
+  @font-face {
+    font-family: 'Uno';
+    src: url('${fontPath}') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+`);
+
+// Attach the stylesheet globally to document
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, styleSheet];
 // ------------------------------
 // Socket and Noise
 // ------------------------------
@@ -200,6 +221,222 @@ function handleMotion(event) {
   incrementEventCount()
 }
 
+
+
+class DayNightCycle {
+  constructor(scene, options = {}) {
+    this.scene = scene;
+
+    // Default options (can be overridden)
+    this.options = {
+      skyScale: 450000,
+      directionalLightColor: 0xffffff,
+      directionalLightIntensityDay: 1,
+      directionalLightIntensityNight: 0.1,
+      directionalLightPosition: new THREE.Vector3(0, 200, -200),
+      directionalLightTarget: new THREE.Vector3(-5, 0, 0),
+      shadowMapSize: new THREE.Vector2(1024, 1024),
+      skyTurbidity: 10,
+      skyRayleigh: 3,
+      skyMieCoefficient: 0.005,
+      skyMieDirectionalG: 0.6,
+      ambientLightColor: 0xffffff,
+      ambientLightIntensityDay: 0.8,
+      ambientLightIntensityNight: 0.2,
+      transitionSpeed: 0.01, // Speed of transitions
+      updateInterval: 60 * 1000, // Update every minute
+    };
+
+    Object.assign(this.options, options);
+
+    // Initialize components
+    this.initDirectionalLight();
+    this.initSky();
+    this.initAmbientLight();
+
+    // Initialize location and time-dependent data
+    this.latitude = null;
+    this.longitude = null;
+    this.sunrise = null;
+    this.sunset = null;
+
+    // For smooth transitions
+    this.currentAmbientIntensity = this.options.ambientLightIntensityNight;
+    this.currentDirLightIntensity = this.options.directionalLightIntensityNight;
+
+    // Start the initialization process
+    this.initLocation();
+  }
+
+  initLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          this.latitude = position.coords.latitude;
+          this.longitude = position.coords.longitude;
+          this.calculateSunTimes();
+          this.updateSunPosition(); // Set initial sun position based on current time and location
+
+          // Optionally, set an interval to update sun times daily
+          setInterval(() => {
+            this.calculateSunTimes();
+          }, 24 * 60 * 60 * 1000); // Every 24 hours
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          // Fallback to default sunrise and sunset times if location is unavailable
+          this.latitude = 0;
+          this.longitude = 0;
+          this.setDefaultSunTimes();
+          this.updateSunPosition();
+        }
+      );
+    } else {
+      console.error('Geolocation not supported.');
+      // Fallback to default sunrise and sunset times if geolocation is not supported
+      this.latitude = 0;
+      this.longitude = 0;
+      this.setDefaultSunTimes();
+      this.updateSunPosition();
+    }
+  }
+
+  setDefaultSunTimes() {
+    // Default sunrise and sunset times (e.g., 6 AM and 6 PM)
+    const now = new Date();
+    this.sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
+    this.sunset = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0);
+  }
+
+  calculateSunTimes() {
+    if (!this.latitude || !this.longitude) {
+      console.warn('Latitude and Longitude are not set.');
+      this.setDefaultSunTimes();
+      return;
+    }
+
+    const now = new Date();
+    const times = SunCalc.getTimes(now, this.latitude, this.longitude);
+
+    this.sunrise = times.sunrise;
+    this.sunset = times.sunset;
+
+    // Optional: Log the times for debugging
+    console.log('Sunrise:', this.sunrise);
+    console.log('Sunset:', this.sunset);
+  }
+
+  initDirectionalLight() {
+    // Create Directional Light
+    this.dirLight = new THREE.DirectionalLight(
+      this.options.directionalLightColor,
+      this.options.directionalLightIntensityNight
+    );
+    this.dirLight.position.copy(this.options.directionalLightPosition);
+    this.dirLight.castShadow = true;
+    this.dirLight.target.position.copy(this.options.directionalLightTarget);
+    this.dirLight.shadow.mapSize.copy(this.options.shadowMapSize);
+    this.scene.add(this.dirLight);
+    this.scene.add(this.dirLight.target); // Ensure the target is added to the scene
+  }
+
+  initSky() {
+    // Initialize Sky
+    this.sky = new Sky();
+    this.sky.scale.setScalar(this.options.skyScale);
+    this.scene.add(this.sky);
+
+    // Configure Sky Parameters
+    this.skyUniforms = this.sky.material.uniforms;
+
+    this.skyUniforms['turbidity'].value = this.options.skyTurbidity;
+    this.skyUniforms['rayleigh'].value = this.options.skyRayleigh;
+    this.skyUniforms['mieCoefficient'].value = this.options.skyMieCoefficient;
+    this.skyUniforms['mieDirectionalG'].value = this.options.skyMieDirectionalG;
+
+    this.sun = new THREE.Vector3();
+    this.skyUniforms['sunPosition'].value.copy(this.sun);
+
+  }
+
+  initAmbientLight() {
+    // Add Ambient Light
+    this.ambientLight = new THREE.AmbientLight(
+      this.options.ambientLightColor,
+      this.options.ambientLightIntensityNight
+    );
+    this.scene.add(this.ambientLight);
+  }
+
+  updateSunPosition() {
+    if (!this.sunrise || !this.sunset) {
+      console.warn('Sunrise and sunset times are not set.');
+      return;
+    }
+
+    const now = new Date();
+
+    // Determine if it's day or night
+    const isDay = now >= this.sunrise && now < this.sunset;
+
+    let elevation;
+    let azimuth;
+
+    if (isDay) {
+      // Calculate the progress of the day (0 at sunrise, 1 at sunset)
+      const dayDuration = (this.sunset - this.sunrise) / (1000 * 60 * 60); // Duration in hours
+      const timeSinceSunrise = (now - this.sunrise) / (1000 * 60 * 60); // Hours since sunrise
+      const dayProgress = timeSinceSunrise / dayDuration; // 0 to 1
+
+      elevation = dayProgress * 90; // From 0° (horizon) to 90° (zenith)
+      azimuth = 180; // Adjust as needed for sun's path
+
+      // Smoothly interpolate ambient light intensity
+      this.currentAmbientIntensity += (this.options.ambientLightIntensityDay * dayProgress - this.currentAmbientIntensity) * this.options.transitionSpeed;
+      this.ambientLight.intensity = THREE.MathUtils.clamp(this.currentAmbientIntensity, this.options.ambientLightIntensityNight, this.options.ambientLightIntensityDay);
+
+      // Smoothly interpolate directional light intensity
+      this.currentDirLightIntensity += (this.options.directionalLightIntensityDay - this.currentDirLightIntensity) * this.options.transitionSpeed;
+      this.dirLight.intensity = THREE.MathUtils.clamp(this.currentDirLightIntensity, this.options.directionalLightIntensityNight, this.options.directionalLightIntensityDay);
+    } else {
+      // Nighttime
+      elevation = 0; // Sun below the horizon
+      azimuth = 180; // Adjust for moon or other celestial bodies if desired
+
+      // Smoothly interpolate ambient light intensity
+      this.currentAmbientIntensity += (this.options.ambientLightIntensityNight - this.currentAmbientIntensity) * this.options.transitionSpeed;
+      this.ambientLight.intensity = THREE.MathUtils.clamp(this.currentAmbientIntensity, this.options.ambientLightIntensityNight, this.options.ambientLightIntensityDay);
+
+      // Smoothly interpolate directional light intensity
+      this.currentDirLightIntensity += (this.options.directionalLightIntensityNight - this.currentDirLightIntensity) * this.options.transitionSpeed;
+      this.dirLight.intensity = THREE.MathUtils.clamp(this.currentDirLightIntensity, this.options.directionalLightIntensityNight, this.options.directionalLightIntensityDay);
+    }
+
+    // Convert spherical coordinates to Cartesian coordinates
+    const phi = THREE.MathUtils.degToRad(90 - elevation);
+    const theta = THREE.MathUtils.degToRad(azimuth);
+
+    this.sun.setFromSphericalCoords(1, phi, theta);
+
+    // Update Sky's sun position
+    this.skyUniforms['sunPosition'].value.copy(this.sun);
+
+    // Update Directional Light position based on sun
+    const distance = 200; // Adjust as needed
+    this.dirLight.position.set(
+      this.sun.x * distance,
+      this.sun.y * distance,
+      this.sun.z * distance
+    );
+    this.dirLight.target.position.copy(this.options.directionalLightTarget);
+    this.dirLight.target.updateMatrixWorld();
+  }
+
+  update() {
+    // Update sun position periodically
+    this.updateSunPosition();
+  }
+}
 // ------------------------------
 // Initialize + Animate
 // ------------------------------
@@ -252,45 +489,6 @@ function init() {
     baseReferenceSpace = renderer.xr.getReferenceSpace()
   })
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1)
-  dirLight.position.set(0, 200, -200)
-  dirLight.castShadow = true
-  dirLight.target.position.set(-5, 0, 0)
-  dirLight.shadow.mapSize.set(1024, 1024)
-  scene.add(dirLight)
-
-  // Initialize Sky
-  const sky = new Sky()
-  sky.scale.setScalar(450000) // Scale the sky to encompass the scene
-  scene.add(sky)
-  const color = 0xc6aca6;
-  const density = 0.01;
-  scene.fog = new THREE.FogExp2(color, density);
-
-  // Configure Sky Parameters
-  const sun = new THREE.Vector3()
-
-  // Define sun parameters
-  const elevation = 2 // degrees above the horizon
-  const azimuth = 180 // degrees around the Y-axis
-
-  // Convert spherical coordinates to Cartesian coordinates
-  const phi = THREE.MathUtils.degToRad(90 - elevation)
-  const theta = THREE.MathUtils.degToRad(azimuth)
-  sun.setFromSphericalCoords(1, phi, theta)
-
-  // Update Sky's sun position
-  sky.material.uniforms['sunPosition'].value.copy(sun)
-
-  // Adjust Sky's uniforms to customize appearance
-  sky.material.uniforms['turbidity'].value = 10 // Controls haziness
-  sky.material.uniforms['rayleigh'].value = 3 // Controls sky color
-  sky.material.uniforms['mieCoefficient'].value = 0.005 // Controls scattering
-  sky.material.uniforms['mieDirectionalG'].value = 0.6 // Controls scattering direction
-
-  // Add Ambient Light
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.2) // Soft white light
-  scene.add(ambientLight)
 
   // Teleport marker
   markerMesh = new THREE.Mesh(
@@ -323,15 +521,15 @@ function init() {
   composer = new EffectComposer(renderer)
   composer.addPass(new RenderPass(scene, camera))
 
-  const effectFilm = new FilmPass(0.35)
-  composer.addPass(effectFilm)
+  //const effectFilm = new FilmPass(0.35)
+  //composer.addPass(effectFilm)
 
-  const effect2 = new ShaderPass(RGBShiftShader)
-  effect2.uniforms['amount'].value = 0.0015
-  composer.addPass(effect2)
+  //const effect2 = new ShaderPass(RGBShiftShader)
+  //effect2.uniforms['amount'].value = 0.0015
+  //composer.addPass(effect2)
 
-  const effect3 = new OutputPass()
-  composer.addPass(effect3)
+  //const effect3 = new OutputPass()
+  //composer.addPass(effect3)
 
   // Setup VR controllers
   setupVRControllers()
@@ -348,7 +546,7 @@ function init() {
   enablePointerLock()
 
   // Window resize
-  window.addEventListener('resize', onWindowResize)
+  window.addEventListener('resize', onWindowResize, false);
 
   // Socket setup
   setupSocketEvents()
@@ -369,6 +567,19 @@ function init() {
   // Check and initialize sensor listeners based on permissions
   checkPermissions()
 }
+
+// Initialize DayNightCycle
+const dayNightCycle = new DayNightCycle(scene, {
+  skyTurbidity: 10,
+  skyRayleigh: 10,
+  skyMieCoefficient: 0.005,
+  skyMieDirectionalG: 0.6,
+  ambientLightIntensityDay: 0.8,
+  ambientLightIntensityNight: 0.2,
+  directionalLightIntensityDay: 1,
+  directionalLightIntensityNight: 0.1,
+  transitionSpeed: 0.05, // Faster transition for demonstration
+});
 
 // Ensure Three.js is included in your project
 // <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -803,8 +1014,8 @@ function populateTerrainFromSavedPoints(savedPoints) {
     const normalizedElevation =
       Math.min(Math.max(point.elevation - referenceElevation, 0), 80) / 80
     const color = new THREE.Color().lerpColors(
-      new THREE.Color(0x5555ff), // Blue for low elevation
-      new THREE.Color(0xff5555), // Red for high elevation
+      new THREE.Color(0x000000), // Blue for low elevation
+      new THREE.Color(0xffffff), // Red for high elevation
       normalizedElevation
     )
 
@@ -860,8 +1071,8 @@ function renderTerrainPoints() {
     const normalizedElevation =
       Math.min(Math.max(point.elevation - referenceElevation, 0), 80) / 80
     const color = new THREE.Color().lerpColors(
-      new THREE.Color(0x5555ff), // Blue for low elevation
-      new THREE.Color(0xff5555), // Red for high elevation
+      new THREE.Color(0x000000), // Blue for low elevation
+      new THREE.Color(0xffffff), // Red for high elevation
       normalizedElevation
     )
 
@@ -1275,10 +1486,10 @@ function createTerrainMesh(savedPoints) {
 
       // Calculate color based on elevation
       const normalizedElevation =
-        Math.min(Math.max(point.elevation - referenceElevation, 0), 100) / 100
+        Math.min(Math.max(point.elevation - referenceElevation, 0), 40) / 40
       const color = new THREE.Color().lerpColors(
-        new THREE.Color(0xaaaaff), // Blue for low elevation
-        new THREE.Color(0xffaaaa), // Red for high elevation
+        new THREE.Color(0x000000), // Blue for low elevation
+        new THREE.Color(0xffffff), // Red for high elevation
         normalizedElevation
       )
       colors[vertexIndex] = color.r
@@ -1357,8 +1568,8 @@ function createTerrainMesh(savedPoints) {
     vertexColors: true, // Enable vertex colors
     wireframe: true, // Wireframe for visual clarity
     transparent: true, // Enable transparency
-    opacity: 0.5, // Set opacity level
-    metalness: 0.5, // Slight reflectivity (range: 0.0 - 1.0)
+    opacity: 0.2, // Set opacity level
+    metalness: 0.7, // Slight reflectivity (range: 0.0 - 1.0)
     roughness: 0.2 // Moderate roughness for shading (range: 0.0 - 1.0)
 
     // Optional: Add an environment map for enhanced reflections
@@ -1371,9 +1582,9 @@ function createTerrainMesh(savedPoints) {
     wireframe: false, // Solid mesh
     transparent: true, // Enable transparency
     side: THREE.DoubleSide,
-    opacity: 1, // Full opacity
-    metalness: 0.8, // Higher reflectivity
-    roughness: 0.2 // Moderate roughness
+    opacity: 0.95, // Full opacity
+    metalness: 0.2, // Higher reflectivity
+    roughness: 0.7 // Moderate roughness
 
     // Optional: Add an environment map for enhanced reflections
     // envMap: yourEnvironmentMap,      // Replace with your environment map texture
@@ -2341,6 +2552,15 @@ function animate() {
     if (window.isOrientationEnabled) {
       updateCameraOrientation()
     }
+    // Handle resize adjustments
+    if (needsResize) {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      needsResize = false;
+    }
+    dayNightCycle.update();
 
     // 3. Handle rendering and movements based on VR availability
     if (renderer.xr.isPresenting) {
@@ -2795,7 +3015,7 @@ function setupSocketEvents() {
     const { id, audio } = data
     receiveAudioStream(id, audio)
   })
-  
+
   /**
    * Handle 'position' event: Receive encrypted position data from a player
    */
@@ -2816,7 +3036,7 @@ function setupSocketEvents() {
       if (decryptedData) {
         const { latitude, longitude } = decryptedData;
         console.log(`[Socket] position => Decrypted Position from ID: ${id}: Lat=${latitude}, Lon=${longitude}`);
-        
+
         // Map latitude and longitude to your game's coordinate system
         const x = mapLongitudeToX(longitude);
         const z = mapLatitudeToZ(latitude);
@@ -3149,10 +3369,16 @@ function getRandomSpawnPoint() {
   return { x, z, rotation }
 }
 
+let needsResize = false;
+
+
 function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio); // Add this
+  needsResize = true;
+
 }
 
 // ------------------------------

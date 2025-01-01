@@ -29,6 +29,10 @@
       font-style: normal;
     }
 
+    .uno{
+      font-family: 'Uno', sans-serif;
+    }
+
     #app {
       width: 100vw;
       height: 100vh;
@@ -166,7 +170,7 @@
       top: 10px;
       left: 10px;
       color: white;
-      opacity: 0.25;
+      opacity: 0.5;
       font-size: 0.8rem;
       font-family: "Rajdhani", sans-serif;
       cursor: default;
@@ -175,16 +179,13 @@
       text-shadow: 0px 0px 10px;
       overflow: visible;
       z-index: 10;
-      padding: 0.25rem;
-      border: 1px dotted grey;
-      border-radius: 0.5rem;
       transition: all 0.2s ease;
       transition-delay: 1s;
     }
 
     .data:hover {
       transition: all 0.2s ease;
-      opacity: 0.7;
+      opacity: 1;
     }
 
     /* Updated Location Display */
@@ -212,23 +213,32 @@
       overflow: visible;
     }
 
-    /* Removed cover related styles */
-
-    /* Removed styles for #start_demo_button and #start_demo_button_secondary */
-
-    #password {
+    #request_button{
+      
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
       border: unset;
       padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
+      border-radius: 0rem;
+      color: black;
+      background: white;
+      transition: all 0.2s ease;
+    }
+
+    #password {
+      font-family: "Rajdhani", serif;
+      font-weight: 700;
+      font-style: normal;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0rem;
       border-bottom-left-radius: unset;
       border-bottom-right-radius: unset;
       color: white;
       background: transparent;
       border: 1px dashed white;
       border-bottom: unset;
+      border-top: unset;
     }
 
     #encryptDecryptBtn {
@@ -237,7 +247,7 @@
       font-style: normal;
       border: unset;
       padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
+      border-radius: 0rem;
       border-top-left-radius: unset;
       border-top-right-radius: unset;
       color: white;
@@ -282,6 +292,8 @@
       z-index: 10;
       display: flex;
       opacity: 1;
+      filter:invert(1);
+      mix-blend-mode: exclusion;
       border-bottom-left-radius: 100%;
       border-top: unset;
       border-right: unset;
@@ -294,13 +306,13 @@
       overflow: hidden;
       z-index: 10;
       display: flex;
-      opacity: 0.5;
+      opacity: 1;
       border-bottom-left-radius: 100%;
       border-top: unset;
       border-right: unset;
       width: 200px;
       height: 200px;
-      box-shadow: inset 10px -10px 50px 10px black;
+      box-shadow: inset 10px -10px 20px 10px rgb(255, 255, 255);
     }
   </style>
 </head>
@@ -337,6 +349,7 @@
 
   <!-- Data Overlay -->
   <div class="data" id="data">
+    <p style="margin:unset;margin-top:-0.7rem;font-size:2.5rem;" class="uno">NOCLIP</p>
     <p id="location">Location: N/A</p>
     <p id="position">Position: N/A</p>
     <div class="sensor-readouts">
@@ -347,6 +360,7 @@
       <div id="remotedata"></div>
       <div class="button-stack">
         <!-- Removed 'Permission Request' button -->
+         <button id="request_button">Permissions</button>
         <input type="password" id="password" placeholder="Enter Password">
         <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
       </div>
@@ -379,6 +393,7 @@
           id="num-observed-events">0</span></p>
     </div>
   </div>
+  
   <script>
     // Plain JavaScript to embed OpenStreetMap data without external libraries
     // Plain JavaScript to embed OpenStreetMap data without external libraries
@@ -602,7 +617,7 @@
             cover.style.display = "block";
             const coverMessage = document.getElementById("cover-message");
             coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
-            const demoButton = document.getElementById("start_demo_button");
+            const demoButton = document.getElementById("request_button");
             if (demoButton) {
               demoButton.style.display = "block";
             }
@@ -779,7 +794,7 @@
                 cover.style.display = "block";
                 const coverMessage = document.getElementById("cover-message");
                 coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
-                const demoButton = document.getElementById("start_demo_button");
+                const demoButton = document.getElementById("request_button");
                 if (demoButton) {
                   demoButton.style.display = "block";
                 }
@@ -822,10 +837,10 @@
     // =========== DEMO CONTROL LOGIC ===========
     function initializeDemo() {
       let isRunning = false;
-      const demoButton = document.getElementById("start_demo_button");
+      const demoButton = document.getElementById("request_button");
 
       if (!demoButton) {
-        console.error('Demo button with id "start_demo_button" not found in the DOM.');
+        console.error('Demo button with id "request_button" not found in the DOM.');
         return;
       }
 
@@ -900,14 +915,14 @@
       initializeDemo();
 
       // Attach event listener to the data div for re-requesting permissions if needed
-      const dataDiv = document.getElementById("data");
-      if (dataDiv) {
-        dataDiv.addEventListener("click", async () => {
+     // const dataDiv = document.getElementById("data");
+     // if (dataDiv) {
+       // dataDiv.addEventListener("click", async () => {
           // Check if any permissions are not granted
           const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
           if (!motionGranted || !orientationGranted || !locationGranted) {
-            alert("Re-requesting permissions...");
-            const permissions = await requestAllPermissions();
+           // alert("Re-requesting permissions...");
+            const permissions =  requestAllPermissions();
 
             if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
               toggleDemoState();
@@ -915,7 +930,7 @@
               if (cover) cover.style.display = "none"; // Hide the cover if permissions are now granted
             } else {
               const coverMessage = document.getElementById("cover-message");
-              const demoButton = document.getElementById("start_demo_button");
+              const demoButton = document.getElementById("request_button");
               if (coverMessage && demoButton) {
                 coverMessage.innerHTML = "Permissions denied. Please enable them in your browser settings.";
                 demoButton.style.display = "block";
@@ -923,14 +938,14 @@
               }
             }
           }
-        });
-      }
+     //   });
+     // }
     });
 
     // Function to toggle demo state (start/stop)
     let isRunningGlobal = false;
     function toggleDemoState() {
-      const demoButton = document.getElementById("start_demo_button");
+      const demoButton = document.getElementById("request_button");
       if (!demoButton) return;
 
       if (isRunningGlobal) {
