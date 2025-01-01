@@ -367,95 +367,125 @@
   </div>
   <script>
     // Plain JavaScript to embed OpenStreetMap data without external libraries
-    (function () {
-      // Constants for OpenStreetMap tile URL
-      const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-      const TILE_SIZE = 256;
+(function () {
+    // Constants for OpenStreetMap tile URL
+    const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const TILE_SIZE = 256;
 
-      // Function to calculate tile position
-      function latLonToTile(lat, lon, zoom) {
+    // Function to calculate tile position
+    function latLonToTile(lat, lon, zoom) {
         const scale = 1 << zoom;
         const x = Math.floor(((lon + 180) / 360) * scale);
         const y = Math.floor(((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale);
         return { x, y };
-      }
+    }
 
-      // Function to construct map tiles
-      function constructMap(latitude, longitude, zoom, container) {
+    // Function to calculate pixel offset within a tile
+    function latLonToOffset(lat, lon, zoom) {
+        const scale = 1 << zoom;
+        const worldX = ((lon + 180) / 360) * scale * TILE_SIZE;
+        const worldY = ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale * TILE_SIZE;
+        return { x: worldX % TILE_SIZE, y: worldY % TILE_SIZE };
+    }
+
+    // Function to construct map tiles and dots
+    function constructMap(latitude, longitude, noclipLat, noclipLon, zoom, container) {
         const { x, y } = latLonToTile(latitude, longitude, zoom);
+        const offset = latLonToOffset(latitude, longitude, zoom);
+        const noclipOffset = latLonToOffset(noclipLat, noclipLon, zoom);
 
         // Clear existing tiles
         container.innerHTML = '';
 
         // Add only 4 tiles for the map
         for (let dx = 0; dx <= 1; dx++) {
-          for (let dy = 0; dy <= 1; dy++) {
-            const tile = document.createElement('img');
-            tile.src = TILE_URL.replace('{z}', zoom)
-              .replace('{x}', x + dx)
-              .replace('{y}', y + dy);
-            tile.style.position = 'absolute';
-            tile.style.top = `${dy * TILE_SIZE}px`;
-            tile.style.left = `${dx * TILE_SIZE}px`;
-            tile.style.width = `${TILE_SIZE}px`;
-            tile.style.height = `${TILE_SIZE}px`;
-            container.appendChild(tile);
-          }
+            for (let dy = 0; dy <= 1; dy++) {
+                const tile = document.createElement('img');
+                tile.src = TILE_URL.replace('{z}', zoom)
+                                   .replace('{x}', x + dx)
+                                   .replace('{y}', y + dy);
+                tile.style.position = 'absolute';
+                tile.style.top = `${(dy - 1) * TILE_SIZE + offset.y}px`;
+                tile.style.left = `${(dx - 1) * TILE_SIZE + offset.x}px`;
+                tile.style.width = `${TILE_SIZE}px`;
+                tile.style.height = `${TILE_SIZE}px`;
+                container.appendChild(tile);
+            }
         }
 
-        // Add a red dot at the center of the map for the current location
-        const dot = document.createElement('div');
-        dot.style.position = 'absolute';
-        dot.style.width = '10px';
-        dot.style.height = '10px';
-        dot.style.backgroundColor = 'red';
-        dot.style.borderRadius = '50%';
-        dot.style.top = '145px'; // Centered within 300px height
-        dot.style.left = '145px'; // Centered within 300px width
-        dot.style.zIndex = '10';
-        container.appendChild(dot);
-      }
+        // Add a red dot for the current location (ground truth)
+        const groundTruthDot = document.createElement('div');
+        groundTruthDot.style.position = 'absolute';
+        groundTruthDot.style.width = '10px';
+        groundTruthDot.style.height = '10px';
+        groundTruthDot.style.backgroundColor = 'red';
+        groundTruthDot.style.borderRadius = '50%';
+        groundTruthDot.style.top = '95px';
+        groundTruthDot.style.left = '95px';
+        groundTruthDot.style.zIndex = '10';
+        container.appendChild(groundTruthDot);
 
-      // Function to inject map into a container by ID
-      function injectMap(containerId) {
+        // Add a blue dot for the noclip location
+        const noclipDot = document.createElement('div');
+        noclipDot.style.position = 'absolute';
+        noclipDot.style.width = '10px';
+        noclipDot.style.height = '10px';
+        noclipDot.style.backgroundColor = 'blue';
+        noclipDot.style.borderRadius = '50%';
+        noclipDot.style.top = `${95 + (noclipOffset.y - offset.y)}px`;
+        noclipDot.style.left = `${95 + (noclipOffset.x - offset.x)}px`;
+        noclipDot.style.zIndex = '10';
+        container.appendChild(noclipDot);
+    }
+
+    // Function to inject map into a container by ID
+    function injectMap(containerId) {
         const container = document.getElementById(containerId);
         if (!container) {
-          console.error(`No element with id ${containerId} found.`);
-          return;
+            console.error(`No element with id ${containerId} found.`);
+            return;
         }
 
         // Set dimensions for the container
         container.style.width = '200px';
         container.style.height = '200px';
         container.style.position = 'fixed';
-        container.style.position = 'fixed';
         container.style.overflow = 'hidden';
 
         // Initial map construction
-        constructMap(window.latitude, window.longitude, 13, container);
-      }
+        constructMap(window.latitude, window.longitude, window.latitude.noclip, window.longitude.noclip, 13, container);
+    }
 
-      // Listen for changes to window.latitude and window.longitude
-      let lastLatitude = window.latitude;
-      let lastLongitude = window.longitude;
+    // Listen for changes to window.latitude and window.longitude
+    let lastLatitude = window.latitude;
+    let lastLongitude = window.longitude;
+    let lastNoClipLatitude = window.latitude.noclip;
+    let lastNoClipLongitude = window.longitude.noclip;
 
-      function checkLocationChange(containerId) {
-        if (window.latitude !== lastLatitude || window.longitude !== lastLongitude) {
-          lastLatitude = window.latitude;
-          lastLongitude = window.longitude;
-          const container = document.getElementById(containerId);
-          if (container) {
-            constructMap(window.latitude, window.longitude, 13, container);
-          }
+    function checkLocationChange(containerId) {
+        if (
+            window.latitude !== lastLatitude ||
+            window.longitude !== lastLongitude ||
+            window.latitude.noclip !== lastNoClipLatitude ||
+            window.longitude.noclip !== lastNoClipLongitude
+        ) {
+            lastLatitude = window.latitude;
+            lastLongitude = window.longitude;
+            lastNoClipLatitude = window.latitude.noclip;
+            lastNoClipLongitude = window.longitude.noclip;
+            const container = document.getElementById(containerId);
+            if (container) {
+                constructMap(window.latitude, window.longitude, window.latitude.noclip, window.longitude.noclip, 13, container);
+            }
         }
         requestAnimationFrame(() => checkLocationChange(containerId));
-      }
+    }
 
-      // Inject map and start listening for location changes
-      const containerId = 'minimap';
-      injectMap(containerId);
-      checkLocationChange(containerId);
-    })();
+    // Inject map and start listening for location changes
+    const containerId = 'minimap';
+    injectMap(containerId);
+    checkLocationChange(containerId);
+})();
 
 
   </script>
