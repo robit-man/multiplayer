@@ -273,6 +273,21 @@
     select:focus {
       outline: none;
     }
+
+    #minimap {
+      position: fixed;
+      right: 0px;
+      top: 0px;
+      overflow: hidden;
+      z-index: 10;
+      display: flex;
+      opacity: 0.5;
+      border-bottom-left-radius: 100%;
+      mix-blend-mode: luminosity;
+      border: 2px solid #fff;
+      border-top:unset;
+      border-right:unset;
+    }
   </style>
 </head>
 
@@ -304,7 +319,7 @@
     </div>
   </div>
 
-  <!-- Removed Cover Overlay -->
+  <div id="minimap"></div>
 
   <!-- Data Overlay -->
   <div class="data" id="data">
@@ -350,6 +365,100 @@
           id="num-observed-events">0</span></p>
     </div>
   </div>
+  <script>
+    // Plain JavaScript to embed OpenStreetMap data without external libraries
+    (function () {
+      // Constants for OpenStreetMap tile URL
+      const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      const TILE_SIZE = 256;
+
+      // Function to calculate tile position
+      function latLonToTile(lat, lon, zoom) {
+        const scale = 1 << zoom;
+        const x = Math.floor(((lon + 180) / 360) * scale);
+        const y = Math.floor(((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale);
+        return { x, y };
+      }
+
+      // Function to construct map tiles
+      function constructMap(latitude, longitude, zoom, container) {
+        const { x, y } = latLonToTile(latitude, longitude, zoom);
+
+        // Clear existing tiles
+        container.innerHTML = '';
+
+        // Add only 4 tiles for the map
+        for (let dx = 0; dx <= 1; dx++) {
+          for (let dy = 0; dy <= 1; dy++) {
+            const tile = document.createElement('img');
+            tile.src = TILE_URL.replace('{z}', zoom)
+              .replace('{x}', x + dx)
+              .replace('{y}', y + dy);
+            tile.style.position = 'absolute';
+            tile.style.top = `${dy * TILE_SIZE}px`;
+            tile.style.left = `${dx * TILE_SIZE}px`;
+            tile.style.width = `${TILE_SIZE}px`;
+            tile.style.height = `${TILE_SIZE}px`;
+            container.appendChild(tile);
+          }
+        }
+
+        // Add a red dot at the center of the map for the current location
+        const dot = document.createElement('div');
+        dot.style.position = 'absolute';
+        dot.style.width = '10px';
+        dot.style.height = '10px';
+        dot.style.backgroundColor = 'red';
+        dot.style.borderRadius = '50%';
+        dot.style.top = '145px'; // Centered within 300px height
+        dot.style.left = '145px'; // Centered within 300px width
+        dot.style.zIndex = '10';
+        container.appendChild(dot);
+      }
+
+      // Function to inject map into a container by ID
+      function injectMap(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) {
+          console.error(`No element with id ${containerId} found.`);
+          return;
+        }
+
+        // Set dimensions for the container
+        container.style.width = '300px';
+        container.style.height = '300px';
+        container.style.position = 'fixed';
+        container.style.position = 'fixed';
+        container.style.overflow = 'hidden';
+
+        // Initial map construction
+        constructMap(window.latitude, window.longitude, 13, container);
+      }
+
+      // Listen for changes to window.latitude and window.longitude
+      let lastLatitude = window.latitude;
+      let lastLongitude = window.longitude;
+
+      function checkLocationChange(containerId) {
+        if (window.latitude !== lastLatitude || window.longitude !== lastLongitude) {
+          lastLatitude = window.latitude;
+          lastLongitude = window.longitude;
+          const container = document.getElementById(containerId);
+          if (container) {
+            constructMap(window.latitude, window.longitude, 13, container);
+          }
+        }
+        requestAnimationFrame(() => checkLocationChange(containerId));
+      }
+
+      // Inject map and start listening for location changes
+      const containerId = 'minimap';
+      injectMap(containerId);
+      checkLocationChange(containerId);
+    })();
+
+
+  </script>
 
   <!-- Geolocation and Sensor Permissions Script -->
   <script>
