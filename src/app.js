@@ -257,8 +257,8 @@ class DayNightCycle {
     // Initialize location and time-dependent data
     this.latitude = null;
     this.longitude = null;
-    this.sunrise = null;
-    this.sunset = null;
+    this.sunrise = 8;
+    this.sunset = 6;
 
     // For smooth transitions
     this.currentAmbientIntensity = this.options.ambientLightIntensityNight;

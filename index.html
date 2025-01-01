@@ -171,7 +171,7 @@
       left: 10px;
       color: white;
       opacity: 0.5;
-      font-size: 0.8rem;
+      font-size:0.6rem;
       font-family: "Rajdhani", sans-serif;
       cursor: default;
       /* Changed to default since clicking should not trigger anything */
@@ -205,6 +205,7 @@
     .sensor-readouts p {
       margin: unset !important;
       overflow: visible;
+      font-size:0.6rem;
     }
 
     .sensor-label {
@@ -602,7 +603,7 @@
             window.longitude = data.longitude;
             window.isLocationAvailable = true; // Location data is now available via fallback
             if (locationElement) {
-              locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+              locationElement.innerHTML = `Location (IPs): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
             }
             // Dispatch the custom event
             window.dispatchEvent(new Event('locationUpdated'));
