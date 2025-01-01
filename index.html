@@ -519,250 +519,210 @@
 
 
   </script>
-<script>
-  // Global flags to track sensor and location availability
-  window.isGPSEnabled = false; // Indicates if precise Geolocation API is available
-  window.isLocationAvailable = false; // Indicates if any location data is available (API or fallback)
-  window.isOrientationEnabled = false;
-
-  // Cache permissions in localStorage
-  const cachedPermissions = JSON.parse(localStorage.getItem("permissionsCache")) || {};
-
-  // =========== DEVICE DETECTION ===========
-  function isMobileDevice() {
-    return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  }
-
-  // =========== GEOLOCATION ===========
-  async function initializeGeolocation() {
-    const locationElement = document.getElementById("location");
-    if (!navigator.geolocation || !locationElement) {
-      if (locationElement) {
-        locationElement.innerHTML = "Location: Not Supported";
-      }
-      return;
+  <script>
+    // Global flags to track sensor availability
+    window.isGPSEnabled = false; // Indicates if precise Geolocation API is available
+    window.isLocationAvailable = false; // Indicates if any location data is available (API or fallback)
+    window.isOrientationEnabled = false;
+  
+    // =========== DEVICE DETECTION ===========
+    function isMobileDevice() {
+      return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
-
-    const geoOptions = {
-      enableHighAccuracy: true,
-      maximumAge: 0, // No caching
-      timeout: 5000 // 5 seconds timeout
-    };
-
-    function geoSuccess(position) {
-      window.isGPSEnabled = true;
-      window.isLocationAvailable = true;
-      const { latitude, longitude } = position.coords;
-      window.latitude = latitude;
-      window.longitude = longitude;
-      if (locationElement) {
-        locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-      }
-      window.dispatchEvent(new Event("locationUpdated"));
-    }
-
-    async function geoError(err) {
-      console.error("Geolocation error:", err);
-      window.isGPSEnabled = false;
-
-      // Fallback to IP-based location
-      try {
-        const response = await fetch("https://ipapi.co/json/");
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        if (data.latitude && data.longitude) {
-          window.latitude = data.latitude;
-          window.longitude = data.longitude;
-          window.isLocationAvailable = true;
-          if (locationElement) {
-            locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
-          }
-          window.dispatchEvent(new Event("locationUpdated"));
-        } else {
-          throw new Error("IP-based location data incomplete");
-        }
-      } catch (ipError) {
-        console.error("IP-based location fetch error:", ipError);
+  
+    // =========== GEOLOCATION ===========
+    function initializeGeolocation() {
+      const locationElement = document.getElementById("location");
+      if (!navigator.geolocation || !locationElement) {
         if (locationElement) {
-          locationElement.innerHTML = "Location: Unable to determine location.";
+          locationElement.innerHTML = "Location: Not Supported";
         }
-        window.isLocationAvailable = false;
-        const cover = document.getElementById("cover");
-        if (cover) {
-          cover.style.display = "block";
-          const coverMessage = document.getElementById("cover-message");
-          coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
-          const demoButton = document.getElementById("start_demo_button");
-          if (demoButton) {
-            demoButton.style.display = "block";
-          }
-        }
-      }
-    }
-
-    navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
-  }
-
-  // =========== ORIENTATION HANDLERS ===========
-  function handleOrientation(event) {
-    if (!cachedPermissions.orientationGranted) return;
-
-    window.isOrientationEnabled = true;
-    window.deviceOrientation = {
-      alpha: event.alpha,
-      beta: event.beta,
-      gamma: event.gamma
-    };
-  }
-
-  function handleMotion(event) {
-    if (!cachedPermissions.motionGranted) return;
-    if (event.accelerationIncludingGravity) {
-      window.acceleration = {
-        x: event.accelerationIncludingGravity.x,
-        y: event.accelerationIncludingGravity.y,
-        z: event.accelerationIncludingGravity.z
-      };
-    }
-  }
-
-  // =========== PERMISSION REQUEST ===========
-  async function requestSensorPermissions() {
-    let motionGranted = cachedPermissions.motionGranted || true;
-    let orientationGranted = cachedPermissions.orientationGranted || true;
-
-    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") {
-      try {
-        const motionPermission = await DeviceMotionEvent.requestPermission();
-        motionGranted = motionPermission === "granted";
-      } catch (err) {
-        console.error("Motion Permission request error:", err);
-        motionGranted = false;
-      }
-    }
-
-    if (isMobileDevice() && window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
-      try {
-        const orientationPermission = await DeviceOrientationEvent.requestPermission();
-        orientationGranted = orientationPermission === "granted";
-      } catch (err) {
-        console.error("Orientation Permission request error:", err);
-        orientationGranted = false;
-      }
-    } else if (!isMobileDevice()) {
-      orientationGranted = false;
-    }
-
-    return { motionGranted, orientationGranted };
-  }
-
-  async function requestLocationPermission() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        console.error("Geolocation is not supported by this browser.");
-        resolve(false);
         return;
       }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const locationElement = document.getElementById("location");
-          if (locationElement) {
-            locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-          }
-          window.latitude = latitude;
-          window.longitude = longitude;
-          window.isLocationAvailable = true;
-          resolve(true);
-        },
-        async (error) => {
-          console.error("Error getting location:", error);
-          const locationElement = document.getElementById("location");
-          if (error.code === error.PERMISSION_DENIED) {
-            alert("Location permissions denied. Attempting to fetch location via IP.");
+  
+      const geoOptions = {
+        enableHighAccuracy: true,
+        maximumAge: 0, // No caching
+        timeout: 5000 // 5 seconds timeout
+      };
+  
+      function geoSuccess(position) {
+        window.isGPSEnabled = true;
+        const { latitude, longitude } = position.coords;
+        window.latitude = latitude;
+        window.longitude = longitude;
+        locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      }
+  
+      function geoError(err) {
+        console.error("Geolocation error:", err);
+        window.isGPSEnabled = false;
+        if (err.code === err.PERMISSION_DENIED) {
+          locationElement.innerHTML = "Location: Permission Denied";
+        } else {
+          locationElement.innerHTML = `Location: Error (${err.message})`;
+        }
+      }
+  
+      const watchId = navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
+      window.geolocationWatchId = watchId;
+    }
+  
+    // =========== ORIENTATION HANDLERS ===========
+    function updateFieldIfNotNull(fieldName, value, precision = 10) {
+      const field = document.getElementById(fieldName);
+      if (field && value != null) {
+        field.innerHTML = value.toFixed(precision);
+      }
+    }
+  
+    function incrementEventCount() {
+      const counterElement = document.getElementById("num-observed-events");
+      if (counterElement) {
+        const eventCount = parseInt(counterElement.innerHTML || "0", 10);
+        counterElement.innerHTML = eventCount + 1;
+      }
+    }
+  
+    function handleOrientation(event) {
+      if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
+      window.isOrientationEnabled = true;
+      updateFieldIfNotNull("Orientation_a", event.alpha);
+      updateFieldIfNotNull("Orientation_b", event.beta);
+      updateFieldIfNotNull("Orientation_g", event.gamma);
+      incrementEventCount();
+  
+      window.deviceOrientation = {
+        alpha: event.alpha,
+        beta: event.beta,
+        gamma: event.gamma
+      };
+    }
+  
+    function handleMotion(event) {
+      if (!window.appPermissions || !window.appPermissions.motionGranted) return;
+  
+      if (event.accelerationIncludingGravity) {
+        updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x);
+        updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y);
+        updateFieldIfNotNull("Accelerometer_gz", event.accelerationIncludingGravity.z);
+      }
+      if (event.acceleration) {
+        updateFieldIfNotNull("Accelerometer_x", event.acceleration.x);
+        updateFieldIfNotNull("Accelerometer_y", event.acceleration.y);
+        updateFieldIfNotNull("Accelerometer_z", event.acceleration.z);
+      }
+      if (event.rotationRate) {
+        updateFieldIfNotNull("Gyroscope_z", event.rotationRate.alpha);
+        updateFieldIfNotNull("Gyroscope_x", event.rotationRate.beta);
+        updateFieldIfNotNull("Gyroscope_y", event.rotationRate.gamma);
+      }
+      updateFieldIfNotNull("Accelerometer_i", event.interval, 2);
+      incrementEventCount();
+    }
+  
+    // =========== PERMISSION REQUEST ===========
+    async function requestSensorPermissions() {
+      let motionGranted = true;
+      let orientationGranted = true;
+  
+      if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") {
+        try {
+          const motionPermission = await DeviceMotionEvent.requestPermission();
+          motionGranted = motionPermission === "granted";
+        } catch (err) {
+          console.error("Motion Permission request error:", err);
+          motionGranted = false;
+        }
+      }
+  
+      if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+        try {
+          const orientationPermission = await DeviceOrientationEvent.requestPermission();
+          orientationGranted = orientationPermission === "granted";
+        } catch (err) {
+          console.error("Orientation Permission request error:", err);
+          orientationGranted = false;
+        }
+      }
+  
+      return { motionGranted, orientationGranted };
+    }
+  
+    async function requestLocationPermission() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          console.error("Geolocation is not supported by this browser.");
+          resolve(false);
+          return;
+        }
+  
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            const locationElement = document.getElementById("location");
             if (locationElement) {
-              locationElement.innerHTML = "Location: Permission Denied";
+              locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
             }
-          } else {
-            alert("Unable to retrieve location data. Attempting to fetch location via IP.");
-            if (locationElement) {
-              locationElement.innerHTML = `Location: Error (${error.message})`;
-            }
-          }
-          try {
-            const response = await fetch("https://ipapi.co/json/");
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const data = await response.json();
-            if (data.latitude && data.longitude) {
-              window.latitude = data.latitude;
-              window.longitude = data.longitude;
-              window.isLocationAvailable = true;
+            window.latitude = latitude;
+            window.longitude = longitude;
+            window.isLocationAvailable = true;
+            resolve(true);
+          },
+          (error) => {
+            console.error("Error getting location:", error);
+            const locationElement = document.getElementById("location");
+            if (error.code === error.PERMISSION_DENIED) {
+              alert("Location permissions denied. Location data will be unavailable.");
               if (locationElement) {
-                locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+                locationElement.innerHTML = "Location: Permission Denied";
               }
-              window.dispatchEvent(new Event("locationUpdated"));
-              resolve(true);
             } else {
-              throw new Error("IP-based location data incomplete");
-            }
-          } catch (ipError) {
-            console.error("IP-based location fetch error:", ipError);
-            if (locationElement) {
-              locationElement.innerHTML = "Location: Unable to determine location via IP.";
-            }
-            window.isLocationAvailable = false;
-            const cover = document.getElementById("cover");
-            if (cover) {
-              cover.style.display = "block";
-              const coverMessage = document.getElementById("cover-message");
-              coverMessage.innerHTML = "Unable to determine your location. Please enable location permissions in your browser settings.";
-              const demoButton = document.getElementById("start_demo_button");
-              if (demoButton) {
-                demoButton.style.display = "block";
-              }
+              alert("Unable to retrieve location data.");
             }
             resolve(false);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
           }
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 5000
-        }
-      );
+        );
+      });
+    }
+  
+    async function requestAllPermissions() {
+      const sensorPermissions = await requestSensorPermissions();
+      const locationGranted = await requestLocationPermission();
+  
+      const allPermissions = {
+        motionGranted: sensorPermissions.motionGranted,
+        orientationGranted: sensorPermissions.orientationGranted,
+        locationGranted: locationGranted
+      };
+  
+      window.appPermissions = allPermissions;
+      window.dispatchEvent(new Event("appPermissionsChanged"));
+  
+      return allPermissions;
+    }
+  
+    // =========== INITIALIZATION ===========
+    document.addEventListener("DOMContentLoaded", async () => {
+      const permissions = await requestAllPermissions();
+  
+     // if (permissions.motionGranted) {
+        window.addEventListener("devicemotion", handleMotion);
+     // }
+      //if (permissions.orientationGranted) {
+        window.addEventListener("deviceorientation", handleOrientation);
+     // }
+      //if (permissions.locationGranted) {
+        initializeGeolocation();
+     // }
     });
-  }
-
-  async function requestAllPermissions() {
-    const sensorPermissions = await requestSensorPermissions();
-    const locationGranted = await requestLocationPermission();
-
-    const allPermissions = {
-      motionGranted: sensorPermissions.motionGranted,
-      orientationGranted: sensorPermissions.orientationGranted,
-      locationGranted: locationGranted
-    };
-
-    localStorage.setItem("permissionsCache", JSON.stringify(allPermissions));
-    return allPermissions;
-  }
-
-  // =========== INITIALIZATION ===========
-  document.addEventListener("DOMContentLoaded", async () => {
-    const permissions = await requestAllPermissions();
-
-    if (permissions.motionGranted) {
-      window.addEventListener("devicemotion", handleMotion);
-    }
-    if (permissions.orientationGranted) {
-      window.addEventListener("deviceorientation", handleOrientation);
-    }
-    if (permissions.locationGranted) {
-      initializeGeolocation();
-    }
-  });
-</script>
+  </script>
+  
 
 
   <!-- The main 3D or WebXR app container -->
