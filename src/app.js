@@ -1453,28 +1453,29 @@ function generateMissingPoint(row, col, sortedGrid) {
  * Updates the HTML element with ID 'position' to display latitude and longitude.
  */
 function reportPosition() {
-  if (!terrainPointCloud || !localModel) return
+  if (!terrainPointCloud || !localModel) return;
 
   // Extract the local model's current x and z positions
-  const userX = localModel.position.x
-  const userZ = localModel.position.z
+  const userX = localModel.position.x;
+  const userZ = localModel.position.z;
 
   // Find the closest grid point
-  const closestPoint = findClosestGridPoint(userX, userZ)
+  const closestPoint = findClosestGridPoint(userX, userZ);
 
   if (closestPoint) {
     // Format latitude and longitude to 5 decimal places for readability
-    const formattedLat = closestPoint.latitude.toFixed(5)
-    const formattedLon = closestPoint.longitude.toFixed(5)
+    const formattedLat = parseFloat(closestPoint.latitude.toFixed(5));
+    const formattedLon = parseFloat(closestPoint.longitude.toFixed(5));
+
+    // Update window.latitudeDelta and window.longitudeDelta
+    window.latitudeDelta = formattedLat;
+    window.longitudeDelta = formattedLon;
 
     // Update the HTML element with the formatted latitude and longitude
-    updateField('position', `Lat: ${formattedLat}, Lon: ${formattedLon}`)
-
-    // Optional: Update the camera to look at the local model
-    // camera.lookAt(localModel.position);
+    updateField('position', `Lat: ${formattedLat}, Lon: ${formattedLon}`);
   } else {
     // Handle cases where no closest point is found
-    updateField('position', 'Position: Unknown')
+    updateField('position', 'Position: Unknown');
   }
 }
 
