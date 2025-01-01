@@ -29,7 +29,7 @@
       font-style: normal;
     }
 
-    .uno{
+    .uno {
       font-family: 'Uno', sans-serif;
     }
 
@@ -176,7 +176,7 @@
       cursor: default;
       /* Changed to default since clicking should not trigger anything */
       mix-blend-mode: exclusion;
-      text-shadow: 0px 0px 10px;
+      text-shadow: 0px 0px 5px #fff4;
       overflow: visible;
       z-index: 10;
       transition: all 0.2s ease;
@@ -213,8 +213,8 @@
       overflow: visible;
     }
 
-    #request_button{
-      
+    #request_button {
+
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
@@ -266,12 +266,16 @@
 
     }
 
+    #data p {
+      overflow: visible;
+    }
+
     .button-stack {
       gap: 0rem;
       display: flex;
       flex-flow: column;
       margin-top: 0.25rem;
-
+      overflow: visible;
     }
 
     .button-stack div {
@@ -292,7 +296,7 @@
       z-index: 10;
       display: flex;
       opacity: 1;
-      filter:invert(1);
+      filter: invert(1);
       mix-blend-mode: exclusion;
       border-bottom-left-radius: 100%;
       border-top: unset;
@@ -360,7 +364,7 @@
       <div id="remotedata"></div>
       <div class="button-stack">
         <!-- Removed 'Permission Request' button -->
-         <button id="request_button">Permissions</button>
+        <button id="request_button">Permissions</button>
         <input type="password" id="password" placeholder="Enter Password">
         <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
       </div>
@@ -393,7 +397,7 @@
           id="num-observed-events">0</span></p>
     </div>
   </div>
-  
+
   <script>
     // Plain JavaScript to embed OpenStreetMap data without external libraries
     // Plain JavaScript to embed OpenStreetMap data without external libraries
@@ -534,7 +538,7 @@
 
 
   </script>
-  
+
   <!-- Geolocation and Sensor Permissions Script -->
   <script>
     // Global flags to track sensor and location availability
@@ -612,7 +616,7 @@
           }
           window.isLocationAvailable = false; // Location data is unavailable
           // Show the cover overlay since both methods failed
-        
+
         }
       }
 
@@ -780,7 +784,7 @@
               }
               window.isLocationAvailable = false; // Location data is unavailable
               // Show the cover overlay since both methods failed
-           
+
               resolve(false);
             }
           },
@@ -858,7 +862,7 @@
           toggleDemo();
           if (cover) cover.style.display = "none"; // Hide the cover after starting
         } else {
-        return
+          return
         }
       });
 
@@ -888,25 +892,25 @@
       initializeDemo();
 
       // Attach event listener to the data div for re-requesting permissions if needed
-     // const dataDiv = document.getElementById("data");
-     // if (dataDiv) {
-       // dataDiv.addEventListener("click", async () => {
-          // Check if any permissions are not granted
-          const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
-          if (!motionGranted || !orientationGranted || !locationGranted) {
-           // alert("Re-requesting permissions...");
-            const permissions =  requestAllPermissions();
+      // const dataDiv = document.getElementById("data");
+      // if (dataDiv) {
+      // dataDiv.addEventListener("click", async () => {
+      // Check if any permissions are not granted
+      const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
+      if (!motionGranted || !orientationGranted || !locationGranted) {
+        // alert("Re-requesting permissions...");
+        const permissions = requestAllPermissions();
 
-            if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
-              toggleDemoState();
-              const cover = document.getElementById("cover");
-              if (cover) cover.style.display = "none"; // Hide the cover if permissions are now granted
-            } else {
-           return
-            }
-          }
-     //   });
-     // }
+        if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+          toggleDemoState();
+          const cover = document.getElementById("cover");
+          if (cover) cover.style.display = "none"; // Hide the cover if permissions are now granted
+        } else {
+          return
+        }
+      }
+      //   });
+      // }
     });
 
     // Function to toggle demo state (start/stop)
