@@ -283,23 +283,25 @@
       display: flex;
       opacity: 1;
       border-bottom-left-radius: 100%;
-      border-top:unset;
-      border-right:unset;
+      border-top: unset;
+      border-right: unset;
     }
-    #minimap::after{
+
+    #minimap::after {
       position: fixed;
-      content:'';
+      content: '';
       top: 0px;
       overflow: hidden;
       z-index: 10;
       display: flex;
       opacity: 0.5;
       border-bottom-left-radius: 100%;
-      border-top:unset;
-      border-right:unset;  width: 200px;
+      border-top: unset;
+      border-right: unset;
+      width: 200px;
       height: 200px;
-    box-shadow:inset 10px -10px 50px 10px black;
-  }
+      box-shadow: inset 10px -10px 50px 10px black;
+    }
   </style>
 </head>
 
@@ -379,30 +381,30 @@
   </div>
   <script>
     // Plain JavaScript to embed OpenStreetMap data without external libraries
-// Plain JavaScript to embed OpenStreetMap data without external libraries
-(function () {
-    // Constants for OpenStreetMap tile URL
-    const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const TILE_SIZE = 256;
+    // Plain JavaScript to embed OpenStreetMap data without external libraries
+    (function () {
+      // Constants for OpenStreetMap tile URL
+      const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      const TILE_SIZE = 256;
 
-    // Function to calculate tile position
-    function latLonToTile(lat, lon, zoom) {
+      // Function to calculate tile position
+      function latLonToTile(lat, lon, zoom) {
         const scale = 1 << zoom;
         const x = Math.floor(((lon + 180) / 360) * scale);
         const y = Math.floor(((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale);
         return { x, y };
-    }
+      }
 
-    // Function to calculate pixel offset within a tile
-    function latLonToOffset(lat, lon, zoom) {
+      // Function to calculate pixel offset within a tile
+      function latLonToOffset(lat, lon, zoom) {
         const scale = 1 << zoom;
         const worldX = ((lon + 180) / 360) * scale * TILE_SIZE;
         const worldY = ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale * TILE_SIZE;
         return { x: worldX % TILE_SIZE, y: worldY % TILE_SIZE };
-    }
+      }
 
-    // Function to construct map tiles and dots
-    function constructMap(latitude, longitude, latitudeDelta, longitudeDelta, zoom, container) {
+      // Function to construct map tiles and dots
+      function constructMap(latitude, longitude, latitudeDelta, longitudeDelta, zoom, container) {
         const { x, y } = latLonToTile(latitude, longitude, zoom);
         const offset = latLonToOffset(latitude, longitude, zoom);
         const deltaOffset = latLonToOffset(latitudeDelta, longitudeDelta, zoom);
@@ -412,18 +414,18 @@
 
         // Add only 4 tiles for the map
         for (let dx = 0; dx <= 1; dx++) {
-            for (let dy = 0; dy <= 1; dy++) {
-                const tile = document.createElement('img');
-                tile.src = TILE_URL.replace('{z}', zoom)
-                                   .replace('{x}', x + dx)
-                                   .replace('{y}', y + dy);
-                tile.style.position = 'absolute';
-                tile.style.top = `${(dy - 1) * TILE_SIZE + offset.y}px`;
-                tile.style.left = `${(dx - 1) * TILE_SIZE + offset.x}px`;
-                tile.style.width = `${TILE_SIZE}px`;
-                tile.style.height = `${TILE_SIZE}px`;
-                container.appendChild(tile);
-            }
+          for (let dy = 0; dy <= 1; dy++) {
+            const tile = document.createElement('img');
+            tile.src = TILE_URL.replace('{z}', zoom)
+              .replace('{x}', x + dx)
+              .replace('{y}', y + dy);
+            tile.style.position = 'absolute';
+            tile.style.top = `${(dy - 1) * TILE_SIZE + offset.y}px`;
+            tile.style.left = `${(dx - 1) * TILE_SIZE + offset.x}px`;
+            tile.style.width = `${TILE_SIZE}px`;
+            tile.style.height = `${TILE_SIZE}px`;
+            container.appendChild(tile);
+          }
         }
 
         // Add a red dot for the current location (ground truth)
@@ -452,25 +454,25 @@
 
         // Add a circle outline for latitudeDelta and longitudeDelta
         if (typeof window.latitudeDelta !== 'undefined' && typeof window.longitudeDelta !== 'undefined') {
-            const deltaCircle = document.createElement('div');
-            deltaCircle.style.position = 'absolute';
-            deltaCircle.style.width = '20px';
-            deltaCircle.style.height = '20px';
-            deltaCircle.style.border = '0 solid green';
-            deltaCircle.style.borderRadius = '50%';
-            deltaCircle.style.top = `${95 + (deltaOffset.y - offset.y) - 10}px`;
-            deltaCircle.style.left = `${95 + (deltaOffset.x - offset.x) - 10}px`;
-            deltaCircle.style.zIndex = '9';
-            container.appendChild(deltaCircle);
+          const deltaCircle = document.createElement('div');
+          deltaCircle.style.position = 'absolute';
+          deltaCircle.style.width = '20px';
+          deltaCircle.style.height = '20px';
+          deltaCircle.style.border = '0 solid green';
+          deltaCircle.style.borderRadius = '50%';
+          deltaCircle.style.top = `${95 + (deltaOffset.y - offset.y) - 10}px`;
+          deltaCircle.style.left = `${95 + (deltaOffset.x - offset.x) - 10}px`;
+          deltaCircle.style.zIndex = '9';
+          container.appendChild(deltaCircle);
         }
-    }
+      }
 
-    // Function to inject map into a container by ID
-    function injectMap(containerId) {
+      // Function to inject map into a container by ID
+      function injectMap(containerId) {
         const container = document.getElementById(containerId);
         if (!container) {
-            console.error(`No element with id ${containerId} found.`);
-            return;
+          console.error(`No element with id ${containerId} found.`);
+          return;
         }
 
         // Set dimensions for the container
@@ -481,38 +483,38 @@
 
         // Initial map construction
         constructMap(window.latitude, window.longitude, window.latitudeDelta, window.longitudeDelta, 13, container);
-    }
+      }
 
-    // Listen for changes to window.latitude and window.longitude
-    let lastLatitude = window.latitude;
-    let lastLongitude = window.longitude;
-    let lastLatitudeDelta = window.latitudeDelta;
-    let lastLongitudeDelta = window.longitudeDelta;
+      // Listen for changes to window.latitude and window.longitude
+      let lastLatitude = window.latitude;
+      let lastLongitude = window.longitude;
+      let lastLatitudeDelta = window.latitudeDelta;
+      let lastLongitudeDelta = window.longitudeDelta;
 
-    function checkLocationChange(containerId) {
+      function checkLocationChange(containerId) {
         if (
-            window.latitude !== lastLatitude ||
-            window.longitude !== lastLongitude ||
-            window.latitudeDelta !== lastLatitudeDelta ||
-            window.longitudeDelta !== lastLongitudeDelta
+          window.latitude !== lastLatitude ||
+          window.longitude !== lastLongitude ||
+          window.latitudeDelta !== lastLatitudeDelta ||
+          window.longitudeDelta !== lastLongitudeDelta
         ) {
-            lastLatitude = window.latitude;
-            lastLongitude = window.longitude;
-            lastLatitudeDelta = window.latitudeDelta;
-            lastLongitudeDelta = window.longitudeDelta;
-            const container = document.getElementById(containerId);
-            if (container) {
-                constructMap(window.latitude, window.longitude, window.latitudeDelta, window.longitudeDelta, 13, container);
-            }
+          lastLatitude = window.latitude;
+          lastLongitude = window.longitude;
+          lastLatitudeDelta = window.latitudeDelta;
+          lastLongitudeDelta = window.longitudeDelta;
+          const container = document.getElementById(containerId);
+          if (container) {
+            constructMap(window.latitude, window.longitude, window.latitudeDelta, window.longitudeDelta, 13, container);
+          }
         }
         requestAnimationFrame(() => checkLocationChange(containerId));
-    }
+      }
 
-    // Inject map and start listening for location changes
-    const containerId = 'minimap';
-    injectMap(containerId);
-    checkLocationChange(containerId);
-})();
+      // Inject map and start listening for location changes
+      const containerId = 'minimap';
+      injectMap(containerId);
+      checkLocationChange(containerId);
+    })();
 
 
 
@@ -604,6 +606,7 @@
   // =========== ORIENTATION HANDLERS ===========
   function handleOrientation(event) {
     if (!cachedPermissions.orientationGranted) return;
+
     window.isOrientationEnabled = true;
     window.deviceOrientation = {
       alpha: event.alpha,
