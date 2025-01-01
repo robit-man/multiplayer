@@ -367,6 +367,7 @@
   </div>
   <script>
     // Plain JavaScript to embed OpenStreetMap data without external libraries
+// Plain JavaScript to embed OpenStreetMap data without external libraries
 (function () {
     // Constants for OpenStreetMap tile URL
     const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -389,10 +390,10 @@
     }
 
     // Function to construct map tiles and dots
-    function constructMap(latitude, longitude, noclipLat, noclipLon, zoom, container) {
+    function constructMap(latitude, longitude, latitudeDelta, longitudeDelta, zoom, container) {
         const { x, y } = latLonToTile(latitude, longitude, zoom);
         const offset = latLonToOffset(latitude, longitude, zoom);
-        const noclipOffset = latLonToOffset(noclipLat, noclipLon, zoom);
+        const deltaOffset = latLonToOffset(latitudeDelta, longitudeDelta, zoom);
 
         // Clear existing tiles
         container.innerHTML = '';
@@ -425,17 +426,31 @@
         groundTruthDot.style.zIndex = '10';
         container.appendChild(groundTruthDot);
 
-        // Add a blue dot for the noclip location
-        const noclipDot = document.createElement('div');
-        noclipDot.style.position = 'absolute';
-        noclipDot.style.width = '10px';
-        noclipDot.style.height = '10px';
-        noclipDot.style.backgroundColor = 'blue';
-        noclipDot.style.borderRadius = '50%';
-        noclipDot.style.top = `${95 + (noclipOffset.y - offset.y)}px`;
-        noclipDot.style.left = `${95 + (noclipOffset.x - offset.x)}px`;
-        noclipDot.style.zIndex = '10';
-        container.appendChild(noclipDot);
+        // Add a blue dot for the delta location
+        const deltaDot = document.createElement('div');
+        deltaDot.style.position = 'absolute';
+        deltaDot.style.width = '10px';
+        deltaDot.style.height = '10px';
+        deltaDot.style.backgroundColor = 'blue';
+        deltaDot.style.borderRadius = '50%';
+        deltaDot.style.top = `${95 + (deltaOffset.y - offset.y)}px`;
+        deltaDot.style.left = `${95 + (deltaOffset.x - offset.x)}px`;
+        deltaDot.style.zIndex = '10';
+        container.appendChild(deltaDot);
+
+        // Add a circle outline for latitudeDelta and longitudeDelta
+        if (typeof window.latitudeDelta !== 'undefined' && typeof window.longitudeDelta !== 'undefined') {
+            const deltaCircle = document.createElement('div');
+            deltaCircle.style.position = 'absolute';
+            deltaCircle.style.width = '20px';
+            deltaCircle.style.height = '20px';
+            deltaCircle.style.border = '2px solid green';
+            deltaCircle.style.borderRadius = '50%';
+            deltaCircle.style.top = `${95 + (deltaOffset.y - offset.y) - 10}px`;
+            deltaCircle.style.left = `${95 + (deltaOffset.x - offset.x) - 10}px`;
+            deltaCircle.style.zIndex = '9';
+            container.appendChild(deltaCircle);
+        }
     }
 
     // Function to inject map into a container by ID
@@ -449,33 +464,33 @@
         // Set dimensions for the container
         container.style.width = '200px';
         container.style.height = '200px';
-        container.style.position = 'fixed';
+        container.style.position = 'relative';
         container.style.overflow = 'hidden';
 
         // Initial map construction
-        constructMap(window.latitude, window.longitude, window.latitude.noclip, window.longitude.noclip, 13, container);
+        constructMap(window.latitude, window.longitude, window.latitudeDelta, window.longitudeDelta, 13, container);
     }
 
     // Listen for changes to window.latitude and window.longitude
     let lastLatitude = window.latitude;
     let lastLongitude = window.longitude;
-    let lastNoClipLatitude = window.latitude.noclip;
-    let lastNoClipLongitude = window.longitude.noclip;
+    let lastLatitudeDelta = window.latitudeDelta;
+    let lastLongitudeDelta = window.longitudeDelta;
 
     function checkLocationChange(containerId) {
         if (
             window.latitude !== lastLatitude ||
             window.longitude !== lastLongitude ||
-            window.latitude.noclip !== lastNoClipLatitude ||
-            window.longitude.noclip !== lastNoClipLongitude
+            window.latitudeDelta !== lastLatitudeDelta ||
+            window.longitudeDelta !== lastLongitudeDelta
         ) {
             lastLatitude = window.latitude;
             lastLongitude = window.longitude;
-            lastNoClipLatitude = window.latitude.noclip;
-            lastNoClipLongitude = window.longitude.noclip;
+            lastLatitudeDelta = window.latitudeDelta;
+            lastLongitudeDelta = window.longitudeDelta;
             const container = document.getElementById(containerId);
             if (container) {
-                constructMap(window.latitude, window.longitude, window.latitude.noclip, window.longitude.noclip, 13, container);
+                constructMap(window.latitude, window.longitude, window.latitudeDelta, window.longitudeDelta, 13, container);
             }
         }
         requestAnimationFrame(() => checkLocationChange(containerId));
@@ -486,6 +501,7 @@
     injectMap(containerId);
     checkLocationChange(containerId);
 })();
+
 
 
   </script>
