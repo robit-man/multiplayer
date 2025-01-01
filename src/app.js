@@ -2623,18 +2623,20 @@ function animate() {
 function updateCameraOrientation() {
   const alphaDeg = window.orientationData.alpha || 0 // 0..360 degrees
   const betaDeg = window.orientationData.beta || 0 // -180..180 degrees
+  const gammaDeg = window.orientationData.gamma || 0 // -180..180 degrees
 
   // Convert to radians
   const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
   const betaRad = THREE.MathUtils.degToRad(betaDeg)
+  const gammaRad = THREE.MathUtils.degToRad(gammaDeg)
 
-  // Debugging output: show alpha/beta in degrees
-  // Optionally, comment out in production
+  // Debugging output: show alpha/beta/gamma in degrees
+  // Corrected the label for gammaDeg
   console.log(
     `Device Orientation - Alpha: ${alphaDeg.toFixed(
       2
-    )}°, Beta: ${betaDeg.toFixed(2)}°, Yaw: ${THREE.MathUtils.radToDeg(
-      alphaRad
+    )}°, Beta: ${betaDeg.toFixed(2)}°, Gamma: ${gammaDeg.toFixed(2)}°, Yaw: ${THREE.MathUtils.radToDeg(
+      gammaRad
     ).toFixed(2)}°, Pitch: ${THREE.MathUtils.radToDeg(
       betaRad - Math.PI / 2
     ).toFixed(2)}°`
@@ -2648,13 +2650,24 @@ function updateCameraOrientation() {
     pitchMax // ~ +1.56 radians (+89.4 degrees)
   )
 
-  // Yaw is alpha radians
-  yaw = alphaRad
+  // Yaw is now gamma radians due to phone rotation
+  const yaw = gammaRad
 
-  pitch = pitchAngle
+  // Optionally, handle roll if needed using alphaRad
+  const roll = alphaRad
 
   // Update camera rotation
-  camera.rotation.set(pitch, yaw, 0, 'YXZ')
+  // Assuming you want to apply yaw and pitch, and optionally roll
+  // Here's an example without roll:
+  //camera.rotation.set(pitchAngle, yaw, 0, 'YXZ')
+
+  // If you want to include roll, you might need to adjust the rotation order
+  // For example, using quaternions:
+  
+  const quaternion = new THREE.Quaternion()
+  quaternion.setFromEuler(new THREE.Euler(pitchAngle, yaw, roll, 'YXZ'))
+  camera.quaternion.copy(quaternion)
+
 }
 // Configuration object for geographic settings
 const geoConfig = {
