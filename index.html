@@ -44,6 +44,39 @@
       user-select: none;
     }
 
+    .noclip-circle {
+      height: calc(20vw + 20vh);
+      width: calc(20vw + 20vh);
+      border-radius: 100%;
+      border: calc(2vw + 2vh) solid white;
+      margin: auto;
+      overflow: visible;
+      position: relative;
+      animation:fadein 0.5s , orbit 2s linear 5;
+    }
+    @keyframes orbit {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .noclip-circle::after {
+      content: '';
+      position: absolute;
+      top: calc(50% - (1vw + 1vh));
+      left: calc(-1 * (10vw + 10vh));
+      transform-origin: center;
+      background: white;
+      border-radius: 100%;
+      height: calc(2vw + 2vh);
+      width: calc(2vw + 2vh);
+      animation:fadein 0.5s;
+    }
+
     /* Touch Controls */
     .touch-controls {
       display: none !important;
@@ -123,6 +156,27 @@
       left: 70%;
     }
 
+    .textinfo {
+      text-align: left;
+      color: white;
+      font-size: calc(1.5vw + 1.5vh);
+      position: relative;
+      width: max-content;
+      margin: auto;
+      animation: fadein 2s;
+    }
+
+    @keyframes fadein {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+
+    }
+
     /* Instructional Overlay */
     .info {
       user-select: none;
@@ -130,7 +184,7 @@
       display: flex;
       flex-flow: column;
       justify-content: center;
-      animation: instruct 5s ease-out 1;
+      animation: instruct 5s ease-in 1;
       z-index: -10;
       position: fixed;
       height: 100vh;
@@ -178,6 +232,24 @@
       text-shadow: 0px 0px 5px #fff4;
       overflow: visible;
       z-index: 10;
+
+    }
+
+    .localchron {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      color: white;
+      opacity: 0.8;
+      font-size: 0.6rem;
+      font-family: "Rajdhani", sans-serif;
+      cursor: default;
+      /* Changed to default since clicking should not trigger anything */
+      mix-blend-mode: exclusion;
+      text-shadow: 0px 0px 5px #fff4;
+      overflow: visible;
+      z-index: 10;
+      text-align: right;
 
     }
 
@@ -238,7 +310,7 @@
       font-weight: 700;
       font-style: normal;
       border: unset;
-      padding: 0.25rem 0rem;
+      padding: 0.25rem 0.25rem;
       border-radius: 0rem;
       color: black;
       font-size: 0.6rem;
@@ -250,7 +322,7 @@
       font-family: "Rajdhani", serif;
       font-weight: 700;
       font-style: normal;
-      padding: 0.25rem 0rem;
+      padding: 0.25rem 0.25rem;
       border-radius: 0rem;
       border-bottom-left-radius: unset;
       border-bottom-right-radius: unset;
@@ -267,7 +339,7 @@
       font-weight: 700;
       font-style: normal;
       border: unset;
-      padding: 0.25rem 0rem;
+      padding: 0.25rem 0.25rem;
       border-radius: 0rem;
       border-top-left-radius: unset;
       border-top-right-radius: unset;
@@ -362,28 +434,16 @@
 <body>
 
   <!-- Instructional Overlay -->
-  <div style="display:none!important;" class="info">
-    <div class="text">
+  <div style="" class="info">
+    <div class="textinfo">
       <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
-      <br>
-      MULTI USER DEMO
-      <br>
-      <br>
-      W - FORWARD
-      <br>
-      A - LEFT
-      <br>
-      S - BACKWARD
-      <br>
-      D - RIGHT
-      <br>
-      SHIFT - RUN
-      <br> <br>
-      R - SPEAK
-      <br> <br>
-      BUTTONS ON MOBILE
+
       <br>
       <i style="color:gray;">[WORK IN PROGRESS]</i>
+    </div>
+    <div class="noclipwrap"
+      style="position:fixed;width:100%;height:100%;display:flex;flex-flow:column;justify-content: center; left:0px;top:0px;">
+      <div class="noclip-circle"></div>
     </div>
   </div>
 
@@ -443,6 +503,83 @@
     <br>
     <span id="localR"></span>
   </div>
+  <div class="localchron">
+    <span id="utcTime"></span>
+    <br>
+    <span id="localTime"></span>
+    <br>
+    <span id="IP"></span>
+  </div>
+  <script>
+    function updateTime() {
+      const now = new Date();
+      const localTime = now.toLocaleTimeString();
+      const utcTime = now.toUTCString().split(' ')[4]; // Extracts time part of UTC string
+
+      document.getElementById('localTime').textContent = `${localTime} Local`;
+      document.getElementById('utcTime').textContent = `${utcTime} UTC`;
+    }
+
+    function fetchIPAddressUsingRTCPeerConnection() {
+      return new Promise((resolve, reject) => {
+        const peerConnection = new RTCPeerConnection({ iceServers: [] });
+        peerConnection.createDataChannel(""); // Create a dummy data channel
+        peerConnection.createOffer().then(offer => peerConnection.setLocalDescription(offer));
+
+        peerConnection.onicecandidate = event => {
+          if (event && event.candidate && event.candidate.candidate) {
+            const ipMatch = event.candidate.candidate.match(/(\d{1,3}(\.\d{1,3}){3})/); // Extract IP
+            if (ipMatch) {
+              resolve(ipMatch[1]);
+              peerConnection.close();
+            }
+          }
+        };
+
+        setTimeout(() => reject("Unable to fetch IP using RTCPeerConnection"), 5000);
+      });
+    }
+
+    async function fetchPublicIPAddress() {
+      try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+      } catch (error) {
+        console.error("Error fetching public IP address:", error);
+        return null;
+      }
+    }
+
+    async function fetchIPAddress() {
+      try {
+        // Attempt to get the IP address using RTCPeerConnection
+        const rtcIP = await fetchIPAddressUsingRTCPeerConnection().catch(() => null);
+        if (rtcIP) {
+          document.getElementById('IP').textContent = `IP Address (RTC): ${rtcIP}`;
+          return;
+        }
+
+        // Fallback to public IP fetch if RTC fails
+        const publicIP = await fetchPublicIPAddress();
+        if (publicIP) {
+          document.getElementById('IP').textContent = `IP Address (Public): ${publicIP}`;
+        } else {
+          document.getElementById('IP').textContent = "IP Address: Unable to fetch";
+        }
+      } catch (error) {
+        document.getElementById('IP').textContent = "IP Address: Error occurred";
+        console.error("Error fetching IP address:", error);
+      }
+    }
+
+    // Start the time update and fetch the IP address
+    updateTime();
+    setInterval(updateTime, 1000); // Update time every second
+    fetchIPAddress();
+  </script>
+
+
   <script>
     // Plain JavaScript to embed OpenStreetMap data without external libraries
     // Plain JavaScript to embed OpenStreetMap data without external libraries

@@ -2331,10 +2331,10 @@ class Movement {
         action: newAction,
       });
     }
-    UI.updateField('localX', this.app.localModel.position.x);
-    UI.updateField('localY', this.app.localModel.position.y);
-    UI.updateField('localZ', this.app.localModel.position.z);
-    UI.updateField('localR', this.app.camera.quaternion.toArray().join(', '));
+    UI.updateField('localX', `X ${this.app.localModel.position.x.toFixed(5)}`);
+    UI.updateField('localY', `Y ${this.app.localModel.position.y.toFixed(5)}`);
+    UI.updateField('localZ', `Z ${this.app.localModel.position.z.toFixed(5)}`);
+    UI.updateField('localR', this.app.camera.quaternion.toArray().map(num => num.toFixed(5)).join(', '));
 
     // Trigger animations if the action has changed
     if (this.app.currentAction !== newAction) {
