@@ -304,19 +304,35 @@
       overflow: visible;
     }
 
-    #request_button {
+#request_button {
 
-      font-family: "Rajdhani", serif;
-      font-weight: 700;
-      font-style: normal;
-      border: unset;
-      padding: 0.25rem 0.25rem;
-      border-radius: 0rem;
-      color: black;
-      font-size: 0.6rem;
-      background: white;
-      transition: all 0.2s ease;
-    }
+  font-family: "Rajdhani", serif;
+  font-weight: 700;
+  font-style: normal;
+  border: unset;
+  padding: 0.25rem 0.25rem;
+  border-radius: 0rem;
+  color: black;
+  font-size: 0.6rem;
+  background: white;
+  transition: all 0.2s ease;
+  width:calc(50% - 0.5px);
+}
+
+#clear {
+
+  font-family: "Rajdhani", serif;
+  font-weight: 700;
+  font-style: normal;
+  border: unset;
+  padding: 0.25rem 0.25rem;
+  border-radius: 0rem;
+  color: black;
+  width:calc(50% - 0.5px);
+  font-size: 0.6rem;
+  background: white;
+  transition: all 0.2s ease;
+}
 
     #password {
       font-family: "Rajdhani", serif;
@@ -329,7 +345,7 @@
       color: white;
       font-size: 0.6rem;
       background: transparent;
-      border: 1px dashed white;
+      border: 1px solid white;
       border-bottom: unset;
       border-top: unset;
     }
@@ -428,6 +444,7 @@
       height: 202px;
       mix-blend-mode: screen;
     }
+    .row{display:flex;flex-flow:row;gap:1px;}
   </style>
 </head>
 
@@ -463,7 +480,9 @@
       <div id="remotedata"></div>
       <div class="button-stack">
         <!-- Removed 'Permission Request' button -->
-        <button id="request_button">Permissions</button>
+         <span class="row">
+        <button id="request_button">Access</button>
+        <button id="clear">Reset</button></span>
         <input type="password" id="password" placeholder="Enter Password">
         <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
       </div>
@@ -510,6 +529,47 @@
     <br>
     <span id="IP"></span>
   </div>
+  <script>
+    document.getElementById('clear').addEventListener('click', () => {
+    try {
+        // Clear local storage
+        localStorage.clear();
+        console.log('Local storage cleared.');
+
+        // Attempt to reset permissions if applicable
+        if (navigator.permissions) {
+            navigator.permissions.query({ name: 'geolocation' }).then((permission) => {
+                console.log(`Geolocation permission status: ${permission.state}`);
+                // There's no direct way to reset permissions; a prompt might require user intervention
+            }).catch((err) => {
+                console.error('Error checking geolocation permission:', err);
+            });
+
+            navigator.permissions.query({ name: 'camera' }).then((permission) => {
+                console.log(`Camera permission status: ${permission.state}`);
+            }).catch((err) => {
+                console.error('Error checking camera permission:', err);
+            });
+
+            navigator.permissions.query({ name: 'microphone' }).then((permission) => {
+                console.log(`Microphone permission status: ${permission.state}`);
+            }).catch((err) => {
+                console.error('Error checking microphone permission:', err);
+            });
+        } else {
+            console.warn('Permission API not supported in this browser.');
+        }
+
+        // Notify the user
+        alert('Permissions and local storage cleared (where applicable). Please refresh the page to apply changes.');
+
+    } catch (error) {
+        console.error('An error occurred while clearing permissions or local storage:', error);
+        alert('Failed to reset permissions or clear local storage. Check the console for details.');
+    }
+});
+
+  </script>
   <script>
     function updateTime() {
       const now = new Date();
