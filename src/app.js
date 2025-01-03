@@ -44,6 +44,38 @@ function fileExists(path) {
     return false;
   }
 }
+// app.js
+
+window.addEventListener('appPermissionsReady', () => {
+  const permissions = window.appPermissions;
+  
+  if (permissions.geolocationGranted) {
+    // Initialize or utilize Geolocation-dependent features
+    console.log("Geolocation is granted. Latitude:", permissions.latitude, "Longitude:", permissions.longitude);
+    // Example: Initialize Terrain with location data
+  } else {
+    console.warn("Geolocation not granted. Using default settings or fallback mechanisms.");
+  }
+
+  if (permissions.orientationGranted) {
+    // Initialize or utilize Device Orientation-dependent features
+    console.log("Device Orientation is granted.");
+    // Example: Initialize Sensors module
+  } else {
+    console.warn("Device Orientation not granted. Disabling orientation-based features.");
+  }
+
+  // Proceed with the rest of your app initialization
+  // Example: Initialize Sensors module
+  if (permissions.orientationGranted) {
+    Sensors.initialize({
+      orientationGranted: permissions.orientationGranted,
+      // Include other necessary data if required
+    });
+  }
+
+  // Initialize other modules that depend on permissions
+});
 
 // ------------------------------
 // Configuration Object
