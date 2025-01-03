@@ -1022,10 +1022,10 @@ class Terrain {
     this.terrainGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     this.terrainMaterial = new THREE.PointsMaterial({
-      size: 0.1,
+      size: 0.05,
       vertexColors: true,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.2,
     });
 
     this.terrainPointCloud = new THREE.Points(this.terrainGeometry, this.terrainMaterial);
@@ -1053,7 +1053,7 @@ class Terrain {
         Utils.mapLatitudeToZ(point.latitude, this.originLatitude, this.scaleMultiplier);
 
       const normalizedElevation =
-        Math.min(Math.max(point.elevation - 0, 0), 80) / 80;
+        Math.min(Math.max(point.elevation - 0, 0), 40) / 40;
       const color = new THREE.Color().lerpColors(
         new THREE.Color(0x0000ff), // Blue for low elevation
         new THREE.Color(0xff0000), // Red for high elevation
@@ -1515,7 +1515,7 @@ class Terrain {
       vertexColors: true, // Enable vertex colors
       wireframe: true, // Wireframe for visual clarity
       transparent: true, // Enable transparency
-      opacity: 0.2, // Set opacity level
+      opacity: 0.5, // Set opacity level
       metalness: 0.7, // Slight reflectivity (range: 0.0 - 1.0)
       roughness: 0.2, // Moderate roughness for shading (range: 0.0 - 1.0)
     });
@@ -1523,9 +1523,9 @@ class Terrain {
     const material = new THREE.MeshStandardMaterial({
       vertexColors: true, // Enable vertex colors
       wireframe: false, // Solid mesh
-      transparent: true, // Enable transparency
+      transparent: false, // Enable transparency
       side: THREE.DoubleSide,
-      opacity: 0.95, // Full opacity
+      opacity: 1, // Full opacity
       metalness: 0.2, // Higher reflectivity
       roughness: 0.7, // Moderate roughness
     });
