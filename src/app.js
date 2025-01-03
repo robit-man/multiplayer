@@ -2401,7 +2401,6 @@ class Movement {
 
 
 }
-
 // ------------------------------
 // App Class (Main Application)
 // ------------------------------
@@ -2414,7 +2413,6 @@ class App {
     this.initScene();
     this.initPostProcessing();
     this.setupVRControllers();
-    this.initSensors();
     this.initDayNightCycle();
     this.bindUIEvents();
 
@@ -2598,7 +2596,14 @@ class App {
    * Initializes sensor event listeners.
    */
   initSensors() {
-    Sensors.initialize(CONFIG.permissions);
+    window.addEventListener('appPermissionsChanged', () => {
+      // Possibly reload CONFIG from localStorage here if needed:
+      // const CONFIG = loadConfig();
+      
+      // Then call Sensors.initialize() with the new flags:
+      Sensors.initialize(CONFIG.permissions);
+    });
+    
   }
 
   /**
@@ -3093,6 +3098,7 @@ class App {
 
     console.log('Render loop started.');
   }
+  
 }
 
 // ------------------------------
