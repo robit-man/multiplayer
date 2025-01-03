@@ -783,151 +783,417 @@
 
   </script>
 
-<!-- Permission Handling Script -->
+
 <script>
-  (function () {
-    // Initialize global permissions object
-    window.appPermissions = {
-      geolocationGranted: false,
-      orientationGranted: false,
-      latitude: null,
-      longitude: null
+  // Global flags to track sensor and location availability
+  window.isGPSEnabled = false; // Indicates if precise Geolocation API is available
+  window.isLocationAvailable = false; // Indicates if any location data is available (API or fallback)
+  window.isOrientationEnabled = false;
+  window.normalLocationObtained = false; // Flag to indicate if normal geolocation has been obtained
+
+  // =========== DEVICE DETECTION ===========
+  function isMobileDevice() {
+    return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  // =========== GEOLOCATION ===========
+  async function initializeGeolocation() {
+    const locationElement = document.getElementById("location");
+    if (!navigator.geolocation || !locationElement) {
+      if (locationElement) {
+        locationElement.innerHTML = "Location: Not Supported";
+      }
+      return;
+    }
+
+    // Options for watchPosition to increase polling rate
+    const geoOptions = {
+      enableHighAccuracy: true,
+      maximumAge: 0, // No caching
+      timeout: 5000 // 5 seconds timeout
     };
 
-    /**
-     * Checks if the current device is mobile.
-     * @returns {boolean}
-     */
-    function isMobileDevice() {
-      return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // Success callback
+    function geoSuccess(position) {
+      window.isGPSEnabled = true;
+      window.isLocationAvailable = true;
+      window.normalLocationObtained = true; // Mark that normal location has been obtained
+      const { latitude, longitude } = position.coords;
+      window.latitude = latitude;
+      window.longitude = longitude;
+      if (locationElement) {
+        locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      }
+      // Dispatch the custom event
+      window.dispatchEvent(new Event('locationUpdated'));
     }
 
-    /**
-     * Requests Geolocation permission and retrieves location data.
-     * Updates window.appPermissions accordingly.
-     * @returns {Promise<void>}
-     */
-    async function requestGeolocation() {
-      if (!navigator.geolocation) {
-        console.warn("Geolocation is not supported by this browser.");
-        window.appPermissions.geolocationGranted = false;
-        return;
-      }
+    // Error callback
+    async function geoError(err) {
+      //console.error("Geolocation error:", err);
+      window.isGPSEnabled = false;
+      // Do not update the locationElement here to prevent premature error messages
+      // Errors will be handled after attempting fallback
 
-      try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 10000
-          });
-        });
-
-        window.appPermissions.latitude = position.coords.latitude;
-        window.appPermissions.longitude = position.coords.longitude;
-        window.appPermissions.geolocationGranted = true;
-
-        console.log(`Geolocation granted. Latitude: ${window.appPermissions.latitude}, Longitude: ${window.appPermissions.longitude}`);
-      } catch (error) {
-        console.warn("Geolocation permission denied or failed:", error.message);
-        window.appPermissions.geolocationGranted = false;
-      }
-    }
-
-    /**
-     * Requests Device Orientation permission (primarily for iOS 13+ on mobile devices).
-     * Updates window.appPermissions.orientationGranted accordingly.
-     * @returns {Promise<void>}
-     */
-    async function requestOrientationPermission() {
-      // Check if DeviceOrientationEvent is supported
-      if (typeof DeviceOrientationEvent === 'undefined') {
-        console.warn("Device Orientation is not supported by this browser.");
-        window.appPermissions.orientationGranted = false;
-        return;
-      }
-
-      // Check if permission is required (typically on iOS 13+)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // Only attempt IP-based fallback if normal location hasn't been obtained yet
+      if (!window.normalLocationObtained) {
         try {
-          const response = await DeviceOrientationEvent.requestPermission();
-          if (response === 'granted') {
-            window.appPermissions.orientationGranted = true;
-            console.log("Device Orientation permission granted.");
-          } else {
-            window.appPermissions.orientationGranted = false;
-            console.warn("Device Orientation permission denied.");
+          // Use a different IP-based API that allows client-side requests
+          const response = await fetch('https://ipapi.co/json/');
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
-        } catch (error) {
-          console.warn("Device Orientation permission request error:", error);
-          window.appPermissions.orientationGranted = false;
+          const data = await response.json();
+          if (data.latitude && data.longitude) {
+            window.latitude = data.latitude;
+            window.longitude = data.longitude;
+            window.isLocationAvailable = true; // Location data is now available via fallback
+            if (locationElement) {
+              locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+            }
+            // Dispatch the custom event
+            window.dispatchEvent(new Event('locationUpdated'));
+          } else {
+            throw new Error("IP-based location data incomplete");
+          }
+        } catch (ipError) {
+          console.error("IP-based location fetch error:", ipError);
+          if (locationElement) {
+            locationElement.innerHTML = `Location: Unable to determine location via IP`;
+          }
+          window.isLocationAvailable = false; // Location data is unavailable
+          // Show the cover overlay since both methods failed
         }
       } else {
-        // Assume permission is not required (e.g., on desktop)
-        window.appPermissions.orientationGranted = true;
-        console.log("Device Orientation permission not required or already granted.");
+        //console.warn("Normal location already obtained. Skipping IP-based fallback.");
       }
     }
 
-    /**
-     * Handles the complete permission request sequence.
-     * Dispatches a custom event once done.
-     */
-    async function handlePermissions() {
-      await requestGeolocation();
-      await requestOrientationPermission();
+    // Start watching position
+    navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
+  }
 
-      // Dispatch custom event to notify that permissions are ready
-      window.dispatchEvent(new Event('appPermissionsReady'));
-      console.log("All permission checks completed.");
+  // =========== ORIENTATION HANDLERS ===========
+  function updateFieldIfNotNull(fieldName, value, precision = 10) {
+    const field = document.getElementById(fieldName);
+    if (field && value != null) {
+      field.innerHTML = value.toFixed(precision);
+    }
+  }
+
+  function incrementEventCount() {
+    const counterElement = document.getElementById("num-observed-events");
+    if (counterElement) {
+      const eventCount = parseInt(counterElement.innerHTML || "0", 10);
+      counterElement.innerHTML = eventCount + 1;
+    }
+  }
+
+  // Device Orientation Handler
+  function handleOrientation(event) {
+    if (!window.appPermissions || !window.appPermissions.orientationGranted) return;
+    window.isOrientationEnabled = true;
+
+    // Expose values globally
+    window.deviceOrientation = {
+      alpha: event.alpha,
+      beta: event.beta,
+      gamma: event.gamma
+    };
+  }
+
+  // Device Motion Handler
+  function handleMotion(event) {
+    if (!window.appPermissions || !window.appPermissions.motionGranted) return;
+
+    if (event.accelerationIncludingGravity) {
+      updateFieldIfNotNull("Accelerometer_gx", event.accelerationIncludingGravity.x);
+      updateFieldIfNotNull("Accelerometer_gy", event.accelerationIncludingGravity.y);
+      updateFieldIfNotNull("Accelerometer_gz", event.accelerationIncludingGravity.z);
+    }
+    if (event.acceleration) {
+      updateFieldIfNotNull("Accelerometer_x", event.acceleration.x);
+      updateFieldIfNotNull("Accelerometer_y", event.acceleration.y);
+      updateFieldIfNotNull("Accelerometer_z", event.acceleration.z);
+    }
+    if (event.rotationRate) {
+      updateFieldIfNotNull("Gyroscope_z", event.rotationRate.alpha);
+      updateFieldIfNotNull("Gyroscope_x", event.rotationRate.beta);
+      updateFieldIfNotNull("Gyroscope_y", event.rotationRate.gamma);
+    }
+    updateFieldIfNotNull("Accelerometer_i", event.interval, 2);
+  }
+
+  // =========== PERMISSION REQUEST ===========
+  async function requestSensorPermissions() {
+    let motionGranted = true;
+    let orientationGranted = true;
+
+    // Request Motion Permission for iOS 13+ devices
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") {
+      try {
+        const motionPermission = await DeviceMotionEvent.requestPermission();
+        console.log("Motion permission:", motionPermission);
+        if (motionPermission !== "granted") {
+          motionGranted = false;
+          alert("Motion permissions denied. Motion data will be unavailable.");
+        }
+      } catch (err) {
+        console.error("Motion Permission request error:", err);
+        motionGranted = false;
+      }
     }
 
-    /**
-     * Initializes permission requests upon user interaction.
-     * Some browsers (especially on mobile) require permissions to be requested in response to a user gesture.
-     */
-    function initializePermissionRequests() {
-      handlePermissions();
+    // Request Orientation Permission for iOS 13+ devices and only if on mobile
+    if (isMobileDevice() && window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+      try {
+        const orientationPermission = await DeviceOrientationEvent.requestPermission();
+        console.log("Orientation permission:", orientationPermission);
+        if (orientationPermission !== "granted") {
+          orientationGranted = false;
+          alert("Orientation permissions denied. Orientation data will be unavailable.");
+        }
+      } catch (err) {
+        console.error("Orientation Permission request error:", err);
+        orientationGranted = false;
+      }
+    } else if (!isMobileDevice()) {
+      // On desktop, do not request orientation permissions
+      orientationGranted = false;
     }
 
-    /**
-     * Sets up event listeners to handle scenarios where automatic permission requests might be blocked.
-     * Listens for user interactions to trigger permission requests.
-     */
-    function setupUserInteractionListeners() {
-      // List of events that indicate user interaction
-      const userEvents = ['click', 'touchstart', 'keydown'];
+    return { motionGranted, orientationGranted };
+  }
 
-      userEvents.forEach(eventName => {
-        document.addEventListener(eventName, initializePermissionRequests, { once: true });
-      });
+  async function requestLocationPermission() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        console.error("Geolocation is not supported by this browser.");
+        resolve(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const locationElement = document.getElementById("location");
+          if (locationElement) {
+            locationElement.innerHTML = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          }
+          // Assign to window variables
+          window.latitude = latitude;
+          window.longitude = longitude;
+          window.isLocationAvailable = true; // Location data is available via Geolocation API
+          window.normalLocationObtained = true; // Mark that normal location has been obtained
+          resolve(true);
+        },
+        async (error) => {
+          console.error("Error getting location:", error);
+          const locationElement = document.getElementById("location");
+          if (error.code === error.PERMISSION_DENIED) {
+            alert("Location permissions denied. Attempting to fetch location via IP.");
+            if (locationElement) {
+              locationElement.innerHTML = `Location: Permission Denied`;
+            }
+          } else {
+            alert("Unable to retrieve location data. Attempting to fetch location via IP.");
+            if (locationElement) {
+              locationElement.innerHTML = `Location: Error (${error.message})`;
+            }
+          }
+
+          // Only attempt IP-based fallback if normal location hasn't been obtained yet
+          if (!window.normalLocationObtained) {
+            try {
+              // Use a different IP-based API that allows client-side requests
+              const response = await fetch('https://ipapi.co/json/');
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const data = await response.json();
+              if (data.latitude && data.longitude) {
+                window.latitude = data.latitude;
+                window.longitude = data.longitude;
+                window.isLocationAvailable = true; // Location data is now available via fallback
+                if (locationElement) {
+                  locationElement.innerHTML = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+                }
+                // Dispatch the custom event
+                window.dispatchEvent(new Event('locationUpdated'));
+                resolve(true);
+              } else {
+                throw new Error("IP-based location data incomplete");
+              }
+            } catch (ipError) {
+              console.error("IP-based location fetch error:", ipError);
+              if (locationElement) {
+                locationElement.innerHTML = `Location: Unable to determine location via IP`;
+              }
+              window.isLocationAvailable = false; // Location data is unavailable
+              // Show the cover overlay since both methods failed
+
+              resolve(false);
+            }
+          } else {
+            console.warn("Normal location already obtained. Skipping IP-based fallback.");
+            resolve(false);
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        }
+      );
+    });
+  }
+
+  // Expose requestAllPermissions globally
+  async function requestAllPermissions() {
+    const sensorPermissions = await requestSensorPermissions();
+    const locationGranted = await requestLocationPermission();
+
+    // Assign permissions to a global object
+    window.appPermissions = {
+      motionGranted: sensorPermissions.motionGranted,
+      orientationGranted: sensorPermissions.orientationGranted,
+      locationGranted: locationGranted
+    };
+
+    // Initialize geolocation if location is granted and not already initialized
+    if (locationGranted && !window.geolocationWatchId) {
+      initializeGeolocation();
     }
 
-    /**
-     * Sets up the click listener for the re-request permissions button.
-     */
-    function setupReRequestButton() {
-      const requestButton = document.getElementById('request_button');
-      if (requestButton) {
-        requestButton.addEventListener('click', () => {
-          handlePermissions();
-        });
-        console.log("Re-request permissions button listener added.");
+    // Dispatch a custom event to notify that permissions have been updated
+    window.dispatchEvent(new Event('appPermissionsChanged'));
+
+    return window.appPermissions;
+  }
+
+  // =========== DEMO CONTROL LOGIC ===========
+  function initializeDemo() {
+    let isRunning = false;
+    const demoButton = document.getElementById("request_button");
+
+    if (!demoButton) {
+      console.error('Demo button with id "request_button" not found in the DOM.');
+      return;
+    }
+
+    async function toggleDemo() {
+      if (isRunning) {
+        // Stop reading
+        window.removeEventListener("devicemotion", handleMotion);
+        window.removeEventListener("deviceorientation", handleOrientation);
+        demoButton.innerHTML = "Permission Request";
+        demoButton.classList.add("btn-success");
+        demoButton.classList.remove("btn-danger");
       } else {
-        console.warn('Button with id "request_button" not found in the DOM.');
+        // Start reading
+        if (window.appPermissions && window.appPermissions.motionGranted) {
+          window.addEventListener("devicemotion", handleMotion);
+        }
+        if (window.appPermissions && window.appPermissions.orientationGranted) {
+          window.addEventListener("deviceorientation", handleOrientation);
+        }
+        demoButton.innerHTML = "Stop Demo";
+        demoButton.classList.remove("btn-success");
+        demoButton.classList.add("btn-danger");
       }
+      isRunning = !isRunning;
     }
 
-    // Initialize on DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', () => {
-      setupUserInteractionListeners();
-      setupReRequestButton();
-      console.log("Permission handling script initialized.");
+    // Attach event listeners to the Start Demo button
+    demoButton.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const permissions = await requestAllPermissions();
+
+      if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+        toggleDemo();
+        if (cover) cover.style.display = "none"; // Hide the cover after starting
+      } else {
+        return
+      }
     });
 
-  })();
+    // Add click listener to cover to remove it (optional)
+    const cover = document.getElementById("cover");
+    if (cover) {
+      cover.addEventListener("click", async (e) => {
+        // Prevent the click from triggering button click
+        if (e.target === cover || e.target.id === "cover-message") {
+          // Optionally, you can decide whether to request permissions on cover click
+          // Here, we'll just hide the cover
+          cover.style.display = "none";
+        }
+      });
+
+      // Add a timeout to automatically hide the cover after 10 seconds if it's visible
+      setTimeout(() => {
+        if (cover && cover.style.display === "block") {
+          cover.style.display = "none";
+        }
+      }, 10000); // 10,000 milliseconds = 10 seconds
+    }
+  }
+
+  // =========== INITIALIZATION ===========
+  document.addEventListener("DOMContentLoaded", () => {
+    initializeDemo();
+
+    // Attach event listener to the data div for re-requesting permissions if needed
+    // const dataDiv = document.getElementById("data");
+    // if (dataDiv) {
+    // dataDiv.addEventListener("click", async () => {
+    const { motionGranted, orientationGranted, locationGranted } = window.appPermissions || {};
+    if (!motionGranted || !orientationGranted || !locationGranted) {
+      // alert("Re-requesting permissions...");
+      const permissions = requestAllPermissions();
+
+      if (permissions.motionGranted || permissions.orientationGranted || permissions.locationGranted) {
+        toggleDemoState();
+        const cover = document.getElementById("cover");
+        if (cover) cover.style.display = "none"; // Hide the cover if permissions are now granted
+      } else {
+        return
+      }
+    }
+    //   });
+    // }
+  });
+
+  // Function to toggle demo state (start/stop)
+  let isRunningGlobal = false;
+  function toggleDemoState() {
+    const demoButton = document.getElementById("request_button");
+    if (!demoButton) return;
+
+    if (isRunningGlobal) {
+      // Stop reading
+      window.removeEventListener("devicemotion", handleMotion);
+      window.removeEventListener("deviceorientation", handleOrientation);
+      demoButton.innerHTML = "Permission Request";
+      demoButton.classList.add("btn-success");
+      demoButton.classList.remove("btn-danger");
+    } else {
+      // Start reading
+      if (window.appPermissions && window.appPermissions.motionGranted) {
+        window.addEventListener("devicemotion", handleMotion);
+      }
+      if (window.appPermissions && window.appPermissions.orientationGranted) {
+        window.addEventListener("deviceorientation", handleOrientation);
+      }
+      demoButton.innerHTML = "Stop Demo";
+      demoButton.classList.remove("btn-success");
+      demoButton.classList.add("btn-danger");
+    }
+    isRunningGlobal = !isRunningGlobal;
+  }
 </script>
+
+
+
 
 
 
