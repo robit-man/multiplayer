@@ -1022,10 +1022,10 @@ class Terrain {
     this.terrainGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     this.terrainMaterial = new THREE.PointsMaterial({
-      size: 0.05,
+      size: 0.1,
       vertexColors: true,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.5,
     });
 
     this.terrainPointCloud = new THREE.Points(this.terrainGeometry, this.terrainMaterial);
@@ -1053,7 +1053,7 @@ class Terrain {
         Utils.mapLatitudeToZ(point.latitude, this.originLatitude, this.scaleMultiplier);
 
       const normalizedElevation =
-        Math.min(Math.max(point.elevation - 0, 0), 40) / 40;
+        Math.min(Math.max(point.elevation - 0, 0), 80) / 80;
       const color = new THREE.Color().lerpColors(
         new THREE.Color(0x0000ff), // Blue for low elevation
         new THREE.Color(0xff0000), // Red for high elevation
