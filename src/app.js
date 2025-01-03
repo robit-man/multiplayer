@@ -64,7 +64,7 @@ const CONFIG = {
     enableFilmPass: false,
     enableRGBShift: false,
     enableFXAAPass: false,
-    enableSSAARenderPass: false,
+    enableSSAARenderPass: true,
   },
   permissions: {
     motionGranted: false,
@@ -473,13 +473,13 @@ class DayNightCycle {
       directionalLightPosition: new THREE.Vector3(0, 200, -200),
       directionalLightTarget: new THREE.Vector3(-5, 0, 0),
       shadowMapSize: new THREE.Vector2(1024, 1024),
-      skyTurbidity: 0.2,
+      skyTurbidity: 0.8,
       skyRayleigh: 0.2,
       skyMieCoefficient: 0.005,
       skyMieDirectionalG: 0.6,
       ambientLightColor: 0xffffff,
-      ambientLightIntensityDay: 0.2,
-      ambientLightIntensityNight: 0.2,
+      ambientLightIntensityDay: 0.8,
+      ambientLightIntensityNight: 0.5,
       transitionSpeed: 0.01, // Speed of transitions
       updateInterval: 60 * 1000, // Update every minute
     };
@@ -2238,110 +2238,167 @@ class Movement {
     }
     this.app.setLocalAction(action);
     //console.warn(`Action: ${action}`);
-  }
-
-  /**
- * Handles character movement based on keyboard inputs.
+  }/**
+ * Handles character movement based on keyboard inputs with acceleration over time.
  * @param {number} delta - Time delta since last frame.
  */
-  moveCharacter(delta) {
-    if (!this.app.localModel) return;
+moveCharacter(delta) {
+  if (!this.app.localModel) return;
 
-    const speed = this.isRunning ? CONFIG.motionVars.runSpeed : CONFIG.motionVars.walkSpeed;
+  // Initialize acceleration properties if not already present
+  if (this.accelerationMultiplier === undefined) {
+    this.accelerationMultiplier = 1; // Starts at base speed
+  }
 
-    // Validate speed and delta
-    if (typeof speed !== 'number' || isNaN(speed)) {
-      console.error(`Invalid speed value: ${speed}. Movement aborted.`);
-      return;
-    }
+  // Configuration for acceleration
+  const accelerationDuration = CONFIG.motionVars.accelerationDuration || 5; // Duration in seconds
+  const maxMultiplier = CONFIG.motionVars.maxSpeedFactor || 100; // Maximum speed multiplier
 
-    if (typeof delta !== 'number' || isNaN(delta)) {
-      console.error(`Invalid delta value: ${delta}. Movement aborted.`);
-      return;
-    }
+  // Calculate acceleration and deceleration rates
+  const accelerationRate = (maxMultiplier - 1) / accelerationDuration; // Multiplier units per second
+  const decelerationRate = (maxMultiplier - 1) / accelerationDuration; // Assuming same rate for simplicity
 
-    const forwardVec = new THREE.Vector3();
-    const rightVec = new THREE.Vector3();
+  // Determine if the character is running or walking
+  const isRunning = this.isRunning; // Boolean indicating running state
 
-    // Get camera's yaw
-    const cameraYaw = new THREE.Euler().setFromQuaternion(
-      this.app.camera.quaternion,
-      'YXZ'
-    ).y;
+  // Base speed based on running state
+  const baseSpeed = isRunning ? CONFIG.motionVars.runSpeed : CONFIG.motionVars.walkSpeed;
 
-    forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0));
-    rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0));
+  // Validate baseSpeed and delta
+  if (typeof baseSpeed !== 'number' || isNaN(baseSpeed)) {
+    console.error(`Invalid base speed value: ${baseSpeed}. Movement aborted.`);
+    return;
+  }
 
-    const movement = new THREE.Vector3();
+  if (typeof delta !== 'number' || isNaN(delta)) {
+    console.error(`Invalid delta value: ${delta}. Movement aborted.`);
+    return;
+  }
 
-    if (this.moveForward) movement.add(forwardVec);
-    if (this.moveBackward) movement.sub(forwardVec);
-    if (this.strafeLeft) movement.sub(rightVec);
-    if (this.strafeRight) movement.add(rightVec);
+  const forwardVec = new THREE.Vector3();
+  const rightVec = new THREE.Vector3();
 
-    if (movement.length() > 0) {
-      movement.normalize().multiplyScalar(speed * delta);
+  // Get camera's yaw
+  const cameraYaw = new THREE.Euler().setFromQuaternion(
+    this.app.camera.quaternion,
+    'YXZ'
+  ).y;
 
-      // Add movement to the localModel's position
-      this.app.localModel.position.add(movement);
+  forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0));
+  rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0));
 
-      // Get terrain height at the new localModel position
-      const terrainHeight = this.app.terrain.getTerrainHeightAt(
-        this.app.localModel.position.x,
-        this.app.localModel.position.z
-      );
+  const movement = new THREE.Vector3();
 
-      this.app.localModel.position.y = terrainHeight;
-      //console.warn(`Terrain height at player position: ${terrainHeight}`);
+  if (this.moveForward) movement.add(forwardVec);
+  if (this.moveBackward) movement.sub(forwardVec);
+  if (this.strafeLeft) movement.sub(rightVec);
+  if (this.strafeRight) movement.add(rightVec);
 
-      // Validate and apply terrainHeight to localModel's y position
-      if (typeof terrainHeight !== 'number' || isNaN(terrainHeight)) {
-        console.error('Terrain height is invalid. Setting localModel y position to default value (0).');
-        this.app.localModel.position.y = 0; // Assign a default value
-      } else {
-        this.app.localModel.position.y = terrainHeight;
-      }
+  if (movement.length() > 0) {
+    // Normalize movement vector
+    movement.normalize();
 
-      // Update camera position to follow the localModel with a fixed offset
-      const cameraOffset = new THREE.Vector3(0, 1.7, 0);
-      this.app.camera.position.copy(this.app.localModel.position.clone().add(cameraOffset));
-    }
-
-    // Set rotation based on camera yaw
-    this.app.localModel.rotation.y = (cameraYaw + Math.PI) % (Math.PI * 2);
-
-    // Save the updated position to local storage
-    this.app.savePositionToLocalStorage();
-
-    // Determine the new action based on movement
-    const newAction =
-      movement.length() > 0 ? (this.isRunning ? 'run' : 'walk') : 'idle';
-
-    const movementX = this.app.localModel.position.x;
-    const movementZ = this.app.localModel.position.z;
-
-    // Validate movementX and movementZ before emitting
-    if (typeof movementX !== 'number' || typeof movementZ !== 'number' || isNaN(movementX) || isNaN(movementZ)) {
-      console.error('movementX or movementZ is invalid. Skipping emitMovementIfChanged.');
+    if (isRunning) {
+      // Increment accelerationMultiplier based on accelerationRate and delta
+      this.accelerationMultiplier += accelerationRate * delta;
+      // Clamp to maxMultiplier
+      this.accelerationMultiplier = Math.min(this.accelerationMultiplier, maxMultiplier);
     } else {
-      this.app.emitMovementIfChanged({
-        x: movementX,
-        z: movementZ,
-        rotation: this.app.localModel.rotation.y,
-        action: newAction,
-      });
+      // Decrement accelerationMultiplier based on decelerationRate and delta
+      this.accelerationMultiplier -= decelerationRate * delta;
+      // Clamp to a minimum of 1
+      this.accelerationMultiplier = Math.max(this.accelerationMultiplier, 1);
     }
-    UI.updateField('localX', `X ${this.app.localModel.position.x.toFixed(5)}`);
-    UI.updateField('localY', `Y ${this.app.localModel.position.y.toFixed(5)}`);
-    UI.updateField('localZ', `Z ${this.app.localModel.position.z.toFixed(5)}`);
-    UI.updateField('localR', this.app.camera.quaternion.toArray().map(num => num.toFixed(5)).join(', '));
 
-    // Trigger animations if the action has changed
-    if (this.app.currentAction !== newAction) {
-      this.app.setLocalAction(newAction);
-      this.app.currentAction = newAction;
+    // Calculate current speed
+    const currentSpeed = baseSpeed * this.accelerationMultiplier;
+
+    // Calculate movement based on currentSpeed
+    const movementVector = movement.clone().multiplyScalar(currentSpeed * delta);
+
+    // Add movement to the localModel's position
+    this.app.localModel.position.add(movementVector);
+
+    // Get terrain height at the new localModel position
+    const terrainHeight = this.app.terrain.getTerrainHeightAt(
+      this.app.localModel.position.x,
+      this.app.localModel.position.z
+    );// Assuming this.app.terrain.findClosestGridPoint is a method that calculates the closest point
+    const closestPoint = this.app.terrain.findClosestGridPoint(
+      this.app.localModel.position.x,
+      this.app.localModel.position.z
+    );
+    
+    // Log the closest point to the console for debugging
+    console.warn(closestPoint);
+    
+    // Expose the closest point to the global window object
+    window.terrainPointClosest = {
+      latitude: closestPoint.latitude,
+      longitude: closestPoint.longitude,
+      elevation: closestPoint.elevation.toString() // Ensure elevation is a string as per schema
+    };
+    
+    // Log the global variable to confirm the assignment
+    console.log('Global terrainPointClosest set:', window.terrainPointClosest);
+    
+    // Validate and apply terrainHeight to localModel's y position
+    if (typeof terrainHeight !== 'number' || isNaN(terrainHeight)) {
+      console.error('Terrain height is invalid. Setting localModel y position to default value (0).');
+      this.app.localModel.position.y = 0; // Assign a default value
+    } else {
+      this.app.localModel.position.y = terrainHeight;
+    }
+
+    // Update camera position to follow the localModel with a fixed offset
+    const cameraOffset = new THREE.Vector3(0, 1.7, 0);
+    this.app.camera.position.copy(this.app.localModel.position.clone().add(cameraOffset));
+  } else {
+    // No movement detected; reset accelerationMultiplier towards 1
+    if (this.accelerationMultiplier > 1) {
+      this.accelerationMultiplier -= decelerationRate * delta;
+      this.accelerationMultiplier = Math.max(this.accelerationMultiplier, 1);
     }
   }
+
+  // Set rotation based on camera yaw
+  this.app.localModel.rotation.y = (cameraYaw + Math.PI) % (Math.PI * 2);
+
+  // Save the updated position to local storage
+  this.app.savePositionToLocalStorage();
+
+  // Determine the new action based on movement
+  const newAction =
+    movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle';
+
+  const movementX = this.app.localModel.position.x;
+  const movementZ = this.app.localModel.position.z;
+
+  // Validate movementX and movementZ before emitting
+  if (typeof movementX !== 'number' || typeof movementZ !== 'number' || isNaN(movementX) || isNaN(movementZ)) {
+    console.error('movementX or movementZ is invalid. Skipping emitMovementIfChanged.');
+  } else {
+    this.app.emitMovementIfChanged({
+      x: movementX,
+      z: movementZ,
+      rotation: this.app.localModel.rotation.y,
+      action: newAction,
+    });
+  }
+
+  // Update UI fields with current position and rotation
+  UI.updateField('localX', `X ${this.app.localModel.position.x.toFixed(5)}`);
+  UI.updateField('localY', `Y ${this.app.localModel.position.y.toFixed(5)}`);
+  UI.updateField('localZ', `Z ${this.app.localModel.position.z.toFixed(5)}`);
+  UI.updateField('localR', this.app.camera.quaternion.toArray().map(num => num.toFixed(5)).join(', '));
+
+  // Trigger animations if the action has changed
+  if (this.app.currentAction !== newAction) {
+    this.app.setLocalAction(newAction);
+    this.app.currentAction = newAction;
+  }
+}
+
 
 }
 
@@ -2493,8 +2550,8 @@ class App {
 
     if (CONFIG.postProcessing.enableSSAARenderPass) {
       const ssaaPass = new SSAARenderPass(this.scene, this.camera);
-      ssaaPass.sampleLevel = 5;
-      ssaaPass.unbiased = true;
+      ssaaPass.sampleLevel = 2;
+      ssaaPass.unbiased = false;
       this.composer.addPass(ssaaPass);
     }
 
@@ -2549,15 +2606,15 @@ class App {
    */
   initDayNightCycle() {
     this.dayNightCycle = new DayNightCycle(this.scene, {
-      skyTurbidity: 0.2,
+      skyTurbidity: 0.8,
       skyRayleigh: 0.2,
       skyMieCoefficient: 0.005,
       skyMieDirectionalG: 0.6,
       ambientLightIntensityDay: 0.8,
-      ambientLightIntensityNight: 0.2,
-      directionalLightIntensityDay: 0.2,
+      ambientLightIntensityNight: 0.5,
+      directionalLightIntensityDay: 0.8,
       directionalLightIntensityNight: 0.1,
-      transitionSpeed: 0.05, // Faster transition for demonstration
+      transitionSpeed: 5, // Faster transition for demonstration
     });
   }
 

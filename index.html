@@ -6,6 +6,211 @@
   <link rel="icon" type="image/png" href="/nc.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>NOCLIP MULTI USER DEMO</title>
+
+
+    <!-- Your App Scripts -->
+    <script>
+      // Initialize or retrieve CONFIG from localStorage
+      const defaultConfig = {
+          socketURL: 'https://full-canary-chokeberry.glitch.me/',
+          modelPath: 'path/to/models/', // Replace with actual path
+          fontPath: 'path/to/fonts/',   // Replace with actual path
+          terrain: {
+              size: 100,
+              segments: 100,
+              scaleMultiplier: 1,
+              gridSizeMeters: 250,
+              gridResolution: 100,
+              elevationAPI: 'https://epqs.nationalmap.gov/v1/json',
+          },
+          postProcessing: {
+              enableFilmPass: false,
+              enableRGBShift: false,
+              enableFXAAPass: false,
+              enableSSAARenderPass: true,
+          },
+          permissions: {
+              motionGranted: false,
+              orientationGranted: false,
+              locationGranted: false,
+          },
+          audio: {
+              broadcastKey: 'audio_stream',
+              startBroadcastKey: 'start_audio',
+              stopBroadcastKey: 'stop_audio',
+          },
+          localStorageKeys: {
+              playerID: 'playerID',
+              lastPosition: 'myLastPosition',
+              terrainPoints: 'terrainPoints',
+              encryptedPassword: 'encryptedPassword',
+          },
+          motionVars: {
+              walkSpeed: 2,
+              runSpeed: 7,
+          }
+      };
+
+      // Function to load CONFIG from localStorage or use default
+      function loadConfig() {
+          const configString = localStorage.getItem('CONFIG');
+          if (configString) {
+              try {
+                  return JSON.parse(configString);
+              } catch (e) {
+                  console.error('Error parsing CONFIG from localStorage:', e);
+                  return defaultConfig;
+              }
+          } else {
+              return defaultConfig;
+          }
+      }
+
+      // Function to save CONFIG to localStorage
+      function saveConfig(config) {
+          localStorage.setItem('CONFIG', JSON.stringify(config));
+      }
+
+      // Initialize CONFIG
+      const CONFIG = loadConfig();
+      saveConfig(CONFIG); // Ensure it's saved if it was just loaded from default
+
+      // Make CONFIG globally accessible (if needed)
+      window.CONFIG = CONFIG;
+  </script>
+    <!-- Permissions Handling Script -->
+    <script>
+      // Utility function to request Device Orientation Permission (iOS 13+)
+      function requestDeviceOrientationPermission() {
+          return new Promise((resolve, reject) => {
+              if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                  // iOS 13+ devices
+                  DeviceOrientationEvent.requestPermission()
+                      .then(permissionState => {
+                          if (permissionState === 'granted') {
+                              window.addEventListener('deviceorientation', handleOrientation);
+                              resolve(true);
+                          } else {
+                              reject('Device Orientation permission denied.');
+                          }
+                      })
+                      .catch(err => {
+                          console.error('Device Orientation permission error:', err);
+                          reject('Error requesting Device Orientation permission.');
+                      });
+              } else {
+                  // Non iOS devices
+                  window.addEventListener('deviceorientation', handleOrientation);
+                  resolve(true);
+              }
+          });
+      }
+
+      // Placeholder for handling device orientation events
+      function handleOrientation(event) {
+          // Handle orientation data if needed
+      }
+
+      // Utility function to request Motion Permission (iOS 13+)
+      function requestDeviceMotionPermission() {
+          return new Promise((resolve, reject) => {
+              if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                  // iOS 13+ devices
+                  DeviceMotionEvent.requestPermission()
+                      .then(permissionState => {
+                          if (permissionState === 'granted') {
+                              window.addEventListener('devicemotion', handleMotion);
+                              resolve(true);
+                          } else {
+                              reject('Device Motion permission denied.');
+                          }
+                      })
+                      .catch(err => {
+                          console.error('Device Motion permission error:', err);
+                          reject('Error requesting Device Motion permission.');
+                      });
+              } else {
+                  // Non iOS devices
+                  window.addEventListener('devicemotion', handleMotion);
+                  resolve(true);
+              }
+          });
+      }
+
+      // Placeholder for handling device motion events
+      function handleMotion(event) {
+          // Handle motion data if needed
+      }
+
+      // Utility function to request Geolocation Permission
+      function requestGeolocationPermission() {
+          return new Promise((resolve, reject) => {
+              if (!navigator.geolocation) {
+                  reject('Geolocation is not supported by your browser.');
+              } else {
+                  navigator.geolocation.getCurrentPosition(
+                      (position) => {
+                          // Position obtained successfully
+                          resolve(true);
+                      },
+                      (error) => {
+                          console.error('Geolocation permission error:', error);
+                          reject('Geolocation permission denied.');
+                      }
+                  );
+              }
+          });
+      }
+
+      // Main function to request all permissions
+      async function handleRequestPermissions() {
+          const statusMessage = document.getElementById('statusMessage');
+          const requestPermissionsBtn = document.getElementById('requestPermissionsBtn');
+
+          // Disable the button to prevent multiple requests
+          requestPermissionsBtn.disabled = true;
+          requestPermissionsBtn.textContent = 'Requesting Permissions...';
+          statusMessage.textContent = '';
+
+          try {
+              // Request Orientation Permission
+              const orientationGranted = await requestDeviceOrientationPermission();
+              CONFIG.permissions.orientationGranted = orientationGranted;
+
+              // Request Motion Permission
+              const motionGranted = await requestDeviceMotionPermission();
+              CONFIG.permissions.motionGranted = motionGranted;
+
+              // Request Geolocation Permission
+              const locationGranted = await requestGeolocationPermission();
+              CONFIG.permissions.locationGranted = locationGranted;
+
+              // Update CONFIG in localStorage
+              saveConfig(CONFIG);
+
+              // Update status message
+              statusMessage.style.color = '#00AA00'; // Green color for success
+              statusMessage.textContent = 'All permissions granted successfully.';
+          } catch (error) {
+              // Handle any permission denials or errors
+              statusMessage.style.color = '#FF0000'; // Red color for errors
+              statusMessage.textContent = error;
+              console.warn(error);
+          } finally {
+              // Re-enable the button
+              requestPermissionsBtn.disabled = false;
+              requestPermissionsBtn.textContent = 'Request Permissions';
+          }
+      }
+
+      // Attach event listener to the permissions button
+      document.addEventListener('DOMContentLoaded', () => {
+          const requestPermissionsBtn = document.getElementById('requestPermissionsBtn');
+          requestPermissionsBtn.addEventListener('click', handleRequestPermissions);
+      });
+  </script>
+
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
 
@@ -20,7 +225,21 @@
       overscroll-behavior: none;
     }
 
+    @keyframes blurin {
+      0%{
+
+      filter:blur(50px);
+      opacity:0;
+      }
+      0%{
+
+      filter:blur(0px);
+      opacity:1;
+      }
+      
+    }
     body {
+      background:black!important;
       margin: 0;
       overflow: hidden;
       position: relative;
@@ -52,15 +271,42 @@
       margin: auto;
       overflow: visible;
       position: relative;
-      animation:fadein 0.5s , orbit 2s linear 5;
+      animation:blurin 0.5s , orbit 5s ease-in-out 1;
     }
     @keyframes orbit {
-      from {
+      0% {
         transform: rotate(0deg);
+        box-shadow:0px 0px 0px;
       }
+      50%{
+        box-shadow:0px 0px 120px 5px  #fffa;
+      }
+      100% {
+        box-shadow:0px 0px 0px;
+        transform: rotate(1500deg);
+      }
+    }
+    @keyframes orbit2 {
+      0% {
+        left:calc(1vw + 1vh);
 
-      to {
-        transform: rotate(360deg);
+        height: calc(1vw + 1vh);
+      width: calc(1vw + 1vh);
+      }
+      50%{
+        box-shadow:0px 0px 20px 5px  #ffff;
+      height: calc(1.5vw + 1.5vh);
+      width: calc(1.5vw + 1.5vh);
+      left: calc(-1 * (7vw + 7vh));
+
+      }
+      100% {
+
+
+        height: calc(1vw + 1vh);
+      width: calc(1vw + 1vh);
+        left: 0px;
+
       }
     }
 
@@ -74,7 +320,7 @@
       border-radius: 100%;
       height: calc(2vw + 2vh);
       width: calc(2vw + 2vh);
-      animation:fadein 0.5s;
+      animation:fadein 0.5s, orbit2 5s ease-in-out 1;
     }
 
     /* Touch Controls */
@@ -163,7 +409,7 @@
       position: relative;
       width: max-content;
       margin: auto;
-      animation: fadein 2s;
+      animation: fadein 1s;
     }
 
     @keyframes fadein {
@@ -223,13 +469,13 @@
       bottom: 10px;
       left: 10px;
       color: white;
-      opacity: 0.8;
+      opacity: 1;
       font-size: 0.6rem;
       font-family: "Rajdhani", sans-serif;
       cursor: default;
       /* Changed to default since clicking should not trigger anything */
       mix-blend-mode: exclusion;
-      text-shadow: 0px 0px 5px #fff4;
+      text-shadow: 0px 0px 10px #000;
       overflow: visible;
       z-index: 10;
 
@@ -239,14 +485,13 @@
       position: absolute;
       bottom: 10px;
       right: 10px;
-      color: white;
-      opacity: 0.8;
+      color: white;  
+      opacity: 1;
       font-size: 0.6rem;
       font-family: "Rajdhani", sans-serif;
       cursor: default;
-      /* Changed to default since clicking should not trigger anything */
       mix-blend-mode: exclusion;
-      text-shadow: 0px 0px 5px #fff4;
+      text-shadow: 0px 0px 10px #000;
       overflow: visible;
       z-index: 10;
       text-align: right;
@@ -291,11 +536,16 @@
       margin-top: 0rem;
       overflow: visible;
     }
-
+    .sensor-readouts p:nth-child(1) {
+      padding-top:0.2rem;
+    }
     .sensor-readouts p {
       margin: unset !important;
       overflow: visible;
       font-size: 0.6rem;
+      padding:0rem 0.25rem ;
+      border-left:1px solid white;
+      border-right:1px solid white;
     }
 
     .sensor-label {
@@ -311,12 +561,13 @@
   font-style: normal;
   border: unset;
   padding: 0.25rem 0.25rem;
-  border-radius: 0rem;
   color: black;
   font-size: 0.6rem;
   background: white;
   transition: all 0.2s ease;
-  width:calc(50% - 0.5px);
+  width:calc(50% - 0.5px);      
+  border-top-left-radius: 0.25rem;
+
 }
 
 #clear {
@@ -326,7 +577,7 @@
   font-style: normal;
   border: unset;
   padding: 0.25rem 0.25rem;
-  border-radius: 0rem;
+  border-top-right-radius: 0.25rem;
   color: black;
   width:calc(50% - 0.5px);
   font-size: 0.6rem;
@@ -340,14 +591,11 @@
       font-style: normal;
       padding: 0.25rem 0.25rem;
       border-radius: 0rem;
-      border-bottom-left-radius: unset;
-      border-bottom-right-radius: unset;
       color: white;
       font-size: 0.6rem;
       background: transparent;
       border: 1px solid white;
       border-bottom: unset;
-      border-top: unset;
     }
 
     #encryptDecryptBtn {
@@ -357,8 +605,8 @@
       border: unset;
       padding: 0.25rem 0.25rem;
       border-radius: 0rem;
-      border-top-left-radius: unset;
-      border-top-right-radius: unset;
+      border-bottom-left-radius: 0.25rem;
+      border-bottom-right-radius: 0.25rem;
       color: white;
       font-size: 0.6rem;
       background: transparent;
@@ -379,19 +627,37 @@
     #data p {
       overflow: visible;
     }
+    @keyframes vanish{
+      0%{display:block;opacity: 1;
+        height:auto;overflow:hidden;}
+      80%{opacity:1;}
+      80%{opacity:1;}
+      95%{opacity:0;}
+      100%{opacity:0;display:none;
+        height:0px;}
+    }
+    .version{
+      animation:vanish 2s ease 1;
+      pointer-events: none;
+      height:0px;overflow:hidden;
+      margin-left:calc(0.2vw + 0.2vh);font-size:calc(1vw + 1vh);color:white;position:relative;
+    }
 
     .button-stack {
       gap: 0rem;
       display: flex;
       flex-flow: column;
-      margin-top: 0.25rem;
+      margin-top: 0rem;
       overflow: visible;
     }
 
     .button-stack div {
       display: none;
     }
-
+    .share{
+      display:flex;
+      flex-flow:column;
+    }
     input:focus,
     textarea:focus,
     select:focus {
@@ -450,14 +716,96 @@
 
 <body>
 
-  <!-- Instructional Overlay -->
-  <div style="" class="info">
+  <div class="info">
     <div class="textinfo">
+      <h2>
       <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
+</h2>
+      
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          handleRequestPermissions();
+            const versionElement = document.getElementById("version");
+            if (!versionElement) return;
+    
+            // Original text and desired transformations
+            const originalText = "V-01_TERRA ■ B-0.04A";
+            const finalLeftText = "YOUR LOCAL";
+            const finalRightText = "TERRAIN";
+    
+            // Split the content into left and right parts around the pipe '|'
+            const [leftPart, rightPart] = originalText.split("■").map(part => part.trim());
+    
+            // Animation durations and delays
+            const cycleDuration = 1000; // Total duration for cycling animation (ms)
+            const rampUpTime = cycleDuration / 2; // Ramp-up duration
+            const rampDownTime = cycleDuration / 1; // Ramp-down duration
+            const frameInterval = 50; // Interval between frames (ms)
+            const delayBeforeStart = 200; // Delay before animation starts (ms)
+    
+            // Characters for random cycling
+            const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+    
+            // Function to generate random string of given length
+            const getRandomString = (length) => {
+                return Array.from({ length }, () => 
+                    characters.charAt(Math.floor(Math.random() * characters.length))
+                ).join("");
+            };
+    
+            // Calculate exponential ramp function
+            const rampFactor = (elapsed, duration) => {
+                const normalizedTime = elapsed / duration;
+                return normalizedTime < 0.5
+                    ? Math.pow(normalizedTime * 2, 2) / 2 // Ramp up (exponential)
+                    : 1 - Math.pow((1 - normalizedTime) * 2, 2) / 2; // Ramp down (exponential)
+            };
+    
+            // Perform animation
+            const animateText = (targetElement, initialText, finalText, isRightSide, onComplete) => {
+                let elapsed = 0;
+                const lengthToAnimate = finalText.length - (isRightSide ? 2 : 1); // Exclude V or B
+                const startIdx = isRightSide ? 2 : 1;
+    
+                const interval = setInterval(() => {
+                    if (elapsed >= cycleDuration) {
+                        clearInterval(interval);
+                        targetElement.textContent = `${finalLeftText} ${finalRightText}`;
+                        if (onComplete) onComplete();
+                    } else {
+                        const rampIntensity = rampFactor(elapsed, cycleDuration);
+                        const activeLength = Math.max(1, Math.floor(lengthToAnimate * rampIntensity));
+    
+                        const randomSection = getRandomString(activeLength);
+                        const staticPrefix = isRightSide
+                            ? finalText.slice(0, startIdx)
+                            : initialText.slice(0, startIdx);
+                        const staticSuffix = finalText.slice(startIdx + activeLength);
+    
+                        targetElement.textContent = isRightSide
+                            ? `${finalLeftText} ${staticPrefix}${randomSection}${staticSuffix}`
+                            : `${staticPrefix}${randomSection}${staticSuffix} ■ ${rightPart}`;
+    
+                        elapsed += frameInterval;
+                    }
+                }, frameInterval);
 
-      <br>
-      <i style="color:gray;">[WORK IN PROGRESS]</i>
-    </div>
+            };
+    
+            // Delay before starting animation
+            setTimeout(() => {
+                animateText(versionElement, leftPart, finalLeftText, false, () => {
+                    animateText(versionElement, rightPart, finalRightText, true);
+                });
+                
+            }, delayBeforeStart);
+        }
+      );
+    </script>
+    
+    
+    
+        </div>
     <div class="noclipwrap"
       style="position:fixed;width:100%;height:100%;display:flex;flex-flow:column;justify-content: center; left:0px;top:0px;">
       <div class="noclip-circle"></div>
@@ -470,22 +818,21 @@
   <!-- Data Overlay -->
   <div class="data" id="data">
     <p style="margin:unset;margin-top:-0.7rem;font-size:2rem;" class="uno">NOCLIP</p>
-    <p id="location">Location: N/A</p>
-    <p id="position">Position: N/A</p>
+    <div class="button-stack">
+      <!-- Removed 'Permission Request' button -->
+       <span class="row">
+      <button id="request_button">Access</button>
+      <button id="clear">Reset</button></span>
+    </div>
     <div class="sensor-readouts">
+      <p id="location"></p>
+      <p id="position"></p>
       <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
       <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
       <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
       <p><span id="progress"></span></p>
       <div id="remotedata"></div>
-      <div class="button-stack">
-        <!-- Removed 'Permission Request' button -->
-         <span class="row">
-        <button id="request_button">Access</button>
-        <button id="clear">Reset</button></span>
-        <input type="password" id="password" placeholder="Enter Password">
-        <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
-      </div>
+     
       <hr style="display:none!important;">
       <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span
           id="Accelerometer_gx">N/A</span></p>
@@ -513,6 +860,11 @@
       <hr style="display:none!important;">
       <p style="display:none!important;"><span class="sensor-label">Total Events:</span> <span
           id="num-observed-events">0</span></p>
+          <p style="padding-top:0.2rem;"></p>
+      <div class="share">
+      <input type="password" id="password" placeholder="Enter Password">
+      <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
+    </div>
     </div>
   </div>
   <div class="localstats">
@@ -707,7 +1059,7 @@
     (function () {
       // Constants for OpenStreetMap tile URL
       const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-      const TILE_SIZE = 256;
+      const TILE_SIZE = 500;
 
       // Function to calculate tile position
       function latLonToTile(lat, lon, zoom) {
@@ -1637,6 +1989,34 @@
       touchStartY = null;
     }, false);
   </script>
+<script>
+  // Function to update the #position div with window.terrainPointClosest data
+  function updatePositionDiv() {
+    const positionDiv = document.getElementById('position');
+
+    if (!positionDiv) {
+      console.warn("Element with ID 'position' not found.");
+      return;
+    }
+
+    if (!window.terrainPointClosest) {
+      console.warn("window.terrainPointClosest is undefined.");
+      return;
+    }
+
+    // Generate HTML content with stacked rows
+    const { latitude, longitude, elevation } = window.terrainPointClosest;
+    positionDiv.innerHTML = `
+      <div>Latitude: ${latitude}</div>
+      <div>Longitude: ${longitude}</div>
+      <div>Elevation: ${elevation}</div>
+    `;
+  }
+
+  // Update the div initially and set an interval to refresh the content periodically
+  updatePositionDiv();
+  setInterval(updatePositionDiv, 1000); // Update every second (adjust interval as needed)
+</script>
 
   <!-- Main app logic -->
   <script type="module" src="/src/app.js"></script>
