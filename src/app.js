@@ -61,10 +61,10 @@ const CONFIG = {
     elevationAPI: 'https://epqs.nationalmap.gov/v1/json',
   },
   postProcessing: {
-    enableFilmPass: true,
-    enableRGBShift: true,
-    enableFXAAPass: true,
-    enableSSAARenderPass: true,
+    enableFilmPass: false,
+    enableRGBShift: false,
+    enableFXAAPass: false,
+    enableSSAARenderPass: false,
   },
   permissions: {
     motionGranted: false,
@@ -84,7 +84,7 @@ const CONFIG = {
   },
   motionVars: {
     walkSpeed: 2,
-    runSpeed: 5,
+    runSpeed: 7,
   }
 };
 
@@ -1948,7 +1948,7 @@ class Multiplayer {
 
 
         // Set the model's position based on data and terrain height
-        remoteModel.position.set(data.x, this.terrain.getTerrainHeightAt(data.x, data.z), data.z);
+        remoteModel.position.set(data.x, terrainHeight, data.z);
         remoteModel.rotation.y = data.rotation;
 
         // Add to scene
