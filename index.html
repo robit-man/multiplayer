@@ -530,6 +530,67 @@
     <span id="IP"></span>
   </div>
   <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    /**
+     * Function to continuously check and remove elements based on conditions
+     * @param {Array} conditions - Array of objects specifying the conditions for deletion
+     * Example:
+     * [
+     *   { tag: 'button', id: 'VRButton', textContent: 'VR NOT SUPPORTED' },
+     *   { tag: 'a', textContent: 'WEBXR NOT AVAILABLE' }
+     * ]
+     */
+    function monitorAndRemoveElements(conditions) {
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach(() => {
+                conditions.forEach(({ tag, id, textContent }) => {
+                    try {
+                        // Select all elements matching the tag
+                        const elements = document.querySelectorAll(tag);
+
+                        elements.forEach((element) => {
+                            const matchesId = id ? element.id === id : true; // Check ID if provided
+                            const matchesText = textContent
+                                ? element.textContent.trim() === textContent
+                                : true; // Check textContent if provided
+
+                            // If both conditions match, log a warning and attempt to remove
+                            if (matchesId && matchesText) {
+                                console.warn(
+                                    `Attempting to remove ${tag} element ${
+                                        id ? `with ID "${id}"` : ''
+                                    } and textContent "${textContent}".`
+                                );
+                                element.remove();
+                            }
+                        });
+                    } catch (error) {
+                        console.error(
+                            `Error while attempting to remove element:`,
+                            error
+                        );
+                    }
+                });
+            });
+        });
+
+        // Observe the entire document for changes
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // Example conditions
+    const conditions = [
+        { tag: 'button', id: 'VRButton', textContent: 'VR NOT SUPPORTED' },
+        { tag: 'a', textContent: 'WEBXR NOT AVAILABLE' }
+    ];
+
+    // Start monitoring and removing elements
+    monitorAndRemoveElements(conditions);
+});
+
+
+  </script>
+  <script>
     document.getElementById('clear').addEventListener('click', () => {
     try {
         // Clear local storage
