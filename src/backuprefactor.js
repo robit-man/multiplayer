@@ -11,8 +11,6 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
-import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SSAARenderPass } from 'three/addons/postprocessing/SSAARenderPass.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
@@ -53,18 +51,16 @@ const CONFIG = {
   modelPath: modelPathDir,
   fontPath: fontPathDir,
   terrain: {
-    size: 100,
-    segments: 100,
+    size: 200,
+    segments: 200,
     scaleMultiplier: 1,
-    gridSizeMeters: 250,
+    gridSizeMeters: 500,
     gridResolution: 100,
     elevationAPI: 'https://epqs.nationalmap.gov/v1/json',
   },
   postProcessing: {
-    enableFilmPass: true,
-    enableRGBShift: true,
-    enableFXAAPass: true,
-    enableSSAARenderPass: true,
+    enableFilmPass: false,
+    enableRGBShift: false,
   },
   permissions: {
     motionGranted: false,
@@ -84,7 +80,7 @@ const CONFIG = {
   },
   motionVars: {
     walkSpeed: 2,
-    runSpeed: 5,
+    runSpeed: 200,
   }
 };
 
@@ -425,9 +421,9 @@ class UI {
    */
   static updateField(elementId, content) {
     const element = document.getElementById(elementId);
-    //console.log(`Element with ID '${elementId}' Update with '${content}'`);
+    console.log(`Element with ID '${elementId}' Update with '${content}'`);
     if (!element) {
-      //console.warn(`Element with ID '${elementId}' not found.`);
+      console.warn(`Element with ID '${elementId}' not found.`);
       return;
     }
     element.innerHTML = content;
@@ -473,12 +469,12 @@ class DayNightCycle {
       directionalLightPosition: new THREE.Vector3(0, 200, -200),
       directionalLightTarget: new THREE.Vector3(-5, 0, 0),
       shadowMapSize: new THREE.Vector2(1024, 1024),
-      skyTurbidity: 0.2,
-      skyRayleigh: 0.2,
+      skyTurbidity: 10,
+      skyRayleigh: 3,
       skyMieCoefficient: 0.005,
       skyMieDirectionalG: 0.6,
       ambientLightColor: 0xffffff,
-      ambientLightIntensityDay: 0.2,
+      ambientLightIntensityDay: 0.8,
       ambientLightIntensityNight: 0.2,
       transitionSpeed: 0.01, // Speed of transitions
       updateInterval: 60 * 1000, // Update every minute
@@ -1632,50 +1628,10 @@ class Terrain {
    * @param {number} z - Z coordinate in meters.
    * @returns {number} Elevation in meters.
    */
-  getTerrainHeightAtPoint(x, z) {
-    const closestPoint = this.findClosestGridPoint(x, z);
-
-    if (!closestPoint) {
-      console.warn(`No terrain data found for coordinates (${x}, ${z}). Returning default elevation 0.`);
-      return 0;
-    }
-
-    const elevationRaw = closestPoint.elevation;
-    const elevation = parseFloat(elevationRaw);
-
-    // Log the raw and converted elevation values for debugging
-    console.log(`Raw Elevation: ${elevationRaw} (Type: ${typeof elevationRaw})`);
-    console.log(`Converted Elevation: ${elevation} (Type: ${typeof elevation})`);
-
-    if (isNaN(elevation)) {
-      console.error(`Invalid elevation value: "${elevationRaw}". Returning default elevation 0.`);
-      return 0;
-    }
-
-    return elevation;
-  }
-
-
   getTerrainHeightAt(x, z) {
-    if (!this.terrainMesh) return 0
-    if (this.terrainMesh === NaN) return 0
-
-    // Create a raycaster pointing downwards from a high y value
-    const rayOrigin = new THREE.Vector3(x, 1000, z)
-    const rayDirection = new THREE.Vector3(0, -1, 0)
-    const raycaster = new THREE.Raycaster(rayOrigin, rayDirection)
-
-    const intersects = raycaster.intersectObject(this.terrainMesh)
-    if (intersects.length > 0) {
-      return intersects[0].point.y
-    }
-
-    // Default to 0 if no intersection
-    return 0
+    const closestPoint = this.findClosestGridPoint(x, z);
+    return closestPoint ? closestPoint.elevation : 0;
   }
-
-  
-
 }
 
 // ------------------------------
@@ -1825,7 +1781,7 @@ class Multiplayer {
 
       // Only log if changed
       if (incomingString !== lastString) {
-        //console.log('[Socket] state_update => changed data from server:', data);
+        console.log('[Socket] state_update => changed data from server:', data);
         this.lastStateData = data;
       }
     });
@@ -1911,10 +1867,10 @@ class Multiplayer {
 
     if (!this.players[id] && !this.loadingPlayers.has(id)) {
       this.createRemotePlayer(id, data);
-      //console.warn(`Creating new player with ID: ${id}`);
+      console.warn(`Creating new player with ID: ${id}`);
     } else {
       this.updateRemotePlayer(id, data);
-      //console.warn(`Updating existing player with ID: ${id}`);
+      console.warn(`Updating existing player with ID: ${id}`);
     }
   }
 
@@ -1946,9 +1902,8 @@ class Multiplayer {
           console.warn('Multiplayer: Terrain instance or method getTerrainHeightAt is unavailable.');
         }
 
-
         // Set the model's position based on data and terrain height
-        remoteModel.position.set(data.x, this.terrain.getTerrainHeightAt(data.x, data.z), data.z);
+        remoteModel.position.set(data.x, 0, data.z);
         remoteModel.rotation.y = data.rotation;
 
         // Add to scene
@@ -1992,17 +1947,16 @@ class Multiplayer {
     // Determine terrain height safely
     let terrainHeight = 0; // Default value
     terrainHeight = this.terrain.getTerrainHeightAt(data.x, data.z);
-    //console.warn(`Terrain height for player ${id}: ${terrainHeight}`);
+
     if (!player.initialized) {
       player.model.position.set(data.x, 0, data.z);
       player.model.rotation.y = data.rotation;
-      player.position.set(data.x, this.terrain.getTerrainHeightAt(data.x, data.z), data.z); // Ensure player's internal position is also updated
+      player.position.set(data.x, terrainHeight, data.z); // Ensure player's internal position is also updated
       player.initialized = true;
       return;
     }
 
-    player.position.set(data.x, this.terrain.getTerrainHeightAt(data.x, data.z), data.z);
-    //console.warn(`Player ${id} position: ${player.position.x}, ${player.position.y}, ${player.position.z}`);
+    player.position.set(data.x, 0, data.z);
     player.model.position.lerp(player.position, 0.1);
 
     const currentAngle = player.model.rotation.y;
@@ -2219,7 +2173,7 @@ class Movement {
         this.keyStates.r = false;
         break;
     }
-    //console.warn(`Key Up: ${e.key}`);
+    console.warn(`Key Up: ${e.key}`);
     this.handleKeyStates();
   }
 
@@ -2241,22 +2195,25 @@ class Movement {
   }
 
   /**
- * Handles character movement based on keyboard inputs.
- * @param {number} delta - Time delta since last frame.
- */
+   * Handles character movement based on keyboard inputs.
+   * @param {number} delta - Time delta since last frame.
+   */
   moveCharacter(delta) {
     if (!this.app.localModel) return;
 
     const speed = this.isRunning ? CONFIG.motionVars.runSpeed : CONFIG.motionVars.walkSpeed;
 
+    // Add logging for speed and delta
+    //console.log(`Speed: ${speed}, Delta: ${delta}`);
+
     // Validate speed and delta
     if (typeof speed !== 'number' || isNaN(speed)) {
-      console.error(`Invalid speed value: ${speed}. Movement aborted.`);
+      //console.error(`Invalid speed value: ${speed}. Movement aborted.`);
       return;
     }
 
     if (typeof delta !== 'number' || isNaN(delta)) {
-      console.error(`Invalid delta value: ${delta}. Movement aborted.`);
+      //console.error(`Invalid delta value: ${delta}. Movement aborted.`);
       return;
     }
 
@@ -2279,41 +2236,42 @@ class Movement {
     if (this.strafeLeft) movement.sub(rightVec);
     if (this.strafeRight) movement.add(rightVec);
 
+    // Log movement vector before normalization
+    //console.log(`Movement Vector before normalization: x=${movement.x}, y=${movement.y}, z=${movement.z}`);
+
     if (movement.length() > 0) {
       movement.normalize().multiplyScalar(speed * delta);
 
-      // Add movement to the localModel's position
+      // Log movement vector after normalization and scaling
+      //console.log(`Movement Vector after normalization and scaling: x=${movement.x}, y=${movement.y}, z=${movement.z}`);
+
       this.app.localModel.position.add(movement);
 
-      // Get terrain height at the new localModel position
+      // Adjust camera's y-position based on terrain
       const terrainHeight = this.app.terrain.getTerrainHeightAt(
         this.app.localModel.position.x,
         this.app.localModel.position.z
       );
 
-      this.app.localModel.position.y = terrainHeight;
-      //console.warn(`Terrain height at player position: ${terrainHeight}`);
-
-      // Validate and apply terrainHeight to localModel's y position
+      // Validate terrainHeight
       if (typeof terrainHeight !== 'number' || isNaN(terrainHeight)) {
-        console.error('Terrain height is invalid. Setting localModel y position to default value (0).');
+        //console.error('Terrain height is NaN. Setting to default value (0).');
         this.app.localModel.position.y = 0; // Assign a default value
       } else {
         this.app.localModel.position.y = terrainHeight;
       }
 
-      // Update camera position to follow the localModel with a fixed offset
+      // Update camera position
       const cameraOffset = new THREE.Vector3(0, 1.7, 0);
       this.app.camera.position.copy(this.app.localModel.position.clone().add(cameraOffset));
     }
 
-    // Set rotation based on camera yaw
+    // Set rotation
     this.app.localModel.rotation.y = (cameraYaw + Math.PI) % (Math.PI * 2);
 
-    // Save the updated position to local storage
     this.app.savePositionToLocalStorage();
 
-    // Determine the new action based on movement
+    // Broadcast movement
     const newAction =
       movement.length() > 0 ? (this.isRunning ? 'run' : 'walk') : 'idle';
 
@@ -2322,7 +2280,7 @@ class Movement {
 
     // Validate movementX and movementZ before emitting
     if (typeof movementX !== 'number' || typeof movementZ !== 'number' || isNaN(movementX) || isNaN(movementZ)) {
-      console.error('movementX or movementZ is invalid. Skipping emitMovementIfChanged.');
+      //console.error('movementX or movementZ is NaN. Skipping emitMovementIfChanged.');
     } else {
       this.app.emitMovementIfChanged({
         x: movementX,
@@ -2331,18 +2289,13 @@ class Movement {
         action: newAction,
       });
     }
-    UI.updateField('localX', this.app.localModel.position.x);
-    UI.updateField('localY', this.app.localModel.position.y);
-    UI.updateField('localZ', this.app.localModel.position.z);
-    UI.updateField('localR', this.app.camera.quaternion.toArray().join(', '));
 
-    // Trigger animations if the action has changed
+    // Trigger animations
     if (this.app.currentAction !== newAction) {
       this.app.setLocalAction(newAction);
       this.app.currentAction = newAction;
     }
   }
-
 }
 
 // ------------------------------
@@ -2476,29 +2429,17 @@ class App {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
     if (CONFIG.postProcessing.enableFilmPass) {
-      const effectFilm = new FilmPass(0.25);
+      const effectFilm = new FilmPass(0.35);
       this.composer.addPass(effectFilm);
     }
 
     if (CONFIG.postProcessing.enableRGBShift) {
       const rgbShift = new ShaderPass(RGBShiftShader);
-      rgbShift.uniforms['amount'].value = 0.0025;
+      rgbShift.uniforms['amount'].value = 0.0015;
       this.composer.addPass(rgbShift);
     }
 
-    if (CONFIG.postProcessing.enableFXAAPass) {
-      const fxaaPass = new ShaderPass(FXAAShader);
-      this.composer.addPass(fxaaPass);
-    }
-
-    if (CONFIG.postProcessing.enableSSAARenderPass) {
-      const ssaaPass = new SSAARenderPass(this.scene, this.camera);
-      ssaaPass.sampleLevel = 5;
-      ssaaPass.unbiased = true;
-      this.composer.addPass(ssaaPass);
-    }
-
-    //this.composer.addPass(new OutputPass());
+    this.composer.addPass(new OutputPass());
   }
 
   /**
@@ -2549,13 +2490,13 @@ class App {
    */
   initDayNightCycle() {
     this.dayNightCycle = new DayNightCycle(this.scene, {
-      skyTurbidity: 0.2,
-      skyRayleigh: 0.2,
+      skyTurbidity: 1,
+      skyRayleigh: 1,
       skyMieCoefficient: 0.005,
       skyMieDirectionalG: 0.6,
       ambientLightIntensityDay: 0.8,
       ambientLightIntensityNight: 0.2,
-      directionalLightIntensityDay: 0.2,
+      directionalLightIntensityDay: 0.8,
       directionalLightIntensityNight: 0.1,
       transitionSpeed: 0.05, // Faster transition for demonstration
     });
@@ -2796,12 +2737,11 @@ class App {
    * @param {Object} newState - The new state data.
    */
   emitMovementIfChanged(newState) {
-    const loadedId = this.multiplayer.myId;
-    newState.id = loadedId;
     const newString = JSON.stringify(newState);
     const oldString = this.lastEmittedState ? JSON.stringify(this.lastEmittedState) : null;
     //console.warn(`New State: ${newString}`);
     if (newString !== oldString) {
+      newState.id = CONFIG.localStorageKeys.playerID; // add myId to payload
       //console.warn('[Socket] Emitting movement:', newState);
       this.socket.emit('move', newState);
       this.lastEmittedState = newState;
@@ -2910,7 +2850,7 @@ class App {
         }
       }
       this.currentAction = action;
-      //console.warn(`Local Action: ${action}`);
+      console.warn(`Local Action: ${action}`);
     }
   }
 
@@ -2926,11 +2866,8 @@ class App {
       );
       return;
     }
-    const spawnRecall = this.loadPositionFromLocalStorage();
-    const spawnX = spawnRecall.x;
-    const spawnZ = spawnRecall.z;
-    const spawnRotation = spawnRecall.rotation;
-    const finalSpawn = { x: spawnX, z: spawnZ, rotation: spawnRotation }; // Replace with actual spawn logic
+
+    const finalSpawn = { x: 0, z: 0, rotation: 0 }; // Replace with actual spawn logic
     console.warn('Set Spawn Location: ', finalSpawn);
 
     const loader = new GLTFLoader();
