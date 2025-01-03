@@ -1523,7 +1523,7 @@ class Terrain {
     const material = new THREE.MeshStandardMaterial({
       vertexColors: true, // Enable vertex colors
       wireframe: false, // Solid mesh
-      transparent: false, // Enable transparency
+      transparent: true, // Enable transparency
       side: THREE.DoubleSide,
       opacity: 1, // Full opacity
       metalness: 0.2, // Higher reflectivity
