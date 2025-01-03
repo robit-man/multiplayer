@@ -7,6 +7,210 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>NOCLIP MULTI USER DEMO</title>
 
+
+    <!-- Your App Scripts -->
+    <script>
+      // Initialize or retrieve CONFIG from localStorage
+      const defaultConfig = {
+          socketURL: 'https://full-canary-chokeberry.glitch.me/',
+          modelPath: 'path/to/models/', // Replace with actual path
+          fontPath: 'path/to/fonts/',   // Replace with actual path
+          terrain: {
+              size: 100,
+              segments: 100,
+              scaleMultiplier: 1,
+              gridSizeMeters: 250,
+              gridResolution: 100,
+              elevationAPI: 'https://epqs.nationalmap.gov/v1/json',
+          },
+          postProcessing: {
+              enableFilmPass: false,
+              enableRGBShift: false,
+              enableFXAAPass: false,
+              enableSSAARenderPass: true,
+          },
+          permissions: {
+              motionGranted: false,
+              orientationGranted: false,
+              locationGranted: false,
+          },
+          audio: {
+              broadcastKey: 'audio_stream',
+              startBroadcastKey: 'start_audio',
+              stopBroadcastKey: 'stop_audio',
+          },
+          localStorageKeys: {
+              playerID: 'playerID',
+              lastPosition: 'myLastPosition',
+              terrainPoints: 'terrainPoints',
+              encryptedPassword: 'encryptedPassword',
+          },
+          motionVars: {
+              walkSpeed: 2,
+              runSpeed: 7,
+          }
+      };
+
+      // Function to load CONFIG from localStorage or use default
+      function loadConfig() {
+          const configString = localStorage.getItem('CONFIG');
+          if (configString) {
+              try {
+                  return JSON.parse(configString);
+              } catch (e) {
+                  console.error('Error parsing CONFIG from localStorage:', e);
+                  return defaultConfig;
+              }
+          } else {
+              return defaultConfig;
+          }
+      }
+
+      // Function to save CONFIG to localStorage
+      function saveConfig(config) {
+          localStorage.setItem('CONFIG', JSON.stringify(config));
+      }
+
+      // Initialize CONFIG
+      const CONFIG = loadConfig();
+      saveConfig(CONFIG); // Ensure it's saved if it was just loaded from default
+
+      // Make CONFIG globally accessible (if needed)
+      window.CONFIG = CONFIG;
+  </script>
+    <!-- Permissions Handling Script -->
+    <script>
+      // Utility function to request Device Orientation Permission (iOS 13+)
+      function requestDeviceOrientationPermission() {
+          return new Promise((resolve, reject) => {
+              if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                  // iOS 13+ devices
+                  DeviceOrientationEvent.requestPermission()
+                      .then(permissionState => {
+                          if (permissionState === 'granted') {
+                              window.addEventListener('deviceorientation', handleOrientation);
+                              resolve(true);
+                          } else {
+                              reject('Device Orientation permission denied.');
+                          }
+                      })
+                      .catch(err => {
+                          console.error('Device Orientation permission error:', err);
+                          reject('Error requesting Device Orientation permission.');
+                      });
+              } else {
+                  // Non iOS devices
+                  window.addEventListener('deviceorientation', handleOrientation);
+                  resolve(true);
+              }
+          });
+      }
+
+      // Placeholder for handling device orientation events
+      function handleOrientation(event) {
+          // Handle orientation data if needed
+      }
+
+      // Utility function to request Motion Permission (iOS 13+)
+      function requestDeviceMotionPermission() {
+          return new Promise((resolve, reject) => {
+              if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                  // iOS 13+ devices
+                  DeviceMotionEvent.requestPermission()
+                      .then(permissionState => {
+                          if (permissionState === 'granted') {
+                              window.addEventListener('devicemotion', handleMotion);
+                              resolve(true);
+                          } else {
+                              reject('Device Motion permission denied.');
+                          }
+                      })
+                      .catch(err => {
+                          console.error('Device Motion permission error:', err);
+                          reject('Error requesting Device Motion permission.');
+                      });
+              } else {
+                  // Non iOS devices
+                  window.addEventListener('devicemotion', handleMotion);
+                  resolve(true);
+              }
+          });
+      }
+
+      // Placeholder for handling device motion events
+      function handleMotion(event) {
+          // Handle motion data if needed
+      }
+
+      // Utility function to request Geolocation Permission
+      function requestGeolocationPermission() {
+          return new Promise((resolve, reject) => {
+              if (!navigator.geolocation) {
+                  reject('Geolocation is not supported by your browser.');
+              } else {
+                  navigator.geolocation.getCurrentPosition(
+                      (position) => {
+                          // Position obtained successfully
+                          resolve(true);
+                      },
+                      (error) => {
+                          console.error('Geolocation permission error:', error);
+                          reject('Geolocation permission denied.');
+                      }
+                  );
+              }
+          });
+      }
+
+      // Main function to request all permissions
+      async function handleRequestPermissions() {
+          const statusMessage = document.getElementById('statusMessage');
+          const requestPermissionsBtn = document.getElementById('requestPermissionsBtn');
+
+          // Disable the button to prevent multiple requests
+          requestPermissionsBtn.disabled = true;
+          requestPermissionsBtn.textContent = 'Requesting Permissions...';
+          statusMessage.textContent = '';
+
+          try {
+              // Request Orientation Permission
+              const orientationGranted = await requestDeviceOrientationPermission();
+              CONFIG.permissions.orientationGranted = orientationGranted;
+
+              // Request Motion Permission
+              const motionGranted = await requestDeviceMotionPermission();
+              CONFIG.permissions.motionGranted = motionGranted;
+
+              // Request Geolocation Permission
+              const locationGranted = await requestGeolocationPermission();
+              CONFIG.permissions.locationGranted = locationGranted;
+
+              // Update CONFIG in localStorage
+              saveConfig(CONFIG);
+
+              // Update status message
+              statusMessage.style.color = '#00AA00'; // Green color for success
+              statusMessage.textContent = 'All permissions granted successfully.';
+          } catch (error) {
+              // Handle any permission denials or errors
+              statusMessage.style.color = '#FF0000'; // Red color for errors
+              statusMessage.textContent = error;
+              console.warn(error);
+          } finally {
+              // Re-enable the button
+              requestPermissionsBtn.disabled = false;
+              requestPermissionsBtn.textContent = 'Request Permissions';
+          }
+      }
+
+      // Attach event listener to the permissions button
+      document.addEventListener('DOMContentLoaded', () => {
+          const requestPermissionsBtn = document.getElementById('requestPermissionsBtn');
+          requestPermissionsBtn.addEventListener('click', handleRequestPermissions);
+      });
+  </script>
+
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
 
@@ -22,22 +226,20 @@
     }
 
     @keyframes blurin {
-      0% {
+      0%{
 
-        filter: blur(50px);
-        opacity: 0;
+      filter:blur(50px);
+      opacity:0;
       }
+      0%{
 
-      0% {
-
-        filter: blur(0px);
-        opacity: 1;
+      filter:blur(0px);
+      opacity:1;
       }
-
+      
     }
-
     body {
-      background: black !important;
+      background:black!important;
       margin: 0;
       overflow: hidden;
       position: relative;
@@ -69,46 +271,40 @@
       margin: auto;
       overflow: visible;
       position: relative;
-      animation: blurin 0.5s, orbit 5s ease-in-out 1;
+      animation:blurin 0.5s , orbit 5s ease-in-out 1;
     }
-
     @keyframes orbit {
       0% {
         transform: rotate(0deg);
-        box-shadow: 0px 0px 0px;
+        box-shadow:0px 0px 0px;
       }
-
-      50% {
-        box-shadow: 0px 0px 120px 5px #fffa;
+      50%{
+        box-shadow:0px 0px 120px 5px  #fffa;
       }
-
       100% {
-        box-shadow: 0px 0px 0px;
+        box-shadow:0px 0px 0px;
         transform: rotate(1500deg);
       }
     }
-
     @keyframes orbit2 {
       0% {
-        left: calc(1vw + 1vh);
+        left:calc(1vw + 1vh);
 
         height: calc(1vw + 1vh);
-        width: calc(1vw + 1vh);
+      width: calc(1vw + 1vh);
       }
-
-      50% {
-        box-shadow: 0px 0px 20px 5px #ffff;
-        height: calc(1.5vw + 1.5vh);
-        width: calc(1.5vw + 1.5vh);
-        left: calc(-1 * (7vw + 7vh));
+      50%{
+        box-shadow:0px 0px 20px 5px  #ffff;
+      height: calc(1.5vw + 1.5vh);
+      width: calc(1.5vw + 1.5vh);
+      left: calc(-1 * (7vw + 7vh));
 
       }
-
       100% {
 
 
         height: calc(1vw + 1vh);
-        width: calc(1vw + 1vh);
+      width: calc(1vw + 1vh);
         left: 0px;
 
       }
@@ -124,7 +320,7 @@
       border-radius: 100%;
       height: calc(2vw + 2vh);
       width: calc(2vw + 2vh);
-      animation: fadein 0.5s, orbit2 5s ease-in-out 1;
+      animation:fadein 0.5s, orbit2 5s ease-in-out 1;
     }
 
     /* Touch Controls */
@@ -289,7 +485,7 @@
       position: absolute;
       bottom: 10px;
       right: 10px;
-      color: white;
+      color: white;  
       opacity: 1;
       font-size: 0.6rem;
       font-family: "Rajdhani", sans-serif;
@@ -340,18 +536,16 @@
       margin-top: 0rem;
       overflow: visible;
     }
-
     .sensor-readouts p:nth-child(1) {
-      padding-top: 0.2rem;
+      padding-top:0.2rem;
     }
-
     .sensor-readouts p {
       margin: unset !important;
       overflow: visible;
       font-size: 0.6rem;
-      padding: 0rem 0.25rem;
-      border-left: 1px solid white;
-      border-right: 1px solid white;
+      padding:0rem 0.25rem ;
+      border-left:1px solid white;
+      border-right:1px solid white;
     }
 
     .sensor-label {
@@ -360,36 +554,36 @@
       overflow: visible;
     }
 
-    #request_button {
+#request_button {
 
-      font-family: "Rajdhani", serif;
-      font-weight: 700;
-      font-style: normal;
-      border: unset;
-      padding: 0.25rem 0.25rem;
-      color: black;
-      font-size: 0.6rem;
-      background: white;
-      transition: all 0.2s ease;
-      width: calc(50% - 0.5px);
-      border-top-left-radius: 0.25rem;
+  font-family: "Rajdhani", serif;
+  font-weight: 700;
+  font-style: normal;
+  border: unset;
+  padding: 0.25rem 0.25rem;
+  color: black;
+  font-size: 0.6rem;
+  background: white;
+  transition: all 0.2s ease;
+  width:calc(50% - 0.5px);      
+  border-top-left-radius: 0.25rem;
 
-    }
+}
 
-    #clear {
+#clear {
 
-      font-family: "Rajdhani", serif;
-      font-weight: 700;
-      font-style: normal;
-      border: unset;
-      padding: 0.25rem 0.25rem;
-      border-top-right-radius: 0.25rem;
-      color: black;
-      width: calc(50% - 0.5px);
-      font-size: 0.6rem;
-      background: white;
-      transition: all 0.2s ease;
-    }
+  font-family: "Rajdhani", serif;
+  font-weight: 700;
+  font-style: normal;
+  border: unset;
+  padding: 0.25rem 0.25rem;
+  border-top-right-radius: 0.25rem;
+  color: black;
+  width:calc(50% - 0.5px);
+  font-size: 0.6rem;
+  background: white;
+  transition: all 0.2s ease;
+}
 
     #password {
       font-family: "Rajdhani", serif;
@@ -433,43 +627,20 @@
     #data p {
       overflow: visible;
     }
-
-    @keyframes vanish {
-      0% {
-        display: block;
-        opacity: 1;
-        height: auto;
-        overflow: hidden;
-      }
-
-      80% {
-        opacity: 1;
-      }
-
-      80% {
-        opacity: 1;
-      }
-
-      95% {
-        opacity: 0;
-      }
-
-      100% {
-        opacity: 0;
-        display: none;
-        height: 0px;
-      }
+    @keyframes vanish{
+      0%{display:block;opacity: 1;
+        height:auto;overflow:hidden;}
+      80%{opacity:1;}
+      80%{opacity:1;}
+      95%{opacity:0;}
+      100%{opacity:0;display:none;
+        height:0px;}
     }
-
-    .version {
-      animation: vanish 2s ease 1;
+    .version{
+      animation:vanish 2s ease 1;
       pointer-events: none;
-      height: 0px;
-      overflow: hidden;
-      margin-left: calc(0.2vw + 0.2vh);
-      font-size: calc(1vw + 1vh);
-      color: white;
-      position: relative;
+      height:0px;overflow:hidden;
+      margin-left:calc(0.2vw + 0.2vh);font-size:calc(1vw + 1vh);color:white;position:relative;
     }
 
     .button-stack {
@@ -483,12 +654,10 @@
     .button-stack div {
       display: none;
     }
-
-    .share {
-      display: flex;
-      flex-flow: column;
+    .share{
+      display:flex;
+      flex-flow:column;
     }
-
     input:focus,
     textarea:focus,
     select:focus {
@@ -505,7 +674,7 @@
       border-top: unset;
       border-right: unset;
       border-bottom-left-radius: 100%;
-      filter: saturate(0)contrast(1.2)invert(1);
+      filter: saturate(0) invert(1);
 
     }
 
@@ -520,8 +689,8 @@
       border-bottom-left-radius: 100%;
       border-top: unset;
       border-right: unset;
-      width: inherit;
-      height: inherit;
+      width: 202px;
+      height: 202px;
       box-shadow: inset 15px -15px 20px 20px BLACK;
     }
 
@@ -539,14 +708,9 @@
       border-right: unset;
       width: 202px;
       height: 202px;
-      mix-blend-mode: exclusion;
+      mix-blend-mode: screen;
     }
-
-    .row {
-      display: flex;
-      flex-flow: row;
-      gap: 1px;
-    }
+    .row{display:flex;flex-flow:row;gap:1px;}
   </style>
 </head>
 
@@ -555,235 +719,481 @@
   <div class="info">
     <div class="textinfo">
       <h2>
-        <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
-      </h2>
-
+      <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
+</h2>
+      
       <script>
         document.addEventListener("DOMContentLoaded", () => {
           handleRequestPermissions();
-          const versionElement = document.getElementById("version");
-          if (!versionElement) return;
+            const versionElement = document.getElementById("version");
+            if (!versionElement) return;
+    
+            // Original text and desired transformations
+            const originalText = "V-01_TERRA ■ B-0.04A";
+            const finalLeftText = "YOUR LOCAL";
+            const finalRightText = "TERRAIN";
+    
+            // Split the content into left and right parts around the pipe '|'
+            const [leftPart, rightPart] = originalText.split("■").map(part => part.trim());
+    
+            // Animation durations and delays
+            const cycleDuration = 1000; // Total duration for cycling animation (ms)
+            const rampUpTime = cycleDuration / 2; // Ramp-up duration
+            const rampDownTime = cycleDuration / 1; // Ramp-down duration
+            const frameInterval = 50; // Interval between frames (ms)
+            const delayBeforeStart = 200; // Delay before animation starts (ms)
+    
+            // Characters for random cycling
+            const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+    
+            // Function to generate random string of given length
+            const getRandomString = (length) => {
+                return Array.from({ length }, () => 
+                    characters.charAt(Math.floor(Math.random() * characters.length))
+                ).join("");
+            };
+    
+            // Calculate exponential ramp function
+            const rampFactor = (elapsed, duration) => {
+                const normalizedTime = elapsed / duration;
+                return normalizedTime < 0.5
+                    ? Math.pow(normalizedTime * 2, 2) / 2 // Ramp up (exponential)
+                    : 1 - Math.pow((1 - normalizedTime) * 2, 2) / 2; // Ramp down (exponential)
+            };
+    
+            // Perform animation
+            const animateText = (targetElement, initialText, finalText, isRightSide, onComplete) => {
+                let elapsed = 0;
+                const lengthToAnimate = finalText.length - (isRightSide ? 2 : 1); // Exclude V or B
+                const startIdx = isRightSide ? 2 : 1;
+    
+                const interval = setInterval(() => {
+                    if (elapsed >= cycleDuration) {
+                        clearInterval(interval);
+                        targetElement.textContent = `${finalLeftText} ${finalRightText}`;
+                        if (onComplete) onComplete();
+                    } else {
+                        const rampIntensity = rampFactor(elapsed, cycleDuration);
+                        const activeLength = Math.max(1, Math.floor(lengthToAnimate * rampIntensity));
+    
+                        const randomSection = getRandomString(activeLength);
+                        const staticPrefix = isRightSide
+                            ? finalText.slice(0, startIdx)
+                            : initialText.slice(0, startIdx);
+                        const staticSuffix = finalText.slice(startIdx + activeLength);
+    
+                        targetElement.textContent = isRightSide
+                            ? `${finalLeftText} ${staticPrefix}${randomSection}${staticSuffix}`
+                            : `${staticPrefix}${randomSection}${staticSuffix} ■ ${rightPart}`;
+    
+                        elapsed += frameInterval;
+                    }
+                }, frameInterval);
 
-          // Original text and desired transformations
-          const originalText = "V-01_TERRA ■ B-0.04A";
-          const finalLeftText = "YOUR LOCAL";
-          const finalRightText = "TERRAIN";
-
-          // Split the content into left and right parts around the pipe '|'
-          const [leftPart, rightPart] = originalText.split("■").map(part => part.trim());
-
-          // Animation durations and delays
-          const cycleDuration = 1000; // Total duration for cycling animation (ms)
-          const rampUpTime = cycleDuration / 2; // Ramp-up duration
-          const rampDownTime = cycleDuration / 1; // Ramp-down duration
-          const frameInterval = 50; // Interval between frames (ms)
-          const delayBeforeStart = 200; // Delay before animation starts (ms)
-
-          // Characters for random cycling
-          const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
-
-          // Function to generate random string of given length
-          const getRandomString = (length) => {
-            return Array.from({ length }, () =>
-              characters.charAt(Math.floor(Math.random() * characters.length))
-            ).join("");
-          };
-
-          // Calculate exponential ramp function
-          const rampFactor = (elapsed, duration) => {
-            const normalizedTime = elapsed / duration;
-            return normalizedTime < 0.5
-              ? Math.pow(normalizedTime * 2, 2) / 2 // Ramp up (exponential)
-              : 1 - Math.pow((1 - normalizedTime) * 2, 2) / 2; // Ramp down (exponential)
-          };
-
-          // Perform animation
-          const animateText = (targetElement, initialText, finalText, isRightSide, onComplete) => {
-            let elapsed = 0;
-            const lengthToAnimate = finalText.length - (isRightSide ? 2 : 1); // Exclude V or B
-            const startIdx = isRightSide ? 2 : 1;
-
-            const interval = setInterval(() => {
-              if (elapsed >= cycleDuration) {
-                clearInterval(interval);
-                targetElement.textContent = `${finalLeftText} ${finalRightText}`;
-                if (onComplete) onComplete();
-              } else {
-                const rampIntensity = rampFactor(elapsed, cycleDuration);
-                const activeLength = Math.max(1, Math.floor(lengthToAnimate * rampIntensity));
-
-                const randomSection = getRandomString(activeLength);
-                const staticPrefix = isRightSide
-                  ? finalText.slice(0, startIdx)
-                  : initialText.slice(0, startIdx);
-                const staticSuffix = finalText.slice(startIdx + activeLength);
-
-                targetElement.textContent = isRightSide
-                  ? `${finalLeftText} ${staticPrefix}${randomSection}${staticSuffix}`
-                  : `${staticPrefix}${randomSection}${staticSuffix} ■ ${rightPart}`;
-
-                elapsed += frameInterval;
-              }
-            }, frameInterval);
-
-          };
-
-          // Delay before starting animation
-          setTimeout(() => {
-            animateText(versionElement, leftPart, finalLeftText, false, () => {
-              animateText(versionElement, rightPart, finalRightText, true);
-            });
-
-          }, delayBeforeStart);
+            };
+    
+            // Delay before starting animation
+            setTimeout(() => {
+                animateText(versionElement, leftPart, finalLeftText, false, () => {
+                    animateText(versionElement, rightPart, finalRightText, true);
+                });
+                
+            }, delayBeforeStart);
         }
-        );
-      </script>
-
-
-
-    </div>
+      );
+    </script>
+    
+    
+    
+        </div>
     <div class="noclipwrap"
       style="position:fixed;width:100%;height:100%;display:flex;flex-flow:column;justify-content: center; left:0px;top:0px;">
       <div class="noclip-circle"></div>
     </div>
   </div>
 
-
-  <div class="wrapcover">
-    <div class="minimapwrapper" id="minimapwrapper">
-      <div id="minimap"></div>
+  <div class="minimapwrapper">
+    <div id="minimap"></div>
+  </div>
+  <!-- Data Overlay -->
+  <div class="data" id="data">
+    <p style="margin:unset;margin-top:-0.7rem;font-size:2rem;" class="uno">NOCLIP</p>
+    <div class="button-stack">
+      <!-- Removed 'Permission Request' button -->
+       <span class="row">
+      <button id="request_button">Access</button>
+      <button id="clear">Reset</button></span>
     </div>
-    <div class="data" id="data">
-      <p style="margin:unset;margin-top:-0.7rem;font-size:2rem;" class="uno">NOCLIP</p>
-      <div class="button-stack">
-        <!-- Removed 'Permission Request' button -->
-        <span class="row">
-          <button id="request_button">Access</button>
-          <button id="clear">Reset</button></span>
-      </div>
-      <div class="sensor-readouts">
-        <p id="location"></p>
-        <p id="position"></p>
-        <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
-        <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
-        <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
-        <p><span id="progress"></span></p>
-        <div id="remotedata"></div>
-
-        <hr style="display:none!important;">
-        <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span
-            id="Accelerometer_gx">N/A</span></p>
-        <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Y:</span> <span
-            id="Accelerometer_gy">N/A</span></p>
-        <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Z:</span> <span
-            id="Accelerometer_gz">N/A</span></p>
-        <hr style="display:none!important;">
-        <p style="display:none!important;"><span class="sensor-label">Acc. X:</span> <span
-            id="Accelerometer_x">N/A</span>
-        </p>
-        <p style="display:none!important;"><span class="sensor-label">Acc. Y:</span> <span
-            id="Accelerometer_y">N/A</span>
-        </p>
-        <p style="display:none!important;"><span class="sensor-label">Acc. Z:</span> <span
-            id="Accelerometer_z">N/A</span>
-        </p>
-        <hr style="display:none!important;">
-        <p style="display:none!important;"><span class="sensor-label">Interval (ms):</span> <span
-            id="Accelerometer_i">N/A</span></p>
-        <hr style="display:none!important;">
-        <p style="display:none!important;"><span class="sensor-label">Gyro alpha (Z):</span> <span
-            id="Gyroscope_z">N/A</span></p>
-        <p style="display:none!important;"><span class="sensor-label">Gyro beta (X):</span> <span
-            id="Gyroscope_x">N/A</span></p>
-        <p style="display:none!important;"><span class="sensor-label">Gyro gamma (Y):</span> <span
-            id="Gyroscope_y">N/A</span></p>
-        <hr style="display:none!important;">
-        <p style="display:none!important;"><span class="sensor-label">Total Events:</span> <span
-            id="num-observed-events">0</span></p>
-        <p style="padding-top:0.2rem;"></p>
-        <div class="share">
-          <input type="password" id="password" placeholder="Enter Password">
-          <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
-        </div>
-      </div>
+    <div class="sensor-readouts">
+      <p id="location"></p>
+      <p id="position"></p>
+      <p><span class="sensor-label">Orientation alpha (Z):</span> <span id="Orientation_a">N/A</span></p>
+      <p><span class="sensor-label">Orientation beta (X):</span> <span id="Orientation_b">N/A</span></p>
+      <p><span class="sensor-label">Orientation gamma (Y):</span> <span id="Orientation_g">N/A</span></p>
+      <p><span id="progress"></span></p>
+      <div id="remotedata"></div>
+     
+      <hr style="display:none!important;">
+      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity X:</span> <span
+          id="Accelerometer_gx">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Y:</span> <span
+          id="Accelerometer_gy">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. + Gravity Z:</span> <span
+          id="Accelerometer_gz">N/A</span></p>
+      <hr style="display:none!important;">
+      <p style="display:none!important;"><span class="sensor-label">Acc. X:</span> <span id="Accelerometer_x">N/A</span>
+      </p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. Y:</span> <span id="Accelerometer_y">N/A</span>
+      </p>
+      <p style="display:none!important;"><span class="sensor-label">Acc. Z:</span> <span id="Accelerometer_z">N/A</span>
+      </p>
+      <hr style="display:none!important;">
+      <p style="display:none!important;"><span class="sensor-label">Interval (ms):</span> <span
+          id="Accelerometer_i">N/A</span></p>
+      <hr style="display:none!important;">
+      <p style="display:none!important;"><span class="sensor-label">Gyro alpha (Z):</span> <span
+          id="Gyroscope_z">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Gyro beta (X):</span> <span
+          id="Gyroscope_x">N/A</span></p>
+      <p style="display:none!important;"><span class="sensor-label">Gyro gamma (Y):</span> <span
+          id="Gyroscope_y">N/A</span></p>
+      <hr style="display:none!important;">
+      <p style="display:none!important;"><span class="sensor-label">Total Events:</span> <span
+          id="num-observed-events">0</span></p>
+          <p style="padding-top:0.2rem;"></p>
+      <div class="share">
+      <input type="password" id="password" placeholder="Enter Password">
+      <button id="encryptDecryptBtn">Encrypt & Decrypt Lat/Lon</button>
     </div>
-    <div class="localstats">
-      <span id="localX"></span>
-      <span id="localY"></span>
-      <span id="localZ"></span>
-      <br>
-      <span id="localR"></span>
-    </div>
-    <div class="localchron">
-      <span id="utcTime"></span>
-      <br>
-      <span id="localTime"></span>
-      <br>
-      <span id="IP"></span>
     </div>
   </div>
+  <div class="localstats">
+    <span id="localX"></span>
+    <span id="localY"></span>
+    <span id="localZ"></span>
+    <br>
+    <span id="localR"></span>
+  </div>
+  <div class="localchron">
+    <span id="utcTime"></span>
+    <br>
+    <span id="localTime"></span>
+    <br>
+    <span id="IP"></span>
+  </div>
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      /**
-       * Function to continuously check and remove elements based on conditions
-       * @param {Array} conditions - Array of objects specifying the conditions for deletion
-       * Example:
-       * [
-       *   { tag: 'button', id: 'VRButton', textContent: 'VR NOT SUPPORTED' },
-       *   { tag: 'a', textContent: 'WEBXR NOT AVAILABLE' }
-       * ]
-       */
-      function monitorAndRemoveElements(conditions) {
+  document.addEventListener("DOMContentLoaded", () => {
+    /**
+     * Function to continuously check and remove elements based on conditions
+     * @param {Array} conditions - Array of objects specifying the conditions for deletion
+     * Example:
+     * [
+     *   { tag: 'button', id: 'VRButton', textContent: 'VR NOT SUPPORTED' },
+     *   { tag: 'a', textContent: 'WEBXR NOT AVAILABLE' }
+     * ]
+     */
+    function monitorAndRemoveElements(conditions) {
         const observer = new MutationObserver((mutations) => {
-          mutations.forEach(() => {
-            conditions.forEach(({ tag, id, textContent }) => {
-              try {
-                // Select all elements matching the tag
-                const elements = document.querySelectorAll(tag);
+            mutations.forEach(() => {
+                conditions.forEach(({ tag, id, textContent }) => {
+                    try {
+                        // Select all elements matching the tag
+                        const elements = document.querySelectorAll(tag);
 
-                elements.forEach((element) => {
-                  const matchesId = id ? element.id === id : true; // Check ID if provided
-                  const matchesText = textContent
-                    ? element.textContent.trim() === textContent
-                    : true; // Check textContent if provided
+                        elements.forEach((element) => {
+                            const matchesId = id ? element.id === id : true; // Check ID if provided
+                            const matchesText = textContent
+                                ? element.textContent.trim() === textContent
+                                : true; // Check textContent if provided
 
-                  // If both conditions match, log a warning and attempt to remove
-                  if (matchesId && matchesText) {
-                    console.warn(
-                      `Attempting to remove ${tag} element ${id ? `with ID "${id}"` : ''
-                      } and textContent "${textContent}".`
-                    );
-                    element.remove();
-                  }
+                            // If both conditions match, log a warning and attempt to remove
+                            if (matchesId && matchesText) {
+                                console.warn(
+                                    `Attempting to remove ${tag} element ${
+                                        id ? `with ID "${id}"` : ''
+                                    } and textContent "${textContent}".`
+                                );
+                                element.remove();
+                            }
+                        });
+                    } catch (error) {
+                        console.error(
+                            `Error while attempting to remove element:`,
+                            error
+                        );
+                    }
                 });
-              } catch (error) {
-                console.error(
-                  `Error while attempting to remove element:`,
-                  error
-                );
-              }
             });
-          });
         });
 
         // Observe the entire document for changes
         observer.observe(document.body, { childList: true, subtree: true });
-      }
+    }
 
-      // Example conditions
-      const conditions = [
+    // Example conditions
+    const conditions = [
         { tag: 'button', id: 'VRButton', textContent: 'VR NOT SUPPORTED' },
         { tag: 'a', textContent: 'WEBXR NOT AVAILABLE' }
-      ];
+    ];
 
-      // Start monitoring and removing elements
-      monitorAndRemoveElements(conditions);
-    });
+    // Start monitoring and removing elements
+    monitorAndRemoveElements(conditions);
+});
 
 
   </script>
+  <script>
+    document.getElementById('clear').addEventListener('click', () => {
+    try {
+        // Clear local storage
+        localStorage.clear();
+        console.log('Local storage cleared.');
+
+        // Attempt to reset permissions if applicable
+        if (navigator.permissions) {
+            navigator.permissions.query({ name: 'geolocation' }).then((permission) => {
+                console.log(`Geolocation permission status: ${permission.state}`);
+                // There's no direct way to reset permissions; a prompt might require user intervention
+            }).catch((err) => {
+                console.error('Error checking geolocation permission:', err);
+            });
+
+            navigator.permissions.query({ name: 'camera' }).then((permission) => {
+                console.log(`Camera permission status: ${permission.state}`);
+            }).catch((err) => {
+                console.error('Error checking camera permission:', err);
+            });
+
+            navigator.permissions.query({ name: 'microphone' }).then((permission) => {
+                console.log(`Microphone permission status: ${permission.state}`);
+            }).catch((err) => {
+                console.error('Error checking microphone permission:', err);
+            });
+        } else {
+            console.warn('Permission API not supported in this browser.');
+        }
+
+        // Notify the user
+        alert('Permissions and local storage cleared (where applicable). Please refresh the page to apply changes.');
+
+    } catch (error) {
+        console.error('An error occurred while clearing permissions or local storage:', error);
+        alert('Failed to reset permissions or clear local storage. Check the console for details.');
+    }
+});
+
+  </script>
+  <script>
+    function updateTime() {
+      const now = new Date();
+      const localTime = now.toLocaleTimeString();
+      const utcTime = now.toUTCString().split(' ')[4]; // Extracts time part of UTC string
+
+      document.getElementById('localTime').textContent = `${localTime} Local`;
+      document.getElementById('utcTime').textContent = `${utcTime} UTC`;
+    }
+
+    function fetchIPAddressUsingRTCPeerConnection() {
+      return new Promise((resolve, reject) => {
+        const peerConnection = new RTCPeerConnection({ iceServers: [] });
+        peerConnection.createDataChannel(""); // Create a dummy data channel
+        peerConnection.createOffer().then(offer => peerConnection.setLocalDescription(offer));
+
+        peerConnection.onicecandidate = event => {
+          if (event && event.candidate && event.candidate.candidate) {
+            const ipMatch = event.candidate.candidate.match(/(\d{1,3}(\.\d{1,3}){3})/); // Extract IP
+            if (ipMatch) {
+              resolve(ipMatch[1]);
+              peerConnection.close();
+            }
+          }
+        };
+
+        setTimeout(() => reject("Unable to fetch IP using RTCPeerConnection"), 5000);
+      });
+    }
+
+    async function fetchPublicIPAddress() {
+      try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+      } catch (error) {
+        console.error("Error fetching public IP address:", error);
+        return null;
+      }
+    }
+
+    async function fetchIPAddress() {
+      try {
+        // Attempt to get the IP address using RTCPeerConnection
+        const rtcIP = await fetchIPAddressUsingRTCPeerConnection().catch(() => null);
+        if (rtcIP) {
+          document.getElementById('IP').textContent = `IP Address (RTC): ${rtcIP}`;
+          return;
+        }
+
+        // Fallback to public IP fetch if RTC fails
+        const publicIP = await fetchPublicIPAddress();
+        if (publicIP) {
+          document.getElementById('IP').textContent = `IP Address (Public): ${publicIP}`;
+        } else {
+          document.getElementById('IP').textContent = "IP Address: Unable to fetch";
+        }
+      } catch (error) {
+        document.getElementById('IP').textContent = "IP Address: Error occurred";
+        console.error("Error fetching IP address:", error);
+      }
+    }
+
+    // Start the time update and fetch the IP address
+    updateTime();
+    setInterval(updateTime, 1000); // Update time every second
+    fetchIPAddress();
+  </script>
 
 
+  <script>
+    // Plain JavaScript to embed OpenStreetMap data without external libraries
+    // Plain JavaScript to embed OpenStreetMap data without external libraries
+    (function () {
+      // Constants for OpenStreetMap tile URL
+      const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      const TILE_SIZE = 500;
+
+      // Function to calculate tile position
+      function latLonToTile(lat, lon, zoom) {
+        const scale = 1 << zoom;
+        const x = Math.floor(((lon + 180) / 360) * scale);
+        const y = Math.floor(((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale);
+        return { x, y };
+      }
+
+      // Function to calculate pixel offset within a tile
+      function latLonToOffset(lat, lon, zoom) {
+        const scale = 1 << zoom;
+        const worldX = ((lon + 180) / 360) * scale * TILE_SIZE;
+        const worldY = ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale * TILE_SIZE;
+        return { x: worldX % TILE_SIZE, y: worldY % TILE_SIZE };
+      }
+
+      // Function to construct map tiles and dots
+      function constructMap(latitude, longitude, latitudeDelta, longitudeDelta, zoom, container) {
+        const { x, y } = latLonToTile(latitude, longitude, zoom);
+        const offset = latLonToOffset(latitude, longitude, zoom);
+        const deltaOffset = latLonToOffset(latitudeDelta, longitudeDelta, zoom);
+
+        // Clear existing tiles
+        container.innerHTML = '';
+
+        // Add only 4 tiles for the map
+        for (let dx = 0; dx <= 1; dx++) {
+          for (let dy = 0; dy <= 1; dy++) {
+            const tile = document.createElement('img');
+            tile.src = TILE_URL.replace('{z}', zoom)
+              .replace('{x}', x + dx)
+              .replace('{y}', y + dy);
+            tile.style.position = 'absolute';
+            tile.style.top = `${(dy - 1) * TILE_SIZE + offset.y}px`;
+            tile.style.left = `${(dx - 1) * TILE_SIZE + offset.x}px`;
+            tile.style.width = `${TILE_SIZE}px`;
+            tile.style.height = `${TILE_SIZE}px`;
+            container.appendChild(tile);
+          }
+        }
+
+        // Add a red dot for the current location (ground truth)
+        const groundTruthDot = document.createElement('div');
+        groundTruthDot.style.position = 'absolute';
+        groundTruthDot.style.width = '10px';
+        groundTruthDot.style.height = '10px';
+        groundTruthDot.style.backgroundColor = 'red';
+        groundTruthDot.style.borderRadius = '50%';
+        groundTruthDot.style.top = '95px';
+        groundTruthDot.style.left = '95px';
+        groundTruthDot.style.zIndex = '10';
+        container.appendChild(groundTruthDot);
+
+        // Add a blue dot for the delta location
+        const deltaDot = document.createElement('div');
+        deltaDot.style.position = 'absolute';
+        deltaDot.style.width = '10px';
+        deltaDot.style.height = '10px';
+        deltaDot.style.backgroundColor = 'blue';
+        deltaDot.style.borderRadius = '50%';
+        deltaDot.style.top = `${95 + (deltaOffset.y - offset.y)}px`;
+        deltaDot.style.left = `${95 + (deltaOffset.x - offset.x)}px`;
+        deltaDot.style.zIndex = '10';
+        container.appendChild(deltaDot);
+
+        // Add a circle outline for latitudeDelta and longitudeDelta
+        if (typeof window.latitudeDelta !== 'undefined' && typeof window.longitudeDelta !== 'undefined') {
+          const deltaCircle = document.createElement('div');
+          deltaCircle.style.position = 'absolute';
+          deltaCircle.style.width = '20px';
+          deltaCircle.style.height = '20px';
+          deltaCircle.style.border = '0 solid green';
+          deltaCircle.style.borderRadius = '50%';
+          deltaCircle.style.top = `${95 + (deltaOffset.y - offset.y) - 10}px`;
+          deltaCircle.style.left = `${95 + (deltaOffset.x - offset.x) - 10}px`;
+          deltaCircle.style.zIndex = '9';
+          container.appendChild(deltaCircle);
+        }
+      }
+
+      // Function to inject map into a container by ID
+      function injectMap(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) {
+          console.error(`No element with id ${containerId} found.`);
+          return;
+        }
+
+        // Set dimensions for the container
+        container.style.width = '200px';
+        container.style.height = '200px';
+        container.style.position = 'fixed';
+        container.style.overflow = 'hidden';
+
+        // Initial map construction
+        constructMap(window.latitude, window.longitude, window.latitudeDelta, window.longitudeDelta, 13, container);
+      }
+
+      // Listen for changes to window.latitude and window.longitude
+      let lastLatitude = window.latitude;
+      let lastLongitude = window.longitude;
+      let lastLatitudeDelta = window.latitudeDelta;
+      let lastLongitudeDelta = window.longitudeDelta;
+
+      function checkLocationChange(containerId) {
+        if (
+          window.latitude !== lastLatitude ||
+          window.longitude !== lastLongitude ||
+          window.latitudeDelta !== lastLatitudeDelta ||
+          window.longitudeDelta !== lastLongitudeDelta
+        ) {
+          lastLatitude = window.latitude;
+          lastLongitude = window.longitude;
+          lastLatitudeDelta = window.latitudeDelta;
+          lastLongitudeDelta = window.longitudeDelta;
+          const container = document.getElementById(containerId);
+          if (container) {
+            constructMap(window.latitude, window.longitude, window.latitudeDelta, window.longitudeDelta, 13, container);
+          }
+        }
+        requestAnimationFrame(() => checkLocationChange(containerId));
+      }
+
+      // Inject map and start listening for location changes
+      const containerId = 'minimap';
+      injectMap(containerId);
+      checkLocationChange(containerId);
+    })();
+
+
+
+  </script>
+  <!-- Geolocation and Sensor Permissions Script -->
   <script>
     // Global flags to track sensor and location availability
     window.isGPSEnabled = false; // Indicates if precise Geolocation API is available
@@ -1193,562 +1603,6 @@
   </script>
 
 
-
-  <!-- Your App Scripts -->
-  <script>
-    // Initialize or retrieve CONFIG from localStorage
-    const defaultConfig = {
-      socketURL: 'https://full-canary-chokeberry.glitch.me/',
-      modelPath: 'path/to/models/', // Replace with actual path
-      fontPath: 'path/to/fonts/',   // Replace with actual path
-      terrain: {
-        size: 100,
-        segments: 100,
-        scaleMultiplier: 1,
-        gridSizeMeters: 250,
-        gridResolution: 100,
-        elevationAPI: 'https://epqs.nationalmap.gov/v1/json',
-      },
-      postProcessing: {
-        enableFilmPass: false,
-        enableRGBShift: false,
-        enableFXAAPass: false,
-        enableSSAARenderPass: true,
-      },
-      permissions: {
-        motionGranted: false,
-        orientationGranted: false,
-        locationGranted: false,
-      },
-      audio: {
-        broadcastKey: 'audio_stream',
-        startBroadcastKey: 'start_audio',
-        stopBroadcastKey: 'stop_audio',
-      },
-      localStorageKeys: {
-        playerID: 'playerID',
-        lastPosition: 'myLastPosition',
-        terrainPoints: 'terrainPoints',
-        encryptedPassword: 'encryptedPassword',
-      },
-      motionVars: {
-        walkSpeed: 2,
-        runSpeed: 7,
-      }
-    };
-    console.error('Default CONFIG:', defaultConfig);
-
-    // Function to load CONFIG from localStorage or use default
-    function loadConfig() {
-      const configString = localStorage.getItem('CONFIG');
-      if (configString) {
-        try {
-          return JSON.parse(configString);
-        } catch (e) {
-          console.error('Error parsing CONFIG from localStorage:', e);
-          return defaultConfig;
-        }
-      } else {
-        return defaultConfig;
-      }
-    }
-
-    // Function to save CONFIG to localStorage
-    function saveConfig(config) {
-      localStorage.setItem('CONFIG', JSON.stringify(config));
-    }
-
-    // Initialize CONFIG
-    const CONFIG = loadConfig();
-    saveConfig(CONFIG); // Ensure it's saved if it was just loaded from default
-
-    // Make CONFIG globally accessible (if needed)
-    window.CONFIG = CONFIG;
-  </script>
-  <!-- Permissions Handling Script -->
-  <script>
-    // Utility function to request Device Orientation Permission (iOS 13+)
-    function requestDeviceOrientationPermission() {
-      return new Promise((resolve, reject) => {
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-          // iOS 13+ devices
-          DeviceOrientationEvent.requestPermission()
-            .then(permissionState => {
-              if (permissionState === 'granted') {
-                window.addEventListener('deviceorientation', handleOrientation);
-                resolve(true);
-              } else {
-                reject('Device Orientation permission denied.');
-              }
-            })
-            .catch(err => {
-              console.error('Device Orientation permission error:', err);
-              reject('Error requesting Device Orientation permission.');
-            });
-        } else {
-          // Non iOS devices
-          window.addEventListener('deviceorientation', handleOrientation);
-          resolve(true);
-        }
-      });
-    }
-
-    // Placeholder for handling device orientation events
-    function handleOrientation(event) {
-      // Handle orientation data if needed
-    }
-
-    // Utility function to request Motion Permission (iOS 13+)
-    function requestDeviceMotionPermission() {
-      return new Promise((resolve, reject) => {
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-          // iOS 13+ devices
-          DeviceMotionEvent.requestPermission()
-            .then(permissionState => {
-              if (permissionState === 'granted') {
-                window.addEventListener('devicemotion', handleMotion);
-                resolve(true);
-              } else {
-                reject('Device Motion permission denied.');
-              }
-            })
-            .catch(err => {
-              console.error('Device Motion permission error:', err);
-              reject('Error requesting Device Motion permission.');
-            });
-        } else {
-          // Non iOS devices
-          window.addEventListener('devicemotion', handleMotion);
-          resolve(true);
-        }
-      });
-    }
-
-    // Placeholder for handling device motion events
-    function handleMotion(event) {
-      // Handle motion data if needed
-    }
-
-    // Utility function to request Geolocation Permission
-    function requestGeolocationPermission() {
-      return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject('Geolocation is not supported by your browser.');
-        } else {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              // Position obtained successfully
-              resolve(true);
-            },
-            (error) => {
-              console.error('Geolocation permission error:', error);
-              reject('Geolocation permission denied.');
-            }
-          );
-        }
-      });
-    }
-
-    // Main function to request all permissions
-    async function handleRequestPermissions() {
-      const statusMessage = document.getElementById('statusMessage');
-      const requestPermissionsBtn = document.getElementById('requestPermissionsBtn');
-
-      // Disable the button to prevent multiple requests
-      requestPermissionsBtn.disabled = true;
-      requestPermissionsBtn.textContent = 'Requesting Permissions...';
-      statusMessage.textContent = '';
-
-      try {
-        // Request Orientation Permission
-        const orientationGranted = await requestDeviceOrientationPermission();
-        CONFIG.permissions.orientationGranted = orientationGranted;
-
-        // Request Motion Permission
-        const motionGranted = await requestDeviceMotionPermission();
-        CONFIG.permissions.motionGranted = motionGranted;
-
-        // Request Geolocation Permission
-        const locationGranted = await requestGeolocationPermission();
-        CONFIG.permissions.locationGranted = locationGranted;
-
-        // Update CONFIG in localStorage
-        saveConfig(CONFIG);
-
-        // Update status message
-        statusMessage.style.color = '#00AA00'; // Green color for success
-        statusMessage.textContent = 'All permissions granted successfully.';
-      } catch (error) {
-        // Handle any permission denials or errors
-        statusMessage.style.color = '#FF0000'; // Red color for errors
-        statusMessage.textContent = error;
-        console.warn(error);
-      } finally {
-        // Re-enable the button
-        requestPermissionsBtn.disabled = false;
-        requestPermissionsBtn.textContent = 'Request Permissions';
-      }
-    }
-
-    // Attach event listener to the permissions button
-    document.addEventListener('DOMContentLoaded', () => {
-      const requestPermissionsBtn = document.getElementById('requestPermissionsBtn');
-      requestPermissionsBtn.addEventListener('click', handleRequestPermissions);
-    });
-  </script>
-
-
-
-
-
-
-
-  <script>
-    document.getElementById('clear').addEventListener('click', () => {
-      try {
-        // Clear local storage
-        localStorage.clear();
-        console.log('Local storage cleared.');
-
-        // Attempt to reset permissions if applicable
-        if (navigator.permissions) {
-          navigator.permissions.query({ name: 'geolocation' }).then((permission) => {
-            console.log(`Geolocation permission status: ${permission.state}`);
-            // There's no direct way to reset permissions; a prompt might require user intervention
-          }).catch((err) => {
-            console.error('Error checking geolocation permission:', err);
-          });
-
-          navigator.permissions.query({ name: 'camera' }).then((permission) => {
-            console.log(`Camera permission status: ${permission.state}`);
-          }).catch((err) => {
-            console.error('Error checking camera permission:', err);
-          });
-
-          navigator.permissions.query({ name: 'microphone' }).then((permission) => {
-            console.log(`Microphone permission status: ${permission.state}`);
-          }).catch((err) => {
-            console.error('Error checking microphone permission:', err);
-          });
-        } else {
-          console.warn('Permission API not supported in this browser.');
-        }
-
-        // Notify the user
-        alert('Permissions and local storage cleared (where applicable). Please refresh the page to apply changes.');
-
-      } catch (error) {
-        console.error('An error occurred while clearing permissions or local storage:', error);
-        alert('Failed to reset permissions or clear local storage. Check the console for details.');
-      }
-    });
-
-  </script>
-  <script>
-    function updateTime() {
-      const now = new Date();
-      const localTime = now.toLocaleTimeString();
-      const utcTime = now.toUTCString().split(' ')[4]; // Extracts time part of UTC string
-
-      document.getElementById('localTime').textContent = `${localTime} Local`;
-      document.getElementById('utcTime').textContent = `${utcTime} UTC`;
-    }
-
-    function fetchIPAddressUsingRTCPeerConnection() {
-      return new Promise((resolve, reject) => {
-        const peerConnection = new RTCPeerConnection({ iceServers: [] });
-        peerConnection.createDataChannel(""); // Create a dummy data channel
-        peerConnection.createOffer().then(offer => peerConnection.setLocalDescription(offer));
-
-        peerConnection.onicecandidate = event => {
-          if (event && event.candidate && event.candidate.candidate) {
-            const ipMatch = event.candidate.candidate.match(/(\d{1,3}(\.\d{1,3}){3})/); // Extract IP
-            if (ipMatch) {
-              resolve(ipMatch[1]);
-              peerConnection.close();
-            }
-          }
-        };
-
-        setTimeout(() => reject("Unable to fetch IP using RTCPeerConnection"), 5000);
-      });
-    }
-
-    async function fetchPublicIPAddress() {
-      try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip;
-      } catch (error) {
-        console.error("Error fetching public IP address:", error);
-        return null;
-      }
-    }
-
-    async function fetchIPAddress() {
-      try {
-        // Attempt to get the IP address using RTCPeerConnection
-        const rtcIP = await fetchIPAddressUsingRTCPeerConnection().catch(() => null);
-        if (rtcIP) {
-          document.getElementById('IP').textContent = `IP Address (RTC): ${rtcIP}`;
-          return;
-        }
-
-        // Fallback to public IP fetch if RTC fails
-        const publicIP = await fetchPublicIPAddress();
-        if (publicIP) {
-          document.getElementById('IP').textContent = `IP Address (Public): ${publicIP}`;
-        } else {
-          document.getElementById('IP').textContent = "IP Address: Unable to fetch";
-        }
-      } catch (error) {
-        document.getElementById('IP').textContent = "IP Address: Error occurred";
-        console.error("Error fetching IP address:", error);
-      }
-    }
-
-    // Start the time update and fetch the IP address
-    updateTime();
-    setInterval(updateTime, 1000); // Update time every second
-    fetchIPAddress();
-  </script>
-
-
-  <script>
-    (function () {
-      // Constants for OpenStreetMap tile URL
-      const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-      const TILE_SIZE = 256; // Standard tile size
-      const ZOOM = 13; // Zoom level for the minimap
-      const MAP_SIZE = TILE_SIZE * 1; // 2x2 tiles for the minimap
-
-      // Reference to the minimap container
-      const container = document.getElementById('minimap');
-
-      // Reference to the wrapper for styling
-      const wrapper = document.getElementById('minimapwrapper');
-
-      // Set dimensions for the container
-      container.style.width = `${MAP_SIZE}px`;
-      container.style.height = `${MAP_SIZE}px`;
-      wrapper.style.width = `${MAP_SIZE}px`;
-      wrapper.style.height = `${MAP_SIZE}px`;
-      container.style.position = 'absolute';
-      container.style.overflow = 'hidden';
-
-      // Initialize window variables as null
-      window.latitude = null;
-      window.longitude = null;
-      window.terrainPointClosest = {
-        latitude: null,
-        longitude: null,
-        elevation: null
-      };
-
-      // Function to calculate tile position
-      function latLonToTile(lat, lon, zoom) {
-        const scale = 1 << zoom;
-        const x = ((lon + 180) / 360) * scale;
-        const y = ((1 - Math.log(Math.tan(lat * Math.PI / 180) +
-          1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2) * scale;
-        return { x, y };
-      }
-
-      // Function to calculate pixel position in the world map
-      function latLonToPixel(lat, lon, zoom) {
-        const tile = latLonToTile(lat, lon, zoom);
-        return {
-          x: tile.x * TILE_SIZE,
-          y: tile.y * TILE_SIZE
-        };
-      }
-
-      // Function to construct map tiles and markers
-      function constructMap(centerLat, centerLon) {
-        // Clear existing tiles and markers
-        container.innerHTML = '';
-
-        // Calculate center pixel
-        const centerPixel = latLonToPixel(centerLat, centerLon, ZOOM);
-
-        // Calculate top-left pixel of the minimap
-        const topLeftPixel = {
-          x: centerPixel.x - MAP_SIZE / 2,
-          y: centerPixel.y - MAP_SIZE / 2
-        };
-
-        // Calculate the starting tile
-        const startTileX = Math.floor(topLeftPixel.x / TILE_SIZE);
-        const startTileY = Math.floor(topLeftPixel.y / TILE_SIZE);
-
-        // Offset within the top-left tile
-        const offsetX = -(topLeftPixel.x % TILE_SIZE);
-        const offsetY = -(topLeftPixel.y % TILE_SIZE);
-
-        // Load necessary tiles
-        const tilesInX = Math.ceil(MAP_SIZE / TILE_SIZE) + 1;
-        const tilesInY = Math.ceil(MAP_SIZE / TILE_SIZE) + 1;
-
-        for (let dx = 0; dx < tilesInX; dx++) {
-          for (let dy = 0; dy < tilesInY; dy++) {
-            const tileX = startTileX + dx;
-            const tileY = startTileY + dy;
-            const tile = document.createElement('img');
-            tile.src = TILE_URL.replace('{z}', ZOOM)
-              .replace('{x}', tileX)
-              .replace('{y}', tileY);
-            tile.style.position = 'absolute';
-            tile.style.left = `${dx * TILE_SIZE + offsetX}px`;
-            tile.style.top = `${dy * TILE_SIZE + offsetY}px`;
-            tile.style.width = `${TILE_SIZE}px`;
-            tile.style.height = `${TILE_SIZE}px`;
-            tile.onerror = () => {
-              console.error(`Failed to load tile at (${tileX}, ${tileY}, ${ZOOM})`);
-              // Optionally, set a placeholder image or retry logic
-            };
-            container.appendChild(tile);
-          }
-        }
-
-        // Function to add a marker
-        function addMarker(lat, lon, className) {
-          // Validate latitude and longitude
-          if (typeof lat !== 'number' || typeof lon !== 'number') {
-            console.warn(`Invalid latitude or longitude for marker (${className}). Marker not added.`);
-            return;
-          }
-
-          const pixel = latLonToPixel(lat, lon, ZOOM);
-          const relativeX = pixel.x - topLeftPixel.x;
-          const relativeY = pixel.y - topLeftPixel.y;
-
-          // Ensure relativeX and relativeY are finite numbers
-          if (!isFinite(relativeX) || !isFinite(relativeY)) {
-            console.warn(`Computed relative positions are invalid for marker (${className}). Marker not added.`);
-            return;
-          }
-
-          // Ensure marker is within the minimap bounds
-          if (relativeX < 0 || relativeX > MAP_SIZE || relativeY < 0 || relativeY > MAP_SIZE) {
-            // Marker is outside the current view; optionally, skip adding it
-            return; // Do not display markers outside the minimap
-          }
-
-          const marker = document.createElement('div');
-          marker.classList.add('marker', className);
-          marker.style.left = `${relativeX}px`;
-          marker.style.top = `${relativeY}px`;
-
-          container.appendChild(marker);
-        }
-
-        // Add current location marker
-        if (window.latitude !== null && window.longitude !== null) {
-          addMarker(window.latitude, window.longitude, 'current-location');
-        }
-
-        // Add closest point marker
-        if (window.terrainPointClosest &&
-          typeof window.terrainPointClosest.latitude === 'number' &&
-          typeof window.terrainPointClosest.longitude === 'number') {
-          addMarker(window.terrainPointClosest.latitude, window.terrainPointClosest.longitude, 'closest-point');
-        }
-      }
-
-      // Function to set up listeners on window variables
-      function setupListeners() {
-        // Listen for changes to window.latitude
-        let _latitude = window.latitude;
-        Object.defineProperty(window, 'latitude', {
-          get: function () {
-            return _latitude;
-          },
-          set: function (value) {
-            console.warn(`window.latitude updated to ${value}`);
-            _latitude = value;
-            updateMap();
-          }
-        });
-
-        // Listen for changes to window.longitude
-        let _longitude = window.longitude;
-        Object.defineProperty(window, 'longitude', {
-          get: function () {
-            return _longitude;
-          },
-          set: function (value) {
-            console.warn(`window.longitude updated to ${value}`);
-            _longitude = value;
-            updateMap();
-          }
-        });
-
-        // Listen for changes to window.terrainPointClosest
-        let _terrainPointClosest = window.terrainPointClosest;
-        Object.defineProperty(window, 'terrainPointClosest', {
-          get: function () {
-            return _terrainPointClosest;
-          },
-          set: function (value) {
-            console.warn(`window.terrainPointClosest updated to`, value);
-            _terrainPointClosest = value;
-            updateMap();
-          }
-        });
-      }
-
-      // Function to update the map when variables change
-      function updateMap() {
-        if (window.terrainPointClosest &&
-          typeof window.terrainPointClosest.latitude === 'number' &&
-          typeof window.terrainPointClosest.longitude === 'number') {
-          // Shift the map center towards the closest point
-          constructMap(window.terrainPointClosest.latitude, window.terrainPointClosest.longitude);
-        } else if (window.latitude !== null && window.longitude !== null) {
-          // If no closest point, center on current location
-          constructMap(window.latitude, window.longitude);
-        } else {
-          // If no data, clear the map
-          container.innerHTML = '';
-          console.warn('Insufficient data to update the map.');
-        }
-      }
-
-      // Initialize listeners
-      setupListeners();
-
-      // Initial map rendering if data is already present
-      updateMap();
-
-      // Example: Simulate data updates (Remove or replace this in production)
-      /*
-      // Simulate loading data after 2 seconds
-      setTimeout(() => {
-        window.latitude = 37.7749;
-        window.longitude = -122.4194;
-        window.terrainPointClosest = {
-          latitude: 37.7755,
-          longitude: -122.4180,
-          elevation: "30"
-        };
-      }, 2000);
-  
-      // Simulate updating closest point every 5 seconds
-      setInterval(() => {
-        if (window.terrainPointClosest) {
-          window.terrainPointClosest = {
-            latitude: window.terrainPointClosest.latitude + 0.001,
-            longitude: window.terrainPointClosest.longitude + 0.001,
-            elevation: "30" // Ignored
-          };
-        }
-      }, 5000);
-      */
-    })();
-  </script>
-  <!-- Geolocation and Sensor Permissions Script -->
-
-
   <!-- The main 3D or WebXR app container -->
   <div id="app"></div>
 
@@ -2135,34 +1989,34 @@
       touchStartY = null;
     }, false);
   </script>
-  <script>
-    // Function to update the #position div with window.terrainPointClosest data
-    function updatePositionDiv() {
-      const positionDiv = document.getElementById('position');
+<script>
+  // Function to update the #position div with window.terrainPointClosest data
+  function updatePositionDiv() {
+    const positionDiv = document.getElementById('position');
 
-      if (!positionDiv) {
-        console.warn("Element with ID 'position' not found.");
-        return;
-      }
+    if (!positionDiv) {
+      console.warn("Element with ID 'position' not found.");
+      return;
+    }
 
-      if (!window.terrainPointClosest) {
-        console.warn("window.terrainPointClosest is undefined.");
-        return;
-      }
+    if (!window.terrainPointClosest) {
+      console.warn("window.terrainPointClosest is undefined.");
+      return;
+    }
 
-      // Generate HTML content with stacked rows
-      const { latitude, longitude, elevation } = window.terrainPointClosest;
-      positionDiv.innerHTML = `
+    // Generate HTML content with stacked rows
+    const { latitude, longitude, elevation } = window.terrainPointClosest;
+    positionDiv.innerHTML = `
       <div>Latitude: ${latitude}</div>
       <div>Longitude: ${longitude}</div>
       <div>Elevation: ${elevation}</div>
     `;
-    }
+  }
 
-    // Update the div initially and set an interval to refresh the content periodically
-    updatePositionDiv();
-    setInterval(updatePositionDiv, 1000); // Update every second (adjust interval as needed)
-  </script>
+  // Update the div initially and set an interval to refresh the content periodically
+  updatePositionDiv();
+  setInterval(updatePositionDiv, 1000); // Update every second (adjust interval as needed)
+</script>
 
   <!-- Main app logic -->
   <script type="module" src="/src/app.js"></script>
