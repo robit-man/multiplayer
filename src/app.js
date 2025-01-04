@@ -799,7 +799,7 @@ class DayNightCycle {
   }
 }
 
-// ------------------------------
+// -// ------------------------------
 // Terrain Class
 // ------------------------------
 class Terrain {
@@ -849,6 +849,9 @@ class Terrain {
       console.log(`Loaded ${this.savedPoints.length} points from localStorage.`)
     }
 
+    // Set nextPointIndex based on saved points
+    this.nextPointIndex = this.savedPoints.length
+
     // Initialize terrain point cloud
     this.initializeTerrainPointCloud()
 
@@ -862,6 +865,8 @@ class Terrain {
    * @param {Object} center - Object with latitude and longitude.
    * @param {number} gridSizeMeters - Size of the grid in meters.
    * @param {number} gridResolution - Number of points per axis.
+   * @param {number} startIndex - Starting index for point generation.
+   * @param {number|null} count - Number of points to generate.
    * @returns {Array} Array of point objects with latitude and longitude.
    */
   generateGrid(
@@ -926,6 +931,9 @@ class Terrain {
 
     Storage.save(this.LS_TERRAIN_POINTS_KEY, savedPoints)
     console.log(`Saved ${pointsToSave.length} points to localStorage.`)
+
+    // Update the in-memory savedPoints array
+    this.savedPoints = savedPoints
   }
 
   /**
@@ -973,9 +981,9 @@ class Terrain {
     if (remainingPoints.length > 0) {
       await this.fetchElevationGrid(remainingPoints, 'Meters', 10, 3)
       this.savePointsToLocalStorage(this.elevationData)
-      this.populateTerrainFromSavedPoints(this.elevationData)
+      this.populateTerrainFromSavedPoints(this.savedPoints) // Use updated savedPoints
       this.elevationData = [] // Clear buffer
-      this.createTerrainMesh(this.savedPoints.concat(this.elevationData))
+      this.createTerrainMesh(this.savedPoints) // Use updated savedPoints
     }
   }
 
@@ -1037,6 +1045,7 @@ class Terrain {
               5
             )}, Lon: ${elevationPoint.longitude.toFixed(5)}, Elevation: ${elevationPoint.elevation
             } meters`
+
           )
 
           const progress = `Rendered ${this.nextPointIndex} / ${this.totalPoints} points.`
@@ -1889,6 +1898,7 @@ class Terrain {
     return 0
   }
 }
+
 
 // ------------------------------
 // VRControllers Class
