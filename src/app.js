@@ -1,47 +1,51 @@
 // app.js
 
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { VRButton } from 'three/addons/webxr/VRButton.js'
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js'
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js'
 
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 
-import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
-import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SSAARenderPass } from 'three/addons/postprocessing/SSAARenderPass.js';
-import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
-import Stats from 'three/addons/libs/stats.module.js';
+import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js'
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js'
+import { SSAARenderPass } from 'three/addons/postprocessing/SSAARenderPass.js'
+import { FilmPass } from 'three/addons/postprocessing/FilmPass.js'
+import Stats from 'three/addons/libs/stats.module.js'
 
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Sky } from 'three/addons/objects/Sky.js';
-import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js';
-import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.min.js';
-import SunCalc from 'suncalc';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { Sky } from 'three/addons/objects/Sky.js'
+import { io } from 'https://cdn.socket.io/4.4.1/socket.io.esm.min.js'
+import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.min.js'
+import SunCalc from 'suncalc'
 
 // Determine modelPath based on file existence
-const modelPathDir = fileExists('/public/Xbot.glb') ? '/public/Xbot.glb' : '/Xbot.glb';
+const modelPathDir = fileExists('/public/Xbot.glb')
+  ? '/public/Xbot.glb'
+  : '/Xbot.glb'
 
 // Determine fontPath based on file existence
-const fontPathDir = fileExists('/public/uno.ttf') ? '/public/uno.ttf' : '/uno.ttf';
+const fontPathDir = fileExists('/public/uno.ttf')
+  ? '/public/uno.ttf'
+  : '/uno.ttf'
 
 /**
  * Checks synchronously if a file exists at the specified path.
  * @param {string} path - The path to the file.
  * @returns {boolean} - Returns true if the file exists, false otherwise.
  */
-function fileExists(path) {
-  const xhr = new XMLHttpRequest();
+function fileExists (path) {
+  const xhr = new XMLHttpRequest()
   try {
-    xhr.open('HEAD', path, false); // false for synchronous request
-    xhr.send();
-    return xhr.status !== 404;
+    xhr.open('HEAD', path, false) // false for synchronous request
+    xhr.send()
+    return xhr.status !== 404
   } catch (e) {
-    console.error(`Error checking existence of ${path}:`, e);
-    return false;
+    console.error(`Error checking existence of ${path}:`, e)
+    return false
   }
 }
 
@@ -58,105 +62,105 @@ const CONFIG = {
     scaleMultiplier: 1,
     gridSizeMeters: 250,
     gridResolution: 100,
-    elevationAPI: 'https://epqs.nationalmap.gov/v1/json',
+    elevationAPI: 'https://epqs.nationalmap.gov/v1/json'
   },
   postProcessing: {
     enableFilmPass: false,
     enableRGBShift: false,
     enableFXAAPass: false,
-    enableSSAARenderPass: false,
+    enableSSAARenderPass: false
   },
   permissions: {
     motionGranted: false,
     orientationGranted: false,
-    locationGranted: false,
+    locationGranted: false
   },
   audio: {
     broadcastKey: 'audio_stream',
     startBroadcastKey: 'start_audio',
-    stopBroadcastKey: 'stop_audio',
+    stopBroadcastKey: 'stop_audio'
   },
   localStorageKeys: {
     playerID: null,
     lastPosition: 'myLastPosition',
     terrainPoints: 'terrainPoints',
-    encryptedPassword: 'encryptedPassword',
+    encryptedPassword: 'encryptedPassword'
   },
   motionVars: {
     walkSpeed: 2,
-    runSpeed: 7,
+    runSpeed: 7
   }
-};
+}
 
 // ------------------------------
 // Utilities Module
 // ------------------------------
 class Utils {
-  static normalizeAngle(angle) {
-    return Math.atan2(Math.sin(angle), Math.cos(angle));
+  static normalizeAngle (angle) {
+    return Math.atan2(Math.sin(angle), Math.cos(angle))
   }
 
-  static lerpAngle(currentAngle, targetAngle, alpha) {
-    currentAngle = Utils.normalizeAngle(currentAngle);
-    targetAngle = Utils.normalizeAngle(targetAngle);
+  static lerpAngle (currentAngle, targetAngle, alpha) {
+    currentAngle = Utils.normalizeAngle(currentAngle)
+    targetAngle = Utils.normalizeAngle(targetAngle)
 
-    let diff = targetAngle - currentAngle;
+    let diff = targetAngle - currentAngle
     if (diff > Math.PI) {
-      diff -= 2 * Math.PI;
+      diff -= 2 * Math.PI
     } else if (diff < -Math.PI) {
-      diff += 2 * Math.PI;
+      diff += 2 * Math.PI
     }
-    const newAngle = currentAngle + diff * alpha;
-    return Utils.normalizeAngle(newAngle);
+    const newAngle = currentAngle + diff * alpha
+    return Utils.normalizeAngle(newAngle)
   }
 
-  static arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    bytes.forEach((b) => (binary += String.fromCharCode(b)));
-    return window.btoa(binary);
+  static arrayBufferToBase64 (buffer) {
+    let binary = ''
+    const bytes = new Uint8Array(buffer)
+    bytes.forEach(b => (binary += String.fromCharCode(b)))
+    return window.btoa(binary)
   }
 
-  static base64ToArrayBuffer(base64) {
-    const binary = window.atob(base64);
-    const bytes = new Uint8Array(binary.length);
+  static base64ToArrayBuffer (base64) {
+    const binary = window.atob(base64)
+    const bytes = new Uint8Array(binary.length)
     Array.from(binary).forEach((char, i) => {
-      bytes[i] = char.charCodeAt(0);
-    });
-    return bytes.buffer;
+      bytes[i] = char.charCodeAt(0)
+    })
+    return bytes.buffer
   }
 
-  static calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Earth radius in meters
-    const phi1 = THREE.MathUtils.degToRad(lat1);
-    const phi2 = THREE.MathUtils.degToRad(lat2);
-    const deltaPhi = THREE.MathUtils.degToRad(lat2 - lat1);
-    const deltaLambda = THREE.MathUtils.degToRad(lon2 - lon1);
+  static calculateDistance (lat1, lon1, lat2, lon2) {
+    const R = 6371e3 // Earth radius in meters
+    const phi1 = THREE.MathUtils.degToRad(lat1)
+    const phi2 = THREE.MathUtils.degToRad(lat2)
+    const deltaPhi = THREE.MathUtils.degToRad(lat2 - lat1)
+    const deltaLambda = THREE.MathUtils.degToRad(lon2 - lon1)
 
     const a =
       Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
       Math.cos(phi1) *
-      Math.cos(phi2) *
-      Math.sin(deltaLambda / 2) *
-      Math.sin(deltaLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        Math.cos(phi2) *
+        Math.sin(deltaLambda / 2) *
+        Math.sin(deltaLambda / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-    const distance = R * c;
-    return distance;
+    const distance = R * c
+    return distance
   }
 
-  static mapLatitudeToZ(latitude, originLatitude, scale) {
-    return (latitude - originLatitude) * (111320 * scale);
+  static mapLatitudeToZ (latitude, originLatitude, scale) {
+    return (latitude - originLatitude) * (111320 * scale)
   }
 
-  static mapLongitudeToX(longitude, originLongitude, scale) {
-    return (longitude - originLongitude) * (110540 * scale);
+  static mapLongitudeToX (longitude, originLongitude, scale) {
+    return (longitude - originLongitude) * (110540 * scale)
   }
 
-  static calculateDistanceSq(x1, z1, x2, z2) {
-    const dx = x1 - x2;
-    const dz = z1 - z2;
-    return dx * dx + dz * dz;
+  static calculateDistanceSq (x1, z1, x2, z2) {
+    const dx = x1 - x2
+    const dz = z1 - z2
+    return dx * dx + dz * dz
   }
 }
 
@@ -171,12 +175,12 @@ class Encryption {
    * @param {string} password - The password for encryption.
    * @returns {Promise<string>} - A JSON string containing the encrypted data, IV, and salt.
    */
-  static async encryptLatLon(latitude, longitude, password) {
-    const data = JSON.stringify({ latitude, longitude });
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
+  static async encryptLatLon (latitude, longitude, password) {
+    const data = JSON.stringify({ latitude, longitude })
+    const encoder = new TextEncoder()
+    const dataBuffer = encoder.encode(data)
 
-    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+    const salt = window.crypto.getRandomValues(new Uint8Array(16))
 
     const keyMaterial = await window.crypto.subtle.importKey(
       'raw',
@@ -184,39 +188,39 @@ class Encryption {
       { name: 'PBKDF2' },
       false,
       ['deriveKey']
-    );
+    )
 
     const key = await window.crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
         salt: salt,
         iterations: 100000,
-        hash: 'SHA-256',
+        hash: 'SHA-256'
       },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,
       ['encrypt']
-    );
+    )
 
-    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const iv = window.crypto.getRandomValues(new Uint8Array(12))
 
     const encrypted = await window.crypto.subtle.encrypt(
       {
         name: 'AES-GCM',
-        iv: iv,
+        iv: iv
       },
       key,
       dataBuffer
-    );
+    )
 
     const encryptedPackage = {
       ciphertext: Utils.arrayBufferToBase64(encrypted),
       iv: Utils.arrayBufferToBase64(iv.buffer),
-      salt: Utils.arrayBufferToBase64(salt.buffer),
-    };
+      salt: Utils.arrayBufferToBase64(salt.buffer)
+    }
 
-    return JSON.stringify(encryptedPackage);
+    return JSON.stringify(encryptedPackage)
   }
 
   /**
@@ -225,53 +229,53 @@ class Encryption {
    * @param {string} password - The password for decryption.
    * @returns {Promise<{latitude: number, longitude: number} | null>} - The decrypted lat/lon data or null if decryption fails.
    */
-  static async decryptLatLon(encryptedPackageStr, password) {
-    const decoder = new TextDecoder();
+  static async decryptLatLon (encryptedPackageStr, password) {
+    const decoder = new TextDecoder()
 
-    const encryptedPackage = JSON.parse(encryptedPackageStr);
-    const ciphertext = Utils.base64ToArrayBuffer(encryptedPackage.ciphertext);
-    const iv = Utils.base64ToArrayBuffer(encryptedPackage.iv);
-    const salt = Utils.base64ToArrayBuffer(encryptedPackage.salt);
+    const encryptedPackage = JSON.parse(encryptedPackageStr)
+    const ciphertext = Utils.base64ToArrayBuffer(encryptedPackage.ciphertext)
+    const iv = Utils.base64ToArrayBuffer(encryptedPackage.iv)
+    const salt = Utils.base64ToArrayBuffer(encryptedPackage.salt)
 
-    const encoder = new TextEncoder();
+    const encoder = new TextEncoder()
     const keyMaterial = await window.crypto.subtle.importKey(
       'raw',
       encoder.encode(password),
       { name: 'PBKDF2' },
       false,
       ['deriveKey']
-    );
+    )
 
     const key = await window.crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
         salt: new Uint8Array(salt),
         iterations: 100000,
-        hash: 'SHA-256',
+        hash: 'SHA-256'
       },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,
       ['decrypt']
-    );
+    )
 
     try {
       const decryptedBuffer = await window.crypto.subtle.decrypt(
         {
           name: 'AES-GCM',
-          iv: new Uint8Array(iv),
+          iv: new Uint8Array(iv)
         },
         key,
         ciphertext
-      );
+      )
 
-      const decryptedData = decoder.decode(decryptedBuffer);
-      const { latitude, longitude } = JSON.parse(decryptedData);
+      const decryptedData = decoder.decode(decryptedBuffer)
+      const { latitude, longitude } = JSON.parse(decryptedData)
 
-      return { latitude, longitude };
+      return { latitude, longitude }
     } catch (e) {
-      console.error('Decryption failed:', e);
-      return null;
+      console.error('Decryption failed:', e)
+      return null
     }
   }
 }
@@ -285,11 +289,11 @@ class Storage {
    * @param {string} key - The key under which to store the data.
    * @param {*} value - The data to store.
    */
-  static save(key, value) {
+  static save (key, value) {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value))
     } catch (e) {
-      console.error(`Failed to save ${key} to localStorage:`, e);
+      console.error(`Failed to save ${key} to localStorage:`, e)
     }
   }
 
@@ -298,14 +302,14 @@ class Storage {
    * @param {string} key - The key of the data to retrieve.
    * @returns {*} - The retrieved data or null if not found.
    */
-  static load(key) {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
+  static load (key) {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
     try {
-      return JSON.parse(raw);
+      return JSON.parse(raw)
     } catch (e) {
-      console.warn(`Error parsing ${key} from localStorage:`, e);
-      return null;
+      console.warn(`Error parsing ${key} from localStorage:`, e)
+      return null
     }
   }
 
@@ -313,11 +317,11 @@ class Storage {
    * Removes a key-value pair from localStorage.
    * @param {string} key - The key to remove.
    */
-  static remove(key) {
+  static remove (key) {
     try {
-      localStorage.removeItem(key);
+      localStorage.removeItem(key)
     } catch (e) {
-      console.error(`Failed to remove ${key} from localStorage:`, e);
+      console.error(`Failed to remove ${key} from localStorage:`, e)
     }
   }
 }
@@ -330,29 +334,29 @@ class Sensors {
     beta: 0,
     gamma: 0,
     webkitCompassHeading: undefined,
-    webkitCompassAccuracy: undefined,
-  };
+    webkitCompassAccuracy: undefined
+  }
 
-  static isOrientationEnabled = false;
-  static isMotionEnabled = false;
+  static isOrientationEnabled = false
+  static isMotionEnabled = false
 
   /**
    * Initializes sensor event listeners based on permissions.
    * @param {Object} permissions - Permissions object.
    */
-  static initialize(permissions) {
+  static initialize (permissions) {
     // If orientation permission was granted, attach the orientation listener.
     if (permissions.orientationGranted) {
-      window.addEventListener('deviceorientation', Sensors.handleOrientation);
-      Sensors.isOrientationEnabled = true;
-      console.log('DeviceOrientation event listener added (Sensors).');
+      window.addEventListener('deviceorientation', Sensors.handleOrientation)
+      Sensors.isOrientationEnabled = true
+      console.log('DeviceOrientation event listener added (Sensors).')
     }
 
     // If motion permission was granted, attach the devicemotion listener.
     if (permissions.motionGranted) {
-      window.addEventListener('devicemotion', Sensors.handleMotion);
-      Sensors.isMotionEnabled = true;
-      console.log('DeviceMotion event listener added (Sensors).');
+      window.addEventListener('devicemotion', Sensors.handleMotion)
+      Sensors.isMotionEnabled = true
+      console.log('DeviceMotion event listener added (Sensors).')
     }
   }
 
@@ -361,63 +365,70 @@ class Sensors {
    * if you're populating orientation data that way (index.html).
    * @param {DeviceOrientationEvent} event
    */
-  static handleOrientation(event) {
-    alert('handleOrientation running');
+  static handleOrientation (event) {
+    alert('handleOrientation running')
 
     // In some setups, you might rely purely on `window.orientation`, e.g.:
     //   window.orientation = { alpha: ..., beta: ..., gamma: ... }
     // If that’s the case, read from there. Otherwise, read from `event.alpha`, etc.
-    
-    // Check if we have a global 'window.orientation' object
-    if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
-      // Use the window.orientation values
-      const alpha = parseFloat(window.orientationGlobal.alpha) || 0;
-      const beta  = parseFloat(window.orientationGlobal.beta)  || 0;
-      const gamma = parseFloat(window.orientationGlobal.gamma) || 0;
 
-      Sensors.orientationData.alpha = alpha;
-      Sensors.orientationData.beta  = beta;
-      Sensors.orientationData.gamma = gamma;
-      
+    // Check if we have a global 'window.orientation' object
+    if (
+      window.orientationGlobal &&
+      typeof window.orientationGlobal === 'object'
+    ) {
+      // Use the window.orientation values
+      const alpha = parseFloat(window.orientationGlobal.alpha) || 0
+      const beta = parseFloat(window.orientationGlobal.beta) || 0
+      const gamma = parseFloat(window.orientationGlobal.gamma) || 0
+
+      Sensors.orientationData.alpha = alpha
+      Sensors.orientationData.beta = beta
+      Sensors.orientationData.gamma = gamma
+
       // If we want to pull any compass heading from the real event:
       // (Note that not all browsers provide webkitCompassHeading)
       if (event && event.webkitCompassHeading !== undefined) {
-        Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
-        Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+        Sensors.orientationData.webkitCompassHeading =
+          event.webkitCompassHeading
+        Sensors.orientationData.webkitCompassAccuracy =
+          event.webkitCompassAccuracy
       }
 
       // Debug UI
-      UI.updateField('Orientation_a', alpha.toFixed(2));
-      UI.updateField('Orientation_b', beta.toFixed(2));
-      UI.updateField('Orientation_g', gamma.toFixed(2));
-      UI.incrementEventCount();
-
+      UI.updateField('Orientation_a', alpha.toFixed(2))
+      UI.updateField('Orientation_b', beta.toFixed(2))
+      UI.updateField('Orientation_g', gamma.toFixed(2))
+      UI.incrementEventCount()
     } else if (event && (event.alpha || event.beta || event.gamma)) {
       // Fallback: if you do want to use the real deviceorientation event directly
-      const alpha = event.alpha || 0;
-      const beta  = event.beta  || 0;
-      const gamma = event.gamma || 0;
+      const alpha = event.alpha || 0
+      const beta = event.beta || 0
+      const gamma = event.gamma || 0
 
-      Sensors.orientationData.alpha = alpha;
-      Sensors.orientationData.beta  = beta;
-      Sensors.orientationData.gamma = gamma;
+      Sensors.orientationData.alpha = alpha
+      Sensors.orientationData.beta = beta
+      Sensors.orientationData.gamma = gamma
 
       if (event.webkitCompassHeading !== undefined) {
-        Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
-        Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+        Sensors.orientationData.webkitCompassHeading =
+          event.webkitCompassHeading
+        Sensors.orientationData.webkitCompassAccuracy =
+          event.webkitCompassAccuracy
       }
 
-      UI.updateField('Orientation_a', alpha.toFixed(2));
-      UI.updateField('Orientation_b', beta.toFixed(2));
-      UI.updateField('Orientation_g', gamma.toFixed(2));
-      UI.incrementEventCount();
-
+      UI.updateField('Orientation_a', alpha.toFixed(2))
+      UI.updateField('Orientation_b', beta.toFixed(2))
+      UI.updateField('Orientation_g', gamma.toFixed(2))
+      UI.incrementEventCount()
     } else {
       // If neither window.orientation nor event data is present, show debug text:
-      UI.updateField('Orientation_a', 'No orientation data');
-      UI.updateField('Orientation_b', 'No orientation data');
-      UI.updateField('Orientation_g', 'No orientation data');
-      console.warn('Sensors: No orientation data found in window.orientation or event.');
+      UI.updateField('Orientation_a', 'No orientation data')
+      UI.updateField('Orientation_b', 'No orientation data')
+      UI.updateField('Orientation_g', 'No orientation data')
+      console.warn(
+        'Sensors: No orientation data found in window.orientation or event.'
+      )
     }
   }
 
@@ -425,28 +436,39 @@ class Sensors {
    * Handles device motion events.
    * @param {DeviceMotionEvent} event
    */
-  static handleMotion(event) {
+  static handleMotion (event) {
     if (event.accelerationIncludingGravity) {
-      UI.updateFieldIfNotNull('Accelerometer_gx', event.accelerationIncludingGravity.x, 2);
-      UI.updateFieldIfNotNull('Accelerometer_gy', event.accelerationIncludingGravity.y, 2);
-      UI.updateFieldIfNotNull('Accelerometer_gz', event.accelerationIncludingGravity.z, 2);
+      UI.updateFieldIfNotNull(
+        'Accelerometer_gx',
+        event.accelerationIncludingGravity.x,
+        2
+      )
+      UI.updateFieldIfNotNull(
+        'Accelerometer_gy',
+        event.accelerationIncludingGravity.y,
+        2
+      )
+      UI.updateFieldIfNotNull(
+        'Accelerometer_gz',
+        event.accelerationIncludingGravity.z,
+        2
+      )
     }
     if (event.acceleration) {
-      UI.updateFieldIfNotNull('Accelerometer_x', event.acceleration.x, 2);
-      UI.updateFieldIfNotNull('Accelerometer_y', event.acceleration.y, 2);
-      UI.updateFieldIfNotNull('Accelerometer_z', event.acceleration.z, 2);
+      UI.updateFieldIfNotNull('Accelerometer_x', event.acceleration.x, 2)
+      UI.updateFieldIfNotNull('Accelerometer_y', event.acceleration.y, 2)
+      UI.updateFieldIfNotNull('Accelerometer_z', event.acceleration.z, 2)
     }
     if (event.rotationRate) {
-      UI.updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha, 2);
-      UI.updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta, 2);
-      UI.updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma, 2);
+      UI.updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha, 2)
+      UI.updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta, 2)
+      UI.updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma, 2)
     }
 
-    UI.updateFieldIfNotNull('Accelerometer_i', event.interval, 2);
-    UI.incrementEventCount();
+    UI.updateFieldIfNotNull('Accelerometer_i', event.interval, 2)
+    UI.incrementEventCount()
   }
 }
-
 
 // ------------------------------
 // UI Module
@@ -457,14 +479,14 @@ class UI {
    * @param {string} elementId - The ID of the HTML element to update.
    * @param {string} content - The content to set as innerHTML.
    */
-  static updateField(elementId, content) {
-    const element = document.getElementById(elementId);
+  static updateField (elementId, content) {
+    const element = document.getElementById(elementId)
     //console.log(`Element with ID '${elementId}' Update with '${content}'`);
     if (!element) {
       //console.warn(`Element with ID '${elementId}' not found.`);
-      return;
+      return
     }
-    element.innerHTML = content;
+    element.innerHTML = content
   }
 
   /**
@@ -473,21 +495,21 @@ class UI {
    * @param {number} value - The numerical value to display.
    * @param {number} decimals - Number of decimal places.
    */
-  static updateFieldIfNotNull(elementId, value, decimals) {
+  static updateFieldIfNotNull (elementId, value, decimals) {
     if (value !== null && value !== undefined) {
-      const formattedValue = value.toFixed(decimals);
-      UI.updateField(elementId, formattedValue);
+      const formattedValue = value.toFixed(decimals)
+      UI.updateField(elementId, formattedValue)
     }
   }
 
   /**
    * Increments an event count display for debugging purposes.
    */
-  static incrementEventCount() {
-    const countElement = document.getElementById('eventCount');
-    if (!countElement) return;
-    const currentCount = parseInt(countElement.innerHTML) || 0;
-    countElement.innerHTML = currentCount + 1;
+  static incrementEventCount () {
+    const countElement = document.getElementById('eventCount')
+    if (!countElement) return
+    const currentCount = parseInt(countElement.innerHTML) || 0
+    countElement.innerHTML = currentCount + 1
   }
 }
 
@@ -495,8 +517,8 @@ class UI {
 // DayNightCycle Class
 // ------------------------------
 class DayNightCycle {
-  constructor(scene, options = {}) {
-    this.scene = scene;
+  constructor (scene, options = {}) {
+    this.scene = scene
 
     // Default options (can be overridden)
     this.options = {
@@ -515,73 +537,73 @@ class DayNightCycle {
       ambientLightIntensityDay: 0.8,
       ambientLightIntensityNight: 0.5,
       transitionSpeed: 0.01, // Speed of transitions
-      updateInterval: 60 * 1000, // Update every minute
-    };
+      updateInterval: 60 * 1000 // Update every minute
+    }
 
-    Object.assign(this.options, options);
+    Object.assign(this.options, options)
 
     // Initialize components
-    this.initDirectionalLight();
-    this.initSky();
-    this.initAmbientLight();
+    this.initDirectionalLight()
+    this.initSky()
+    this.initAmbientLight()
 
     // Initialize location and time-dependent data
-    this.latitude = window.latitude || null;
-    this.longitude = window.longitude || null;
-    this.sunrise = 8;
-    this.sunset = 18;
+    this.latitude = window.latitude || null
+    this.longitude = window.longitude || null
+    this.sunrise = 8
+    this.sunset = 18
 
     // For smooth transitions
-    this.currentAmbientIntensity = this.options.ambientLightIntensityNight;
-    this.currentDirLightIntensity = this.options.directionalLightIntensityNight;
+    this.currentAmbientIntensity = this.options.ambientLightIntensityNight
+    this.currentDirLightIntensity = this.options.directionalLightIntensityNight
 
     // Start the initialization process
-    this.initLocation();
+    this.initLocation()
   }
 
-  initLocation() {
+  initLocation () {
     if (this.latitude === null || this.longitude === null) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          (position) => {
-            window.latitude = position.coords.latitude;
-            window.longitude = position.coords.longitude;
-            this.latitude = window.latitude;
-            this.longitude = window.longitude;
-            this.calculateSunTimes();
-            this.updateSunPosition(); // Set initial sun position based on current time and location
+          position => {
+            window.latitude = position.coords.latitude
+            window.longitude = position.coords.longitude
+            this.latitude = window.latitude
+            this.longitude = window.longitude
+            this.calculateSunTimes()
+            this.updateSunPosition() // Set initial sun position based on current time and location
 
             // Optionally, set an interval to update sun times daily
             setInterval(() => {
-              this.calculateSunTimes();
-            }, 24 * 60 * 60 * 1000); // Every 24 hours
+              this.calculateSunTimes()
+            }, 24 * 60 * 60 * 1000) // Every 24 hours
           },
-          (error) => {
-            console.error('Geolocation error:', error);
+          error => {
+            console.error('Geolocation error:', error)
             // Fallback to default sunrise and sunset times if location is unavailable
-            this.latitude = 0;
-            this.longitude = 0;
-            this.setDefaultSunTimes();
-            this.updateSunPosition();
+            this.latitude = 0
+            this.longitude = 0
+            this.setDefaultSunTimes()
+            this.updateSunPosition()
           }
-        );
+        )
       } else {
-        console.error('Geolocation not supported.');
+        console.error('Geolocation not supported.')
         // Fallback to default sunrise and sunset times if geolocation is not supported
-        this.latitude = 0;
-        this.longitude = 0;
-        this.setDefaultSunTimes();
-        this.updateSunPosition();
+        this.latitude = 0
+        this.longitude = 0
+        this.setDefaultSunTimes()
+        this.updateSunPosition()
       }
     } else {
-      this.calculateSunTimes();
-      this.updateSunPosition();
+      this.calculateSunTimes()
+      this.updateSunPosition()
     }
   }
 
-  setDefaultSunTimes() {
+  setDefaultSunTimes () {
     // Default sunrise and sunset times (e.g., 6 AM and 6 PM)
-    const now = new Date();
+    const now = new Date()
     this.sunrise = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -589,7 +611,7 @@ class DayNightCycle {
       6,
       0,
       0
-    );
+    )
     this.sunset = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -597,165 +619,163 @@ class DayNightCycle {
       18,
       0,
       0
-    );
+    )
   }
 
-  calculateSunTimes() {
+  calculateSunTimes () {
     if (!this.latitude || !this.longitude) {
-      console.warn('Latitude and Longitude are not set.');
-      this.setDefaultSunTimes();
-      return;
+      console.warn('Latitude and Longitude are not set.')
+      this.setDefaultSunTimes()
+      return
     }
 
-    const now = new Date();
-    const times = SunCalc.getTimes(now, this.latitude, this.longitude);
+    const now = new Date()
+    const times = SunCalc.getTimes(now, this.latitude, this.longitude)
 
-    this.sunrise = times.sunrise;
-    this.sunset = times.sunset;
+    this.sunrise = times.sunrise
+    this.sunset = times.sunset
 
     // Optional: Log the times for debugging
-    console.log('Sunrise:', this.sunrise);
-    console.log('Sunset:', this.sunset);
+    console.log('Sunrise:', this.sunrise)
+    console.log('Sunset:', this.sunset)
   }
 
-  initDirectionalLight() {
+  initDirectionalLight () {
     // Create Directional Light
     this.dirLight = new THREE.DirectionalLight(
       this.options.directionalLightColor,
       this.options.directionalLightIntensityNight
-    );
-    this.dirLight.position.copy(this.options.directionalLightPosition);
-    this.dirLight.castShadow = true;
-    this.dirLight.target.position.copy(this.options.directionalLightTarget);
-    this.dirLight.shadow.mapSize.copy(this.options.shadowMapSize);
-    this.scene.add(this.dirLight);
-    this.scene.add(this.dirLight.target); // Ensure the target is added to the scene
+    )
+    this.dirLight.position.copy(this.options.directionalLightPosition)
+    this.dirLight.castShadow = true
+    this.dirLight.target.position.copy(this.options.directionalLightTarget)
+    this.dirLight.shadow.mapSize.copy(this.options.shadowMapSize)
+    this.scene.add(this.dirLight)
+    this.scene.add(this.dirLight.target) // Ensure the target is added to the scene
   }
 
-  initSky() {
+  initSky () {
     // Initialize Sky
-    this.sky = new Sky();
-    this.sky.scale.setScalar(this.options.skyScale);
-    this.scene.add(this.sky);
+    this.sky = new Sky()
+    this.sky.scale.setScalar(this.options.skyScale)
+    this.scene.add(this.sky)
 
     // Configure Sky Parameters
-    this.skyUniforms = this.sky.material.uniforms;
+    this.skyUniforms = this.sky.material.uniforms
 
-    this.skyUniforms['turbidity'].value = this.options.skyTurbidity;
-    this.skyUniforms['rayleigh'].value = this.options.skyRayleigh;
-    this.skyUniforms['mieCoefficient'].value = this.options.skyMieCoefficient;
-    this.skyUniforms['mieDirectionalG'].value = this.options.skyMieDirectionalG;
+    this.skyUniforms['turbidity'].value = this.options.skyTurbidity
+    this.skyUniforms['rayleigh'].value = this.options.skyRayleigh
+    this.skyUniforms['mieCoefficient'].value = this.options.skyMieCoefficient
+    this.skyUniforms['mieDirectionalG'].value = this.options.skyMieDirectionalG
 
-    this.sun = new THREE.Vector3();
-    this.skyUniforms['sunPosition'].value.copy(this.sun);
+    this.sun = new THREE.Vector3()
+    this.skyUniforms['sunPosition'].value.copy(this.sun)
   }
 
-  initAmbientLight() {
+  initAmbientLight () {
     // Add Ambient Light
     this.ambientLight = new THREE.AmbientLight(
       this.options.ambientLightColor,
       this.options.ambientLightIntensityNight
-    );
-    this.scene.add(this.ambientLight);
+    )
+    this.scene.add(this.ambientLight)
   }
 
-  updateSunPosition() {
+  updateSunPosition () {
     if (!this.sunrise || !this.sunset) {
-      console.warn('Sunrise and sunset times are not set.');
-      return;
+      console.warn('Sunrise and sunset times are not set.')
+      return
     }
 
-    const now = new Date();
+    const now = new Date()
 
     // Determine if it's day or night
-    const isDay = now >= this.sunrise && now < this.sunset;
+    const isDay = now >= this.sunrise && now < this.sunset
 
-    let elevation;
-    let azimuth;
+    let elevation
+    let azimuth
 
     if (isDay) {
       // Calculate the progress of the day (0 at sunrise, 1 at sunset)
-      const dayDuration =
-        (this.sunset - this.sunrise) / (1000 * 60 * 60); // Duration in hours
-      const timeSinceSunrise =
-        (now - this.sunrise) / (1000 * 60 * 60); // Hours since sunrise
-      const dayProgress = timeSinceSunrise / dayDuration; // 0 to 1
+      const dayDuration = (this.sunset - this.sunrise) / (1000 * 60 * 60) // Duration in hours
+      const timeSinceSunrise = (now - this.sunrise) / (1000 * 60 * 60) // Hours since sunrise
+      const dayProgress = timeSinceSunrise / dayDuration // 0 to 1
 
-      elevation = dayProgress * 90; // From 0° (horizon) to 90° (zenith)
-      azimuth = 180; // Adjust as needed for sun's path
+      elevation = dayProgress * 90 // From 0° (horizon) to 90° (zenith)
+      azimuth = 180 // Adjust as needed for sun's path
 
       // Smoothly interpolate ambient light intensity
       this.currentAmbientIntensity +=
         (this.options.ambientLightIntensityDay * dayProgress -
           this.currentAmbientIntensity) *
-        this.options.transitionSpeed;
+        this.options.transitionSpeed
       this.ambientLight.intensity = THREE.MathUtils.clamp(
         this.currentAmbientIntensity,
         this.options.ambientLightIntensityNight,
         this.options.ambientLightIntensityDay
-      );
+      )
 
       // Smoothly interpolate directional light intensity
       this.currentDirLightIntensity +=
         (this.options.directionalLightIntensityDay -
           this.currentDirLightIntensity) *
-        this.options.transitionSpeed;
+        this.options.transitionSpeed
       this.dirLight.intensity = THREE.MathUtils.clamp(
         this.currentDirLightIntensity,
         this.options.directionalLightIntensityNight,
         this.options.directionalLightIntensityDay
-      );
+      )
     } else {
       // Nighttime
-      elevation = 0; // Sun below the horizon
-      azimuth = 180; // Adjust for moon or other celestial bodies if desired
+      elevation = 0 // Sun below the horizon
+      azimuth = 180 // Adjust for moon or other celestial bodies if desired
 
       // Smoothly interpolate ambient light intensity
       this.currentAmbientIntensity +=
         (this.options.ambientLightIntensityNight -
           this.currentAmbientIntensity) *
-        this.options.transitionSpeed;
+        this.options.transitionSpeed
       this.ambientLight.intensity = THREE.MathUtils.clamp(
         this.currentAmbientIntensity,
         this.options.ambientLightIntensityNight,
         this.options.ambientLightIntensityDay
-      );
+      )
 
       // Smoothly interpolate directional light intensity
       this.currentDirLightIntensity +=
         (this.options.directionalLightIntensityNight -
           this.currentDirLightIntensity) *
-        this.options.transitionSpeed;
+        this.options.transitionSpeed
       this.dirLight.intensity = THREE.MathUtils.clamp(
         this.currentDirLightIntensity,
         this.options.directionalLightIntensityNight,
         this.options.directionalLightIntensityDay
-      );
+      )
     }
 
     // Convert spherical coordinates to Cartesian coordinates
-    const phi = THREE.MathUtils.degToRad(90 - elevation);
-    const theta = THREE.MathUtils.degToRad(azimuth);
+    const phi = THREE.MathUtils.degToRad(90 - elevation)
+    const theta = THREE.MathUtils.degToRad(azimuth)
 
-    this.sun.setFromSphericalCoords(1, phi, theta);
+    this.sun.setFromSphericalCoords(1, phi, theta)
 
     // Update Sky's sun position
-    this.skyUniforms['sunPosition'].value.copy(this.sun);
+    this.skyUniforms['sunPosition'].value.copy(this.sun)
 
     // Update Directional Light position based on sun
-    const distance = 200; // Adjust as needed
+    const distance = 200 // Adjust as needed
     this.dirLight.position.set(
       this.sun.x * distance,
       this.sun.y * distance,
       this.sun.z * distance
-    );
-    this.dirLight.target.position.copy(this.options.directionalLightTarget);
-    this.dirLight.target.updateMatrixWorld();
+    )
+    this.dirLight.target.position.copy(this.options.directionalLightTarget)
+    this.dirLight.target.updateMatrixWorld()
   }
 
-  update() {
+  update () {
     // Update sun position periodically
-    this.updateSunPosition();
+    this.updateSunPosition()
   }
 }
 
@@ -763,56 +783,57 @@ class DayNightCycle {
 // Terrain Class
 // ------------------------------
 class Terrain {
-  constructor(scene, options = {}, config = {}) {
-    this.scene = scene;
-    this.config = config;
+  constructor (scene, options = {}, config = {}) {
+    this.scene = scene
+    this.config = config
     this.options = {
       latitude: config.originLatitude || 0,
-      longitude: config.originLongitude || 0,
-    };
+      longitude: config.originLongitude || 0
+    }
 
     // Initialize terrain properties
-    this.terrainSize = this.config.size || 200;
-    this.terrainSegments = this.config.segments || 200;
-    this.scaleMultiplier = this.config.scaleMultiplier || 1;
-    this.gridSizeMeters = this.config.gridSizeMeters || 500;
-    this.gridResolution = this.config.gridResolution || 100;
-    this.elevationAPI = this.config.elevationAPI || 'https://epqs.nationalmap.gov/v1/json';
+    this.terrainSize = this.config.size || 200
+    this.terrainSegments = this.config.segments || 200
+    this.scaleMultiplier = this.config.scaleMultiplier || 1
+    this.gridSizeMeters = this.config.gridSizeMeters || 500
+    this.gridResolution = this.config.gridResolution || 100
+    this.elevationAPI =
+      this.config.elevationAPI || 'https://epqs.nationalmap.gov/v1/json'
 
     // Initialize terrain data
-    this.elevationData = [];
-    this.terrainInitialized = false;
-    this.originLatitude = this.options.latitude;
-    this.originLongitude = this.options.longitude;
-    this.terrainPointCloud = null;
-    this.terrainLineSegments = null;
-    this.terrainMesh = null;
-    this.terrainMeshWire = null;
+    this.elevationData = []
+    this.terrainInitialized = false
+    this.originLatitude = this.options.latitude
+    this.originLongitude = this.options.longitude
+    this.terrainPointCloud = null
+    this.terrainLineSegments = null
+    this.terrainMesh = null
+    this.terrainMeshWire = null
 
     // Initialize storage
-    this.LS_TERRAIN_POINTS_KEY = CONFIG.localStorageKeys.terrainPoints;
-    this.totalPoints = this.gridResolution * this.gridResolution;
-    this.nextPointIndex = 0;
-    this.POINTS_BATCH_SIZE = 100;
+    this.LS_TERRAIN_POINTS_KEY = CONFIG.localStorageKeys.terrainPoints
+    this.totalPoints = this.gridResolution * this.gridResolution
+    this.nextPointIndex = 0
+    this.POINTS_BATCH_SIZE = 100
 
     // Generate grid points
     this.gridPoints = this.generateGrid(
       { latitude: this.originLatitude, longitude: this.originLongitude },
       this.gridSizeMeters,
       this.gridResolution
-    );
+    )
 
     // Load saved points from localStorage
-    this.savedPoints = this.loadPointsFromLocalStorage();
+    this.savedPoints = this.loadPointsFromLocalStorage()
     if (this.savedPoints.length > 0) {
-      console.log(`Loaded ${this.savedPoints.length} points from localStorage.`);
+      console.log(`Loaded ${this.savedPoints.length} points from localStorage.`)
     }
 
     // Initialize terrain point cloud
-    this.initializeTerrainPointCloud();
+    this.initializeTerrainPointCloud()
 
     // Start fetching elevation data if needed
-    this.fetchAndRenderTerrain();
+    this.fetchAndRenderTerrain()
   }
 
   /**
@@ -823,30 +844,39 @@ class Terrain {
    * @param {number} gridResolution - Number of points per axis.
    * @returns {Array} Array of point objects with latitude and longitude.
    */
-  generateGrid(center, gridSizeMeters, gridResolution, startIndex = 0, count = null) {
-    const points = [];
-    const stepMeters = (2 * gridSizeMeters) / (gridResolution - 1);
+  generateGrid (
+    center,
+    gridSizeMeters,
+    gridResolution,
+    startIndex = 0,
+    count = null
+  ) {
+    const points = []
+    const stepMeters = (2 * gridSizeMeters) / (gridResolution - 1)
 
-    const deltaLat = stepMeters / 111000;
+    const deltaLat = stepMeters / 111000
     const deltaLon =
-      stepMeters / (111000 * Math.cos(THREE.MathUtils.degToRad(center.latitude)));
+      stepMeters /
+      (111000 * Math.cos(THREE.MathUtils.degToRad(center.latitude)))
 
-    const endIndex = count ? Math.min(startIndex + count, gridResolution * gridResolution) : gridResolution * gridResolution;
+    const endIndex = count
+      ? Math.min(startIndex + count, gridResolution * gridResolution)
+      : gridResolution * gridResolution
 
     for (let i = startIndex; i < endIndex; i++) {
-      const row = Math.floor(i / gridResolution);
-      const col = i % gridResolution;
+      const row = Math.floor(i / gridResolution)
+      const col = i % gridResolution
 
-      const latOffset = (row - (gridResolution - 1) / 2) * deltaLat;
-      const lonOffset = (col - (gridResolution - 1) / 2) * deltaLon;
+      const latOffset = (row - (gridResolution - 1) / 2) * deltaLat
+      const lonOffset = (col - (gridResolution - 1) / 2) * deltaLon
 
       points.push({
         latitude: center.latitude + latOffset,
-        longitude: center.longitude + lonOffset,
-      });
+        longitude: center.longitude + lonOffset
+      })
     }
 
-    return points;
+    return points
   }
 
   /**
@@ -854,28 +884,28 @@ class Terrain {
    * Ensures that the total saved points do not exceed totalPoints.
    * @param {Array} pointsBatch - Array of point objects to save.
    */
-  savePointsToLocalStorage(pointsBatch) {
-    let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || [];
+  savePointsToLocalStorage (pointsBatch) {
+    let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
 
     // Calculate available space
-    const availableSpace = this.totalPoints - savedPoints.length;
+    const availableSpace = this.totalPoints - savedPoints.length
     if (availableSpace <= 0) {
-      console.warn('LocalStorage is full. Cannot save more terrain points.');
-      return;
+      console.warn('LocalStorage is full. Cannot save more terrain points.')
+      return
     }
 
     // Limit pointsBatch to availableSpace
-    const pointsToSave = pointsBatch.slice(0, availableSpace);
+    const pointsToSave = pointsBatch.slice(0, availableSpace)
     if (pointsBatch.length > pointsToSave.length) {
       console.warn(
         `Only ${pointsToSave.length} out of ${pointsBatch.length} points were saved to localStorage to prevent overflow.`
-      );
+      )
     }
 
-    savedPoints = savedPoints.concat(pointsToSave);
+    savedPoints = savedPoints.concat(pointsToSave)
 
-    Storage.save(this.LS_TERRAIN_POINTS_KEY, savedPoints);
-    console.log(`Saved ${pointsToSave.length} points to localStorage.`);
+    Storage.save(this.LS_TERRAIN_POINTS_KEY, savedPoints)
+    console.log(`Saved ${pointsToSave.length} points to localStorage.`)
   }
 
   /**
@@ -883,49 +913,49 @@ class Terrain {
    * Ensures that no more than totalPoints are loaded.
    * @returns {Array} Array of saved point objects.
    */
-  loadPointsFromLocalStorage() {
-    let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || [];
+  loadPointsFromLocalStorage () {
+    let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
 
     if (savedPoints.length > this.totalPoints) {
       console.warn(
         `LocalStorage has ${savedPoints.length} points, which exceeds the expected ${this.totalPoints}. Truncating excess points.`
-      );
-      savedPoints = savedPoints.slice(0, this.totalPoints);
-      Storage.save(this.LS_TERRAIN_POINTS_KEY, savedPoints);
+      )
+      savedPoints = savedPoints.slice(0, this.totalPoints)
+      Storage.save(this.LS_TERRAIN_POINTS_KEY, savedPoints)
     }
 
-    return savedPoints;
+    return savedPoints
   }
 
   /**
    * Fetches elevation data for the terrain grid and renders it.
    */
-  async fetchAndRenderTerrain() {
-    const savedPointsCount = this.savedPoints.length;
+  async fetchAndRenderTerrain () {
+    const savedPointsCount = this.savedPoints.length
 
     if (savedPointsCount >= this.totalPoints) {
-      console.log('All terrain points loaded from localStorage.');
-      this.populateTerrainFromSavedPoints(this.savedPoints);
-      this.createTerrainMesh(this.savedPoints);
-      return;
+      console.log('All terrain points loaded from localStorage.')
+      this.populateTerrainFromSavedPoints(this.savedPoints)
+      this.createTerrainMesh(this.savedPoints)
+      return
     }
 
-    const remainingPointsCount = this.totalPoints - savedPointsCount;
-    console.log(`Fetching elevation data for ${remainingPointsCount} points.`);
+    const remainingPointsCount = this.totalPoints - savedPointsCount
+    console.log(`Fetching elevation data for ${remainingPointsCount} points.`)
     const remainingPoints = this.generateGrid(
       { latitude: this.originLatitude, longitude: this.originLongitude },
       this.gridSizeMeters,
       this.gridResolution,
       savedPointsCount,
       remainingPointsCount
-    );
+    )
 
     if (remainingPoints.length > 0) {
-      await this.fetchElevationGrid(remainingPoints, 'Meters', 10, 3);
-      this.savePointsToLocalStorage(this.elevationData);
-      this.populateTerrainFromSavedPoints(this.elevationData);
-      this.elevationData = []; // Clear buffer
-      this.createTerrainMesh(this.savedPoints.concat(this.elevationData));
+      await this.fetchElevationGrid(remainingPoints, 'Meters', 10, 3)
+      this.savePointsToLocalStorage(this.elevationData)
+      this.populateTerrainFromSavedPoints(this.elevationData)
+      this.elevationData = [] // Clear buffer
+      this.createTerrainMesh(this.savedPoints.concat(this.elevationData))
     }
   }
 
@@ -938,69 +968,80 @@ class Terrain {
    * @param {number} retries - Number of retries for failed fetches.
    * @returns {Promise<void>}
    */
-  async fetchElevationGrid(points, units = 'Meters', concurrency = 10, retries = 3) {
-    let index = 0;
+  async fetchElevationGrid (
+    points,
+    units = 'Meters',
+    concurrency = 10,
+    retries = 3
+  ) {
+    let index = 0
 
     const fetchWithRetry = async (longitude, latitude, attempt = 1) => {
-      const elevation = await this.fetchElevation(longitude, latitude, units);
+      const elevation = await this.fetchElevation(longitude, latitude, units)
       if ((elevation === null || isNaN(elevation)) && attempt <= retries) {
-        const delay = Math.pow(2, attempt) * 100; // Exponential backoff
+        const delay = Math.pow(2, attempt) * 100 // Exponential backoff
         console.warn(
           `Retrying elevation fetch for (${latitude.toFixed(
             5
-          )}, ${longitude.toFixed(5)}) - Attempt ${attempt + 1} after ${delay}ms`
-        );
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return await fetchWithRetry(longitude, latitude, attempt + 1);
+          )}, ${longitude.toFixed(5)}) - Attempt ${
+            attempt + 1
+          } after ${delay}ms`
+        )
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return await fetchWithRetry(longitude, latitude, attempt + 1)
       }
-      return elevation;
-    };
+      return elevation
+    }
 
     const worker = async () => {
       while (true) {
-        let currentIndex;
+        let currentIndex
         if (index >= points.length) {
-          break;
+          break
         }
-        currentIndex = index++;
-        const point = points[currentIndex];
-        const elevation = await fetchWithRetry(point.longitude, point.latitude, 1);
+        currentIndex = index++
+        const point = points[currentIndex]
+        const elevation = await fetchWithRetry(
+          point.longitude,
+          point.latitude,
+          1
+        )
         if (elevation !== null) {
           const elevationPoint = {
             latitude: point.latitude,
             longitude: point.longitude,
-            elevation: elevation,
-          };
-          this.elevationData.push(elevationPoint);
+            elevation: elevation
+          }
+          this.elevationData.push(elevationPoint)
           console.log(
             `Lat: ${elevationPoint.latitude.toFixed(
               5
-            )}, Lon: ${elevationPoint.longitude.toFixed(
-              5
-            )}, Elevation: ${elevationPoint.elevation} meters`
-          );
+            )}, Lon: ${elevationPoint.longitude.toFixed(5)}, Elevation: ${
+              elevationPoint.elevation
+            } meters`
+          )
 
-          const progress = `Rendered ${this.nextPointIndex} / ${this.totalPoints} points.`;
-          UI.updateField('progress', progress);
-          requestAnimationFrame(() => this.renderTerrainPoints());
+          const progress = `Rendered ${this.nextPointIndex} / ${this.totalPoints} points.`
+          UI.updateField('progress', progress)
+          requestAnimationFrame(() => this.renderTerrainPoints())
         } else {
           console.log(
             `Lat: ${point.latitude.toFixed(5)}, Lon: ${point.longitude.toFixed(
               5
             )}, Elevation: Fetch Failed`
-          );
+          )
         }
       }
-    };
-
-    const workersArray = [];
-    for (let i = 0; i < concurrency; i++) {
-      workersArray.push(worker());
     }
 
-    await Promise.all(workersArray);
+    const workersArray = []
+    for (let i = 0; i < concurrency; i++) {
+      workersArray.push(worker())
+    }
 
-    console.log('All elevation data fetched.');
+    await Promise.all(workersArray)
+
+    console.log('All elevation data fetched.')
   }
 
   /**
@@ -1010,25 +1051,28 @@ class Terrain {
    * @param {string} units - 'Meters' or 'Feet'.
    * @returns {number|null} Elevation value or null if failed.
    */
-  async fetchElevation(longitude, latitude, units = 'Meters') {
-    const endpoint = this.elevationAPI;
-    const url = `${endpoint}?x=${longitude}&y=${latitude}&units=${units}&output=json`;
+  async fetchElevation (longitude, latitude, units = 'Meters') {
+    const endpoint = this.elevationAPI
+    const url = `${endpoint}?x=${longitude}&y=${latitude}&units=${units}&output=json`
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(url)
       if (!response.ok) {
-        throw new Error(`Elevation API error: ${response.statusText}`);
+        throw new Error(`Elevation API error: ${response.statusText}`)
       }
 
       // Log the raw response for debugging
-      const text = await response.text();
-      console.log(`Elevation API response for (${latitude}, ${longitude}):`, text);
+      const text = await response.text()
+      console.log(
+        `Elevation API response for (${latitude}, ${longitude}):`,
+        text
+      )
 
-      const data = JSON.parse(text);
+      const data = JSON.parse(text)
       if (data && data.value !== undefined) {
-        return data.value; // Elevation in the specified units
+        return data.value // Elevation in the specified units
       } else {
-        throw new Error('Invalid elevation data received.');
+        throw new Error('Invalid elevation data received.')
       }
     } catch (error) {
       console.error(
@@ -1036,34 +1080,40 @@ class Terrain {
           5
         )}, ${longitude.toFixed(5)}):`,
         error
-      );
-      return null; // Indicate failure
+      )
+      return null // Indicate failure
     }
   }
 
   /**
    * Initializes the Three.js terrain point cloud.
    */
-  initializeTerrainPointCloud() {
-    const positions = new Float32Array(this.totalPoints * 3);
-    const colors = new Float32Array(this.totalPoints * 3);
+  initializeTerrainPointCloud () {
+    const positions = new Float32Array(this.totalPoints * 3)
+    const colors = new Float32Array(this.totalPoints * 3)
 
-    this.terrainGeometry = new THREE.BufferGeometry();
+    this.terrainGeometry = new THREE.BufferGeometry()
     this.terrainGeometry.setAttribute(
       'position',
       new THREE.BufferAttribute(positions, 3)
-    );
-    this.terrainGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    )
+    this.terrainGeometry.setAttribute(
+      'color',
+      new THREE.BufferAttribute(colors, 3)
+    )
 
     this.terrainMaterial = new THREE.PointsMaterial({
       size: 0.1,
       vertexColors: true,
       transparent: true,
-      opacity: 0.5,
-    });
+      opacity: 0.5
+    })
 
-    this.terrainPointCloud = new THREE.Points(this.terrainGeometry, this.terrainMaterial);
-    this.scene.add(this.terrainPointCloud);
+    this.terrainPointCloud = new THREE.Points(
+      this.terrainGeometry,
+      this.terrainMaterial
+    )
+    this.scene.add(this.terrainPointCloud)
   }
 
   /**
@@ -1071,112 +1121,124 @@ class Terrain {
    * Ensures that only up to totalPoints are processed.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  populateTerrainFromSavedPoints(savedPoints) {
-    const positions = this.terrainPointCloud.geometry.attributes.position.array;
-    const colors = this.terrainPointCloud.geometry.attributes.color.array;
+  populateTerrainFromSavedPoints (savedPoints) {
+    const positions = this.terrainPointCloud.geometry.attributes.position.array
+    const colors = this.terrainPointCloud.geometry.attributes.color.array
 
-    const pointsToPopulate = savedPoints.slice(0, this.totalPoints); // Ensure no excess points
+    const pointsToPopulate = savedPoints.slice(0, this.totalPoints) // Ensure no excess points
 
     pointsToPopulate.forEach((point, index) => {
-      const baseIndex = index * 3;
-      positions[baseIndex] =
-        Utils.mapLongitudeToX(point.longitude, this.originLongitude, this.scaleMultiplier);
-      positions[baseIndex + 1] =
-        (point.elevation - 0) * this.scaleMultiplier;
-      positions[baseIndex + 2] =
-        Utils.mapLatitudeToZ(point.latitude, this.originLatitude, this.scaleMultiplier);
+      const baseIndex = index * 3
+      positions[baseIndex] = Utils.mapLongitudeToX(
+        point.longitude,
+        this.originLongitude,
+        this.scaleMultiplier
+      )
+      positions[baseIndex + 1] = (point.elevation - 0) * this.scaleMultiplier
+      positions[baseIndex + 2] = Utils.mapLatitudeToZ(
+        point.latitude,
+        this.originLatitude,
+        this.scaleMultiplier
+      )
 
       const normalizedElevation =
-        Math.min(Math.max(point.elevation - 0, 0), 80) / 80;
+        Math.min(Math.max(point.elevation - 0, 0), 80) / 80
       const color = new THREE.Color().lerpColors(
         new THREE.Color(0x0000ff), // Blue for low elevation
         new THREE.Color(0xff0000), // Red for high elevation
         normalizedElevation
-      );
+      )
 
-      colors[baseIndex] = color.r;
-      colors[baseIndex + 1] = color.g;
-      colors[baseIndex + 2] = color.b;
-    });
+      colors[baseIndex] = color.r
+      colors[baseIndex + 1] = color.g
+      colors[baseIndex + 2] = color.b
+    })
 
-    this.terrainPointCloud.geometry.attributes.position.needsUpdate = true;
-    this.terrainPointCloud.geometry.attributes.color.needsUpdate = true;
+    this.terrainPointCloud.geometry.attributes.position.needsUpdate = true
+    this.terrainPointCloud.geometry.attributes.color.needsUpdate = true
 
-    console.log(`Populated terrain with ${pointsToPopulate.length} saved points.`);
+    console.log(
+      `Populated terrain with ${pointsToPopulate.length} saved points.`
+    )
   }
 
   /**
    * Renders new terrain points into the scene.
    * Ensures that no more than totalPoints are rendered.
    */
-  renderTerrainPoints() {
-    if (!this.terrainPointCloud || this.elevationData.length === 0) return;
+  renderTerrainPoints () {
+    if (!this.terrainPointCloud || this.elevationData.length === 0) return
 
-    const positions = this.terrainPointCloud.geometry.attributes.position.array;
-    const colors = this.terrainPointCloud.geometry.attributes.color.array;
+    const positions = this.terrainPointCloud.geometry.attributes.position.array
+    const colors = this.terrainPointCloud.geometry.attributes.color.array
 
     const pointsToAdd = Math.min(
       this.POINTS_BATCH_SIZE,
       this.elevationData.length,
       this.totalPoints - this.nextPointIndex
-    );
+    )
 
     if (pointsToAdd <= 0) {
       // Once all points are rendered, draw lines and create mesh
-      const allSavedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || [];
-      this.createTerrainMesh(allSavedPoints); // Synchronous line drawing
-      return;
+      const allSavedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
+      this.createTerrainMesh(allSavedPoints) // Synchronous line drawing
+      return
     }
 
-    const pointsBatch = [];
+    const pointsBatch = []
     for (let i = 0; i < pointsToAdd; i++) {
-      const point = this.elevationData.shift();
-      if (!point) continue;
+      const point = this.elevationData.shift()
+      if (!point) continue
 
-      const baseIndex = this.nextPointIndex * 3;
+      const baseIndex = this.nextPointIndex * 3
 
-      positions[baseIndex] =
-        Utils.mapLongitudeToX(point.longitude, this.originLongitude, this.scaleMultiplier);
-      positions[baseIndex + 1] =
-        (point.elevation - 0) * this.scaleMultiplier;
-      positions[baseIndex + 2] =
-        Utils.mapLatitudeToZ(point.latitude, this.originLatitude, this.scaleMultiplier);
+      positions[baseIndex] = Utils.mapLongitudeToX(
+        point.longitude,
+        this.originLongitude,
+        this.scaleMultiplier
+      )
+      positions[baseIndex + 1] = (point.elevation - 0) * this.scaleMultiplier
+      positions[baseIndex + 2] = Utils.mapLatitudeToZ(
+        point.latitude,
+        this.originLatitude,
+        this.scaleMultiplier
+      )
 
       const normalizedElevation =
-        Math.min(Math.max(point.elevation - 0, 0), 80) / 80;
+        Math.min(Math.max(point.elevation - 0, 0), 80) / 80
       const color = new THREE.Color().lerpColors(
         new THREE.Color(0x0000ff), // Blue for low elevation
         new THREE.Color(0xff0000), // Red for high elevation
         normalizedElevation
-      );
+      )
 
-      colors[baseIndex] = color.r;
-      colors[baseIndex + 1] = color.g;
-      colors[baseIndex + 2] = color.b;
+      colors[baseIndex] = color.r
+      colors[baseIndex + 1] = color.g
+      colors[baseIndex + 2] = color.b
 
-      pointsBatch.push(point);
-      this.nextPointIndex++;
+      pointsBatch.push(point)
+      this.nextPointIndex++
 
       // Prevent exceeding totalPoints
       if (this.nextPointIndex >= this.totalPoints) {
-        break;
+        break
       }
     }
 
-    this.terrainPointCloud.geometry.attributes.position.needsUpdate = true;
-    this.terrainPointCloud.geometry.attributes.color.needsUpdate = true;
+    this.terrainPointCloud.geometry.attributes.position.needsUpdate = true
+    this.terrainPointCloud.geometry.attributes.color.needsUpdate = true
 
-    this.savePointsToLocalStorage(pointsBatch);
+    this.savePointsToLocalStorage(pointsBatch)
 
-    console.log(`Rendered ${this.nextPointIndex} / ${this.totalPoints} points.`);
+    console.log(`Rendered ${this.nextPointIndex} / ${this.totalPoints} points.`)
 
     if (this.nextPointIndex >= this.totalPoints) {
       // All points rendered, draw lines and create mesh
-      const allSavedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || [];
-      this.createTerrainMesh(allSavedPoints); // Synchronous line drawing
+      const allSavedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
+      this.createTerrainMesh(allSavedPoints) // Synchronous line drawing
     } else {
       // Continue rendering in the next frame
-      requestAnimationFrame(() => this.renderTerrainPoints());
+      requestAnimationFrame(() => this.renderTerrainPoints())
     }
   }
 
@@ -1184,18 +1246,18 @@ class Terrain {
    * Draws terrain lines asynchronously to prevent blocking the main thread.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  async drawTerrainLinesAsync(savedPoints) {
+  async drawTerrainLinesAsync (savedPoints) {
     if (!this.lineDrawingGenerator) {
-      this.lineDrawingGenerator = this.terrainLineDrawingGenerator(savedPoints);
+      this.lineDrawingGenerator = this.terrainLineDrawingGenerator(savedPoints)
     }
 
-    const result = this.lineDrawingGenerator.next();
+    const result = this.lineDrawingGenerator.next()
     if (result.done) {
-      this.lineDrawingGenerator = null; // Reset generator when done
-      console.log('Asynchronous terrain lines drawing completed.');
+      this.lineDrawingGenerator = null // Reset generator when done
+      console.log('Asynchronous terrain lines drawing completed.')
     } else {
       // Continue drawing in the next frame
-      requestAnimationFrame(() => this.drawTerrainLinesAsync(savedPoints));
+      requestAnimationFrame(() => this.drawTerrainLinesAsync(savedPoints))
     }
   }
 
@@ -1204,61 +1266,82 @@ class Terrain {
    * Processes the grid in chunks to avoid blocking.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  *terrainLineDrawingGenerator(savedPoints) {
-    const linePositions = [];
-    const metersPerDegLat = 111320 * this.scaleMultiplier;
-    const metersPerDegLon = 110540 * this.scaleMultiplier;
+  *terrainLineDrawingGenerator (savedPoints) {
+    const linePositions = []
+    const metersPerDegLat = 111320 * this.scaleMultiplier
+    const metersPerDegLon = 110540 * this.scaleMultiplier
 
-    const gridSize = this.gridResolution; // Number of rows and columns
+    const gridSize = this.gridResolution // Number of rows and columns
     if (!Number.isInteger(gridSize)) {
       console.error(
         'Grid size is not an integer. Cannot draw lines accurately.'
-      );
-      return;
+      )
+      return
     }
 
     // Define the maximum allowed distance between connected points (in meters)
-    const maxLineDistance = 15; // Adjust this value based on your grid density
-    const maxLineDistanceSq = maxLineDistance * maxLineDistance; // Squared distance for efficiency
+    const maxLineDistance = 15 // Adjust this value based on your grid density
+    const maxLineDistanceSq = maxLineDistance * maxLineDistance // Squared distance for efficiency
 
     // Function to calculate squared distance between two points (X and Z axes only)
     const calculateDistanceSq = (x1, z1, x2, z2) => {
-      const dx = x1 - x2;
-      const dz = z1 - z2;
-      return dx * dx + dz * dz;
-    };
+      const dx = x1 - x2
+      const dz = z1 - z2
+      return dx * dx + dz * dz
+    }
 
     // Set to track connected pairs and prevent duplicates
-    const connectedPairs = new Set();
+    const connectedPairs = new Set()
 
     for (let i = 0; i < gridSize; i++) {
       for (let j = 0; j < gridSize; j++) {
-        const currentIndex = i * gridSize + j;
-        const currentPoint = savedPoints[currentIndex];
-        if (!currentPoint) continue;
+        const currentIndex = i * gridSize + j
+        const currentPoint = savedPoints[currentIndex]
+        if (!currentPoint) continue
 
-        const currentX = Utils.mapLongitudeToX(currentPoint.longitude, this.originLongitude, this.scaleMultiplier);
-        const currentZ = Utils.mapLatitudeToZ(currentPoint.latitude, this.originLatitude, this.scaleMultiplier);
-        const currentY = (currentPoint.elevation - 0) * this.scaleMultiplier;
+        const currentX = Utils.mapLongitudeToX(
+          currentPoint.longitude,
+          this.originLongitude,
+          this.scaleMultiplier
+        )
+        const currentZ = Utils.mapLatitudeToZ(
+          currentPoint.latitude,
+          this.originLatitude,
+          this.scaleMultiplier
+        )
+        const currentY = (currentPoint.elevation - 0) * this.scaleMultiplier
 
         // Right neighbor (only if not on the last column)
         if (j < gridSize - 1) {
-          const rightNeighborIndex = currentIndex + 1;
-          const rightNeighbor = savedPoints[rightNeighborIndex];
+          const rightNeighborIndex = currentIndex + 1
+          const rightNeighbor = savedPoints[rightNeighborIndex]
           if (rightNeighbor) {
-            const rightX = Utils.mapLongitudeToX(rightNeighbor.longitude, this.originLongitude, this.scaleMultiplier);
-            const rightZ = Utils.mapLatitudeToZ(rightNeighbor.latitude, this.originLatitude, this.scaleMultiplier);
-            const rightY = (rightNeighbor.elevation - 0) * this.scaleMultiplier;
+            const rightX = Utils.mapLongitudeToX(
+              rightNeighbor.longitude,
+              this.originLongitude,
+              this.scaleMultiplier
+            )
+            const rightZ = Utils.mapLatitudeToZ(
+              rightNeighbor.latitude,
+              this.originLatitude,
+              this.scaleMultiplier
+            )
+            const rightY = (rightNeighbor.elevation - 0) * this.scaleMultiplier
 
-            const distanceSq = calculateDistanceSq(currentX, currentZ, rightX, rightZ);
+            const distanceSq = calculateDistanceSq(
+              currentX,
+              currentZ,
+              rightX,
+              rightZ
+            )
             if (distanceSq <= maxLineDistanceSq) {
               const key =
                 currentIndex < rightNeighborIndex
                   ? `${currentIndex}-${rightNeighborIndex}`
-                  : `${rightNeighborIndex}-${currentIndex}`;
+                  : `${rightNeighborIndex}-${currentIndex}`
 
               if (!connectedPairs.has(key)) {
-                connectedPairs.add(key);
+                connectedPairs.add(key)
                 linePositions.push(
                   currentX,
                   currentY,
@@ -1266,7 +1349,7 @@ class Terrain {
                   rightX,
                   rightY,
                   rightZ
-                );
+                )
               }
             }
           }
@@ -1274,22 +1357,36 @@ class Terrain {
 
         // Bottom neighbor (only if not on the last row)
         if (i < gridSize - 1) {
-          const bottomNeighborIndex = currentIndex + gridSize;
-          const bottomNeighbor = savedPoints[bottomNeighborIndex];
+          const bottomNeighborIndex = currentIndex + gridSize
+          const bottomNeighbor = savedPoints[bottomNeighborIndex]
           if (bottomNeighbor) {
-            const bottomX = Utils.mapLongitudeToX(bottomNeighbor.longitude, this.originLongitude, this.scaleMultiplier);
-            const bottomZ = Utils.mapLatitudeToZ(bottomNeighbor.latitude, this.originLatitude, this.scaleMultiplier);
-            const bottomY = (bottomNeighbor.elevation - 0) * this.scaleMultiplier;
+            const bottomX = Utils.mapLongitudeToX(
+              bottomNeighbor.longitude,
+              this.originLongitude,
+              this.scaleMultiplier
+            )
+            const bottomZ = Utils.mapLatitudeToZ(
+              bottomNeighbor.latitude,
+              this.originLatitude,
+              this.scaleMultiplier
+            )
+            const bottomY =
+              (bottomNeighbor.elevation - 0) * this.scaleMultiplier
 
-            const distanceSq = calculateDistanceSq(currentX, currentZ, bottomX, bottomZ);
+            const distanceSq = calculateDistanceSq(
+              currentX,
+              currentZ,
+              bottomX,
+              bottomZ
+            )
             if (distanceSq <= maxLineDistanceSq) {
               const key =
                 currentIndex < bottomNeighborIndex
                   ? `${currentIndex}-${bottomNeighborIndex}`
-                  : `${bottomNeighborIndex}-${currentIndex}`;
+                  : `${bottomNeighborIndex}-${currentIndex}`
 
               if (!connectedPairs.has(key)) {
-                connectedPairs.add(key);
+                connectedPairs.add(key)
                 linePositions.push(
                   currentX,
                   currentY,
@@ -1297,7 +1394,7 @@ class Terrain {
                   bottomX,
                   bottomY,
                   bottomZ
-                );
+                )
               }
             }
           }
@@ -1305,27 +1402,30 @@ class Terrain {
 
         // Yield after processing a set number of points to allow the main thread to breathe
         if ((i * gridSize + j) % 1000 === 0) {
-          yield;
+          yield
         }
       }
     }
 
     // After all lines are collected, create the line segments
-    const lineGeometry = new THREE.BufferGeometry();
+    const lineGeometry = new THREE.BufferGeometry()
     lineGeometry.setAttribute(
       'position',
       new THREE.Float32BufferAttribute(linePositions, 3)
-    );
+    )
 
     const lineMaterial = new THREE.LineBasicMaterial({
       color: 0xffffff,
       opacity: 0.5,
-      transparent: true,
-    });
-    this.terrainLineSegments = new THREE.LineSegments(lineGeometry, lineMaterial);
+      transparent: true
+    })
+    this.terrainLineSegments = new THREE.LineSegments(
+      lineGeometry,
+      lineMaterial
+    )
     //this.scene.add(this.terrainLineSegments);
 
-    yield; // Final yield to indicate completion
+    yield // Final yield to indicate completion
   }
 
   /**
@@ -1333,216 +1433,266 @@ class Terrain {
    * Ensures that the number of points matches the grid's expectation.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  createTerrainMesh(savedPoints) {
+  createTerrainMesh (savedPoints) {
     // Validate the length of savedPoints
     if (savedPoints.length !== this.totalPoints) {
       console.error(
         `Expected ${this.totalPoints} points, but got ${savedPoints.length}. Aborting mesh creation.`
-      );
-      return;
+      )
+      return
     }
 
     // Define meters per degree based on a fixed latitude for simplicity
-    const metersPerDegLat = 111320 * this.scaleMultiplier;
-    const metersPerDegLon = 110540 * this.scaleMultiplier; // Adjust based on average latitude if necessary
+    const metersPerDegLat = 111320 * this.scaleMultiplier
+    const metersPerDegLon = 110540 * this.scaleMultiplier // Adjust based on average latitude if necessary
 
     // Define origin for global positioning based on actual location
     const origin = {
       longitude: this.originLongitude,
-      latitude: this.originLatitude,
-    };
+      latitude: this.originLatitude
+    }
 
     // Step 1: Determine global min and max for X (longitude) and Z (latitude)
-    const xCoords = savedPoints.map(
-      (point) => Utils.mapLongitudeToX(point.longitude, origin.longitude, this.scaleMultiplier)
-    );
-    const zCoords = savedPoints.map(
-      (point) => Utils.mapLatitudeToZ(point.latitude, origin.latitude, this.scaleMultiplier)
-    );
+    const xCoords = savedPoints.map(point =>
+      Utils.mapLongitudeToX(
+        point.longitude,
+        origin.longitude,
+        this.scaleMultiplier
+      )
+    )
+    const zCoords = savedPoints.map(point =>
+      Utils.mapLatitudeToZ(
+        point.latitude,
+        origin.latitude,
+        this.scaleMultiplier
+      )
+    )
 
-    const minX = Math.min(...xCoords);
-    const maxX = Math.max(...xCoords);
-    const minZ = Math.min(...zCoords);
-    const maxZ = Math.max(...zCoords);
+    const minX = Math.min(...xCoords)
+    const maxX = Math.max(...xCoords)
+    const minZ = Math.min(...zCoords)
+    const maxZ = Math.max(...zCoords)
 
     // Calculate expected grid spacing
-    const deltaX = (maxX - minX) / (this.gridResolution - 1);
-    const deltaZ = (maxZ - minZ) / (this.gridResolution - 1);
+    const deltaX = (maxX - minX) / (this.gridResolution - 1)
+    const deltaZ = (maxZ - minZ) / (this.gridResolution - 1)
 
     // Initialize a 2D array to hold sorted points
     const sortedGrid = Array.from({ length: this.gridResolution }, () =>
       Array(this.gridResolution).fill(null)
-    );
+    )
 
     // Step 2: Assign each saved point to the appropriate grid cell
-    savedPoints.forEach((point) => {
-      const x = Utils.mapLongitudeToX(point.longitude, origin.longitude, this.scaleMultiplier);
-      const z = Utils.mapLatitudeToZ(point.latitude, origin.latitude, this.scaleMultiplier);
+    savedPoints.forEach(point => {
+      const x = Utils.mapLongitudeToX(
+        point.longitude,
+        origin.longitude,
+        this.scaleMultiplier
+      )
+      const z = Utils.mapLatitudeToZ(
+        point.latitude,
+        origin.latitude,
+        this.scaleMultiplier
+      )
 
-      let col = Math.round((x - minX) / deltaX);
-      let row = Math.round((z - minZ) / deltaZ);
+      let col = Math.round((x - minX) / deltaX)
+      let row = Math.round((z - minZ) / deltaZ)
 
-      col = Math.max(0, Math.min(this.gridResolution - 1, col));
-      row = Math.max(0, Math.min(this.gridResolution - 1, row));
+      col = Math.max(0, Math.min(this.gridResolution - 1, col))
+      row = Math.max(0, Math.min(this.gridResolution - 1, row))
 
       if (sortedGrid[row][col] === null) {
-        sortedGrid[row][col] = point;
+        sortedGrid[row][col] = point
       } else {
         // Handle duplicate assignments by choosing the closest point
-        const existingPoint = sortedGrid[row][col];
-        const existingX = Utils.mapLongitudeToX(existingPoint.longitude, origin.longitude, this.scaleMultiplier);
-        const existingZ = Utils.mapLatitudeToZ(existingPoint.latitude, origin.latitude, this.scaleMultiplier);
-        const existingDistanceSq = Utils.calculateDistanceSq(existingX, existingZ, x, z);
+        const existingPoint = sortedGrid[row][col]
+        const existingX = Utils.mapLongitudeToX(
+          existingPoint.longitude,
+          origin.longitude,
+          this.scaleMultiplier
+        )
+        const existingZ = Utils.mapLatitudeToZ(
+          existingPoint.latitude,
+          origin.latitude,
+          this.scaleMultiplier
+        )
+        const existingDistanceSq = Utils.calculateDistanceSq(
+          existingX,
+          existingZ,
+          x,
+          z
+        )
 
-        const newDistanceSq = Utils.calculateDistanceSq(existingX, existingZ, x, z);
+        const newDistanceSq = Utils.calculateDistanceSq(
+          existingX,
+          existingZ,
+          x,
+          z
+        )
 
         if (newDistanceSq < existingDistanceSq) {
-          sortedGrid[row][col] = point;
+          sortedGrid[row][col] = point
         } else {
           console.warn(
             `Duplicate point assignment at row ${row}, col ${col}. Keeping the existing point.`
-          );
+          )
         }
       }
-    });
+    })
 
     // Step 3: Handle Missing Points by Generating Them
     for (let row = 0; row < this.gridResolution; row++) {
       for (let col = 0; col < this.gridResolution; col++) {
         if (sortedGrid[row][col] === null) {
-          console.warn(`Missing point at row ${row}, col ${col}. Generating a new point.`);
+          console.warn(
+            `Missing point at row ${row}, col ${col}. Generating a new point.`
+          )
 
           // Generate a new point by interpolating from existing neighbors
-          const generatedPoint = this.generateMissingPoint(row, col, sortedGrid);
+          const generatedPoint = this.generateMissingPoint(row, col, sortedGrid)
 
           if (generatedPoint) {
-            sortedGrid[row][col] = generatedPoint;
+            sortedGrid[row][col] = generatedPoint
             console.log(
               `Generated point at row ${row}, col ${col}: Lat=${generatedPoint.latitude.toFixed(
                 5
-              )}, Lon=${generatedPoint.longitude.toFixed(
-                5
-              )}, Elevation=${generatedPoint.elevation}`
-            );
+              )}, Lon=${generatedPoint.longitude.toFixed(5)}, Elevation=${
+                generatedPoint.elevation
+              }`
+            )
           } else {
             // If unable to generate, assign a default elevation
-            const defaultElevation = 0;
+            const defaultElevation = 0
             const generatedLongitude =
-              origin.longitude + (col - (this.gridResolution - 1) / 2) * (deltaX / this.scaleMultiplier) / metersPerDegLon;
+              origin.longitude +
+              ((col - (this.gridResolution - 1) / 2) *
+                (deltaX / this.scaleMultiplier)) /
+                metersPerDegLon
             const generatedLatitude =
-              origin.latitude + (row - (this.gridResolution - 1) / 2) * (deltaZ / this.scaleMultiplier) / metersPerDegLat;
+              origin.latitude +
+              ((row - (this.gridResolution - 1) / 2) *
+                (deltaZ / this.scaleMultiplier)) /
+                metersPerDegLat
 
             const defaultPoint = {
               longitude: generatedLongitude,
               latitude: generatedLatitude,
-              elevation: defaultElevation,
-            };
+              elevation: defaultElevation
+            }
 
-            sortedGrid[row][col] = defaultPoint;
+            sortedGrid[row][col] = defaultPoint
             console.warn(
               `Assigned default elevation for missing point at row ${row}, col ${col}.`
-            );
+            )
           }
         }
       }
     }
 
     // Step 4: Populate Vertices and Colors
-    const vertices = new Float32Array(this.totalPoints * 3); // x, y, z for each point
-    const colors = new Float32Array(this.totalPoints * 3); // r, g, b for each point
+    const vertices = new Float32Array(this.totalPoints * 3) // x, y, z for each point
+    const colors = new Float32Array(this.totalPoints * 3) // r, g, b for each point
 
     for (let row = 0; row < this.gridResolution; row++) {
       for (let col = 0; col < this.gridResolution; col++) {
-        const index = row * this.gridResolution + col;
-        const point = sortedGrid[row][col];
-        const vertexIndex = index * 3;
+        const index = row * this.gridResolution + col
+        const point = sortedGrid[row][col]
+        const vertexIndex = index * 3
 
-        const x = Utils.mapLongitudeToX(point.longitude, origin.longitude, this.scaleMultiplier);
-        const y = (point.elevation - 0) * this.scaleMultiplier;
-        const z = Utils.mapLatitudeToZ(point.latitude, origin.latitude, this.scaleMultiplier);
+        const x = Utils.mapLongitudeToX(
+          point.longitude,
+          origin.longitude,
+          this.scaleMultiplier
+        )
+        const y = (point.elevation - 0) * this.scaleMultiplier
+        const z = Utils.mapLatitudeToZ(
+          point.latitude,
+          origin.latitude,
+          this.scaleMultiplier
+        )
 
-        vertices[vertexIndex] = x;
-        vertices[vertexIndex + 1] = y;
-        vertices[vertexIndex + 2] = z;
+        vertices[vertexIndex] = x
+        vertices[vertexIndex + 1] = y
+        vertices[vertexIndex + 2] = z
 
         // Calculate color based on elevation
         const normalizedElevation =
-          Math.min(Math.max(point.elevation - 0, 0), 40) / 40;
+          Math.min(Math.max(point.elevation - 0, 0), 40) / 40
         const color = new THREE.Color().lerpColors(
           new THREE.Color(0x000000), // Blue for low elevation
           new THREE.Color(0xffffff), // White for high elevation
           normalizedElevation
-        );
-        colors[vertexIndex] = color.r;
-        colors[vertexIndex + 1] = color.g;
-        colors[vertexIndex + 2] = color.b;
+        )
+        colors[vertexIndex] = color.r
+        colors[vertexIndex + 1] = color.g
+        colors[vertexIndex + 2] = color.b
       }
     }
 
     // Step 5: Generate Indices for Triangles Based on Physical Neighbors
-    const indices = [];
-    const maxTriangleSize = 400; // Adjust based on grid density
-    const maxTriangleSizeSq = maxTriangleSize * maxTriangleSize; // Squared distance for efficiency
+    const indices = []
+    const maxTriangleSize = 400 // Adjust based on grid density
+    const maxTriangleSizeSq = maxTriangleSize * maxTriangleSize // Squared distance for efficiency
 
     for (let row = 0; row < this.gridResolution - 1; row++) {
       for (let col = 0; col < this.gridResolution - 1; col++) {
-        const a = row * this.gridResolution + col;
-        const b = a + 1;
-        const c = a + this.gridResolution;
-        const d = c + 1;
+        const a = row * this.gridResolution + col
+        const b = a + 1
+        const c = a + this.gridResolution
+        const d = c + 1
 
         // Retrieve vertex positions (X and Z axes only)
-        const ax = vertices[a * 3];
-        const az = vertices[a * 3 + 2];
-        const bx = vertices[b * 3];
-        const bz = vertices[b * 3 + 2];
-        const cx = vertices[c * 3];
-        const cz = vertices[c * 3 + 2];
-        const dxPos = vertices[d * 3];
-        const dz = vertices[d * 3 + 2];
+        const ax = vertices[a * 3]
+        const az = vertices[a * 3 + 2]
+        const bx = vertices[b * 3]
+        const bz = vertices[b * 3 + 2]
+        const cx = vertices[c * 3]
+        const cz = vertices[c * 3 + 2]
+        const dxPos = vertices[d * 3]
+        const dz = vertices[d * 3 + 2]
 
         // Calculate squared distances to ensure physical proximity
-        const distanceACSq = Utils.calculateDistanceSq(ax, az, cx, cz);
-        const distanceCBSq = Utils.calculateDistanceSq(cx, cz, bx, bz);
-        const distanceABSq = Utils.calculateDistanceSq(ax, az, bx, bz);
+        const distanceACSq = Utils.calculateDistanceSq(ax, az, cx, cz)
+        const distanceCBSq = Utils.calculateDistanceSq(cx, cz, bx, bz)
+        const distanceABSq = Utils.calculateDistanceSq(ax, az, bx, bz)
 
-        const distanceBCSq = Utils.calculateDistanceSq(bx, bz, cx, cz);
-        const distanceCDSq = Utils.calculateDistanceSq(cx, cz, dxPos, dz);
-        const distanceBDSq = Utils.calculateDistanceSq(bx, bz, dxPos, dz);
+        const distanceBCSq = Utils.calculateDistanceSq(bx, bz, cx, cz)
+        const distanceCDSq = Utils.calculateDistanceSq(cx, cz, dxPos, dz)
+        const distanceBDSq = Utils.calculateDistanceSq(bx, bz, dxPos, dz)
 
         // Validate distances for the first triangle (a, c, b)
         const isTriangle1Valid =
           distanceACSq <= maxTriangleSizeSq &&
           distanceCBSq <= maxTriangleSizeSq &&
-          distanceABSq <= maxTriangleSizeSq;
+          distanceABSq <= maxTriangleSizeSq
 
         // Validate distances for the second triangle (b, c, d)
         const isTriangle2Valid =
           distanceBCSq <= maxTriangleSizeSq &&
           distanceCDSq <= maxTriangleSizeSq &&
-          distanceBDSq <= maxTriangleSizeSq;
+          distanceBDSq <= maxTriangleSizeSq
 
         // Only add triangles if they pass the distance validation
         if (isTriangle1Valid && isTriangle2Valid) {
           // First triangle (a, c, b)
-          indices.push(a, c, b);
+          indices.push(a, c, b)
 
           // Second triangle (b, c, d)
-          indices.push(b, c, d);
+          indices.push(b, c, d)
         } else {
           console.warn(
             `Skipped grid square at row ${row}, col ${col} due to excessive triangle size.`
-          );
+          )
         }
       }
     }
 
     // Step 6: Assign Attributes to Geometry
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    geometry.setIndex(indices)
+    geometry.computeVertexNormals()
 
     // Step 7: Create Material with Vertex Colors, Shading, and Reflectivity
     const materialWire = new THREE.MeshStandardMaterial({
@@ -1551,8 +1701,8 @@ class Terrain {
       transparent: true, // Enable transparency
       opacity: 0.5, // Set opacity level
       metalness: 0.7, // Slight reflectivity (range: 0.0 - 1.0)
-      roughness: 0.2, // Moderate roughness for shading (range: 0.0 - 1.0)
-    });
+      roughness: 0.2 // Moderate roughness for shading (range: 0.0 - 1.0)
+    })
 
     const material = new THREE.MeshStandardMaterial({
       vertexColors: true, // Enable vertex colors
@@ -1561,19 +1711,19 @@ class Terrain {
       side: THREE.DoubleSide,
       opacity: 1, // Full opacity
       metalness: 0.2, // Higher reflectivity
-      roughness: 0.7, // Moderate roughness
-    });
+      roughness: 0.7 // Moderate roughness
+    })
 
     // Step 8: Create and Add the Terrain Mesh to the Scene
-    this.terrainMesh = new THREE.Mesh(geometry, material);
-    this.terrainMesh.receiveShadow = true;
-    this.scene.add(this.terrainMesh);
+    this.terrainMesh = new THREE.Mesh(geometry, material)
+    this.terrainMesh.receiveShadow = true
+    this.scene.add(this.terrainMesh)
 
     // Step 9: Create and Add the Terrain Mesh Wireframe to the Scene
-    this.terrainMeshWire = new THREE.Mesh(geometry, materialWire);
-    this.scene.add(this.terrainMeshWire);
+    this.terrainMeshWire = new THREE.Mesh(geometry, materialWire)
+    this.scene.add(this.terrainMeshWire)
 
-    console.log('Terrain mesh created and added to the scene.');
+    console.log('Terrain mesh created and added to the scene.')
   }
 
   /**
@@ -1583,8 +1733,8 @@ class Terrain {
    * @param {Array} sortedGrid - 2D array of sorted points.
    * @returns {Object|null} Generated point object or null if unable to generate.
    */
-  generateMissingPoint(row, col, sortedGrid) {
-    const neighbors = [];
+  generateMissingPoint (row, col, sortedGrid) {
+    const neighbors = []
 
     // Define neighbor offsets (Left, Right, Below, Above, Top-Left, Top-Right, Bottom-Left, Bottom-Right)
     const neighborOffsets = [
@@ -1595,46 +1745,49 @@ class Terrain {
       [row - 1, col - 1], // Top-Left
       [row - 1, col + 1], // Top-Right
       [row + 1, col - 1], // Bottom-Left
-      [row + 1, col + 1], // Bottom-Right
-    ];
+      [row + 1, col + 1] // Bottom-Right
+    ]
 
-    neighborOffsets.forEach((offset) => {
-      const [nRow, nCol] = offset;
+    neighborOffsets.forEach(offset => {
+      const [nRow, nCol] = offset
       if (
         nRow >= 0 &&
         nRow < this.gridResolution &&
         nCol >= 0 &&
         nCol < this.gridResolution
       ) {
-        const neighborPoint = sortedGrid[nRow][nCol];
+        const neighborPoint = sortedGrid[nRow][nCol]
         if (neighborPoint !== null) {
-          neighbors.push(neighborPoint.elevation);
+          neighbors.push(neighborPoint.elevation)
         }
       }
-    });
+    })
 
     if (neighbors.length === 0) {
-      return null; // Unable to generate without neighbors
+      return null // Unable to generate without neighbors
     }
 
     // Calculate average elevation from neighbors
-    const sum = neighbors.reduce((acc, val) => acc + val, 0);
-    const averageElevation = sum / neighbors.length;
+    const sum = neighbors.reduce((acc, val) => acc + val, 0)
+    const averageElevation = sum / neighbors.length
 
     // Calculate longitude and latitude based on grid indices
-    const stepMeters = (2 * this.gridSizeMeters) / (this.gridResolution - 1);
-    const deltaLat = stepMeters / 111000;
+    const stepMeters = (2 * this.gridSizeMeters) / (this.gridResolution - 1)
+    const deltaLat = stepMeters / 111000
     const deltaLon =
-      stepMeters / (111000 * Math.cos(THREE.MathUtils.degToRad(this.options.latitude)));
+      stepMeters /
+      (111000 * Math.cos(THREE.MathUtils.degToRad(this.options.latitude)))
 
-    const generatedLongitude = this.originLongitude + (col - (this.gridResolution - 1) / 2) * deltaLon;
-    const generatedLatitude = this.originLatitude + (row - (this.gridResolution - 1) / 2) * deltaLat;
+    const generatedLongitude =
+      this.originLongitude + (col - (this.gridResolution - 1) / 2) * deltaLon
+    const generatedLatitude =
+      this.originLatitude + (row - (this.gridResolution - 1) / 2) * deltaLat
 
     return {
       longitude: generatedLongitude,
       latitude: generatedLatitude,
-      elevation: averageElevation,
-    };
+      elevation: averageElevation
+    }
   }
 
   /**
@@ -1643,21 +1796,29 @@ class Terrain {
    * @param {number} z - Z coordinate in meters.
    * @returns {Object|null} Closest point object or null if not found.
    */
-  findClosestGridPoint(x, z) {
-    let closestPoint = null;
-    let minDistanceSq = Infinity;
+  findClosestGridPoint (x, z) {
+    let closestPoint = null
+    let minDistanceSq = Infinity
 
-    this.savedPoints.forEach((point) => {
-      const px = Utils.mapLongitudeToX(point.longitude, this.originLongitude, this.scaleMultiplier);
-      const pz = Utils.mapLatitudeToZ(point.latitude, this.originLatitude, this.scaleMultiplier);
-      const distanceSq = Utils.calculateDistanceSq(x, z, px, pz);
+    this.savedPoints.forEach(point => {
+      const px = Utils.mapLongitudeToX(
+        point.longitude,
+        this.originLongitude,
+        this.scaleMultiplier
+      )
+      const pz = Utils.mapLatitudeToZ(
+        point.latitude,
+        this.originLatitude,
+        this.scaleMultiplier
+      )
+      const distanceSq = Utils.calculateDistanceSq(x, z, px, pz)
       if (distanceSq < minDistanceSq) {
-        minDistanceSq = distanceSq;
-        closestPoint = point;
+        minDistanceSq = distanceSq
+        closestPoint = point
       }
-    });
+    })
 
-    return closestPoint;
+    return closestPoint
   }
 
   /**
@@ -1666,31 +1827,34 @@ class Terrain {
    * @param {number} z - Z coordinate in meters.
    * @returns {number} Elevation in meters.
    */
-  getTerrainHeightAtPoint(x, z) {
-    const closestPoint = this.findClosestGridPoint(x, z);
+  getTerrainHeightAtPoint (x, z) {
+    const closestPoint = this.findClosestGridPoint(x, z)
 
     if (!closestPoint) {
-      console.warn(`No terrain data found for coordinates (${x}, ${z}). Returning default elevation 0.`);
-      return 0;
+      console.warn(
+        `No terrain data found for coordinates (${x}, ${z}). Returning default elevation 0.`
+      )
+      return 0
     }
 
-    const elevationRaw = closestPoint.elevation;
-    const elevation = parseFloat(elevationRaw);
+    const elevationRaw = closestPoint.elevation
+    const elevation = parseFloat(elevationRaw)
 
     // Log the raw and converted elevation values for debugging
-    console.log(`Raw Elevation: ${elevationRaw} (Type: ${typeof elevationRaw})`);
-    console.log(`Converted Elevation: ${elevation} (Type: ${typeof elevation})`);
+    console.log(`Raw Elevation: ${elevationRaw} (Type: ${typeof elevationRaw})`)
+    console.log(`Converted Elevation: ${elevation} (Type: ${typeof elevation})`)
 
     if (isNaN(elevation)) {
-      console.error(`Invalid elevation value: "${elevationRaw}". Returning default elevation 0.`);
-      return 0;
+      console.error(
+        `Invalid elevation value: "${elevationRaw}". Returning default elevation 0.`
+      )
+      return 0
     }
 
-    return elevation;
+    return elevation
   }
 
-
-  getTerrainHeightAt(x, z) {
+  getTerrainHeightAt (x, z) {
     if (!this.terrainMesh) return 0
     if (this.terrainMesh === NaN) return 0
 
@@ -1707,80 +1871,79 @@ class Terrain {
     // Default to 0 if no intersection
     return 0
   }
-
-
-
 }
 
 // ------------------------------
 // VRControllers Class
 // ------------------------------
 class VRControllers {
-  constructor(renderer, scene, handleTeleportCallback) {
-    this.renderer = renderer;
-    this.scene = scene;
-    this.handleTeleportCallback = handleTeleportCallback;
-    this.controllers = [];
-    this.controllerGrips = [];
-    this.initControllers();
+  constructor (renderer, scene, handleTeleportCallback) {
+    this.renderer = renderer
+    this.scene = scene
+    this.handleTeleportCallback = handleTeleportCallback
+    this.controllers = []
+    this.controllerGrips = []
+    this.initControllers()
   }
 
-  initControllers() {
-    const controllerModelFactory = new XRControllerModelFactory();
+  initControllers () {
+    const controllerModelFactory = new XRControllerModelFactory()
 
     for (let i = 0; i < 2; i++) {
-      const controller = this.renderer.xr.getController(i);
-      controller.addEventListener('selectstart', this.onSelectStart.bind(this));
-      controller.addEventListener('selectend', this.onSelectEnd.bind(this));
-      this.scene.add(controller);
-      this.controllers.push(controller);
+      const controller = this.renderer.xr.getController(i)
+      controller.addEventListener('selectstart', this.onSelectStart.bind(this))
+      controller.addEventListener('selectend', this.onSelectEnd.bind(this))
+      this.scene.add(controller)
+      this.controllers.push(controller)
 
-      const controllerGrip = this.renderer.xr.getControllerGrip(i);
-      controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
-      this.scene.add(controllerGrip);
-      this.controllerGrips.push(controllerGrip);
+      const controllerGrip = this.renderer.xr.getControllerGrip(i)
+      controllerGrip.add(
+        controllerModelFactory.createControllerModel(controllerGrip)
+      )
+      this.scene.add(controllerGrip)
+      this.controllerGrips.push(controllerGrip)
     }
   }
 
-  onSelectStart(event) {
-    event.target.userData.isSelecting = true;
+  onSelectStart (event) {
+    event.target.userData.isSelecting = true
   }
 
-  onSelectEnd(event) {
-    event.target.userData.isSelecting = false;
+  onSelectEnd (event) {
+    event.target.userData.isSelecting = false
     // Implement teleportation logic here
     // For example, determine the teleport destination and call the callback
     // this.handleTeleportCallback(destinationPoint);
   }
 
-  buildControllerRay(data) {
-    let geometry, material;
+  buildControllerRay (data) {
+    let geometry, material
     switch (data.targetRayMode) {
       case 'tracked-pointer':
-        geometry = new THREE.BufferGeometry();
+        geometry = new THREE.BufferGeometry()
         geometry.setAttribute(
           'position',
           new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3)
-        );
+        )
         geometry.setAttribute(
           'color',
           new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3)
-        );
+        )
         material = new THREE.LineBasicMaterial({
           vertexColors: true,
-          blending: THREE.AdditiveBlending,
-        });
-        return new THREE.Line(geometry, material);
+          blending: THREE.AdditiveBlending
+        })
+        return new THREE.Line(geometry, material)
 
       case 'gaze':
-        geometry = new THREE.RingGeometry(0.02, 0.04, 32).rotateX(-Math.PI / 2);
+        geometry = new THREE.RingGeometry(0.02, 0.04, 32).rotateX(-Math.PI / 2)
         material = new THREE.MeshBasicMaterial({
           opacity: 0.5,
-          transparent: true,
-        });
-        return new THREE.Mesh(geometry, material);
+          transparent: true
+        })
+        return new THREE.Mesh(geometry, material)
     }
-    return new THREE.Object3D();
+    return new THREE.Object3D()
   }
 }
 
@@ -1788,147 +1951,170 @@ class VRControllers {
 // Multiplayer Class
 // ------------------------------
 class Multiplayer {
-  constructor(socket, scene, terrain) {
-    this.initializePlayerID();
-    this.socket = socket;
-    this.scene = scene;
-    this.terrain = terrain;
-    this.players = {};
-    this.loadingPlayers = new Set();
-    this.remoteAudioStreams = {}; // To manage audio streams
-    this.initSocketEvents();
+  constructor (socket, scene, terrain) {
+    this.initializePlayerID()
+    this.socket = socket
+    this.scene = scene
+    this.terrain = terrain
+    this.players = {}
+    this.loadingPlayers = new Set()
+    this.remoteAudioStreams = {} // To manage audio streams
+    this.initSocketEvents()
   }
 
   /**
    * Initializes the playerID by retrieving it from localStorage.
    * If not found, it remains null and will be set by the server upon 'init' event.
    */
-  initializePlayerID() {
-    const storedPlayerID = Storage.load(CONFIG.localStorageKeys.playerID);
+  initializePlayerID () {
+    const storedPlayerID = Storage.load(CONFIG.localStorageKeys.playerID)
     if (storedPlayerID) {
-      this.myId = storedPlayerID;
-      console.warn(`Retrieved playerID from localStorage: ${this.myId}`);
+      this.myId = storedPlayerID
+      console.warn(`Retrieved playerID from localStorage: ${this.myId}`)
       // Optionally, emit the playerID to the server if the server supports custom player IDs
-      console.warn(`Emitting playerID to server: ${this.myId}`);
+      console.warn(`Emitting playerID to server: ${this.myId}`)
     } else {
-      console.warn('No playerID found in localStorage. Assigning.');
-      const generatedID = `user-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-      console.warn(generatedID);
-      Storage.save(CONFIG.localStorageKeys.playerID, generatedID);
-      this.myId = generatedID;
-      console.warn(`Generated new playerID: ${this.myId}`);
+      console.warn('No playerID found in localStorage. Assigning.')
+      const generatedID = `user-${Date.now()}-${Math.floor(
+        Math.random() * 100000
+      )}`
+      console.warn(generatedID)
+      Storage.save(CONFIG.localStorageKeys.playerID, generatedID)
+      this.myId = generatedID
+      console.warn(`Generated new playerID: ${this.myId}`)
     }
   }
 
   /**
    * Initializes socket event listeners.
    */
-  initSocketEvents() {
-    this.socket.on('init', (data) => {
-      console.log('[Socket] init => received init data:', data);
+  initSocketEvents () {
+    this.socket.on('init', data => {
+      console.log('[Socket] init => received init data:', data)
 
       // Store the ID the server gave us.
-      this.myId = data.id;
+      this.myId = data.id
 
       // Update players with the full dictionary from the server
-      this.updatePlayers(data.players);
-    });
+      this.updatePlayers(data.players)
+    })
 
-    this.socket.on('state_update_all', (data) => {
-      this.updatePlayers(data);
+    this.socket.on('state_update_all', data => {
+      this.updatePlayers(data)
       // Optionally, store last state if needed
-    });
+    })
 
-    this.socket.on('new_player', (data) => {
-      console.log(`[Socket] new_player => Data:`, data);
+    this.socket.on('new_player', data => {
+      console.log(`[Socket] new_player => Data:`, data)
 
       // Skip if the new player is us
       if (data.id === this.myId) {
-        return;
+        return
       }
 
       console.log(
         `[Socket] new_player => Creating or updating remote ID: ${data.id}`
-      );
-      this.addOrUpdatePlayer(data.id, data);
-    });
+      )
+      this.addOrUpdatePlayer(data.id, data)
+    })
 
-    this.socket.on('state_update', (data) => {
-      const incomingString = JSON.stringify(data);
-      const lastString = this.lastStateData ? JSON.stringify(this.lastStateData) : null;
+    this.socket.on('state_update', data => {
+      const incomingString = JSON.stringify(data)
+      const lastString = this.lastStateData
+        ? JSON.stringify(this.lastStateData)
+        : null
 
       // Only log if changed
       if (incomingString !== lastString) {
         //console.log('[Socket] state_update => changed data from server:', data);
-        this.lastStateData = data;
+        this.lastStateData = data
       }
-    });
+    })
 
-    this.socket.on('player_disconnected', (id) => {
-      this.removeRemotePlayer(id);
-    });
+    this.socket.on('player_disconnected', id => {
+      this.removeRemotePlayer(id)
+    })
 
     // Audio events
-    this.socket.on('start_audio', (data) => {
-      const { id } = data;
-      this.addRemoteAudioStream(id);
-    });
+    this.socket.on('start_audio', data => {
+      const { id } = data
+      this.addRemoteAudioStream(id)
+    })
 
-    this.socket.on('stop_audio', (data) => {
-      const { id } = data;
-      this.removeRemoteAudioStream(id);
-    });
+    this.socket.on('stop_audio', data => {
+      const { id } = data
+      this.removeRemoteAudioStream(id)
+    })
 
-    this.socket.on('audio_stream', (data) => {
-      const { id, audio } = data;
-      this.receiveAudioStream(id, audio);
-    });
+    this.socket.on('audio_stream', data => {
+      const { id, audio } = data
+      this.receiveAudioStream(id, audio)
+    })
 
     // Position event with encryption
-    this.socket.on('position', async (data) => {
-      const { id, encryptedPosition } = data;
-      console.log(`[Socket] position => Received encrypted position from ID: ${id}`);
+    this.socket.on('position', async data => {
+      const { id, encryptedPosition } = data
+      console.log(
+        `[Socket] position => Received encrypted position from ID: ${id}`
+      )
 
       // Retrieve the password from localStorage
-      const password = Storage.load(CONFIG.localStorageKeys.encryptedPassword);
+      const password = Storage.load(CONFIG.localStorageKeys.encryptedPassword)
       if (!password) {
-        console.error('Password not found. Cannot decrypt position data.');
-        return;
+        console.error('Password not found. Cannot decrypt position data.')
+        return
       }
 
       try {
         // Decrypt the received data
-        const decryptedData = await Encryption.decryptLatLon(encryptedPosition, password);
+        const decryptedData = await Encryption.decryptLatLon(
+          encryptedPosition,
+          password
+        )
         if (decryptedData) {
-          const { latitude, longitude } = decryptedData;
+          const { latitude, longitude } = decryptedData
           console.log(
             `[Socket] position => Decrypted Position from ID: ${id}: Lat=${latitude}, Lon=${longitude}`
-          );
+          )
 
           // Map latitude and longitude to your game's coordinate system
-          const x = Utils.mapLongitudeToX(longitude, this.terrain.originLongitude, this.terrain.scaleMultiplier);
-          const z = Utils.mapLatitudeToZ(latitude, this.terrain.originLatitude, this.terrain.scaleMultiplier);
+          const x = Utils.mapLongitudeToX(
+            longitude,
+            this.terrain.originLongitude,
+            this.terrain.scaleMultiplier
+          )
+          const z = Utils.mapLatitudeToZ(
+            latitude,
+            this.terrain.originLatitude,
+            this.terrain.scaleMultiplier
+          )
 
           // Update the player's position in your game
           if (this.players[id]) {
             // Assuming players[id].position is a THREE.Vector3
-            this.players[id].position.set(x, this.terrain.getTerrainHeightAt(x, z), z);
-            this.players[id].model.position.lerp(this.players[id].position, 0.1); // Smooth transition
+            this.players[id].position.set(
+              x,
+              this.terrain.getTerrainHeightAt(x, z),
+              z
+            )
+            this.players[id].model.position.lerp(this.players[id].position, 0.1) // Smooth transition
           } else {
-            console.warn(`[Socket] position => Player with ID: ${id} not found.`);
+            console.warn(
+              `[Socket] position => Player with ID: ${id} not found.`
+            )
           }
         } else {
           console.warn(
             `[Socket] position => Failed to decrypt position data from ID: ${id}.`
-          );
+          )
         }
       } catch (error) {
         console.error(
           `[Socket] position => Error decrypting position data from ID: ${id}:`,
           error
-        );
+        )
       }
-    });
+    })
   }
 
   /**
@@ -1936,18 +2122,18 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  addOrUpdatePlayer(id, data) {
+  addOrUpdatePlayer (id, data) {
     // Skip if it's the local player's ID
     if (data.id === this.myId) {
-      console.warn(`Skipping addOrUpdatePlayer for local ID = ${data.id}`);
-      return;
+      console.warn(`Skipping addOrUpdatePlayer for local ID = ${data.id}`)
+      return
     }
 
     if (!this.players[id] && !this.loadingPlayers.has(id)) {
-      this.createRemotePlayer(id, data);
+      this.createRemotePlayer(id, data)
       //console.warn(`Creating new player with ID: ${id}`);
     } else {
-      this.updateRemotePlayer(id, data);
+      this.updateRemotePlayer(id, data)
       //console.warn(`Updating existing player with ID: ${id}`);
     }
   }
@@ -1957,45 +2143,49 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  createRemotePlayer(id, data) {
+  createRemotePlayer (id, data) {
     if (this.players[id] || this.loadingPlayers.has(id)) {
       console.warn(
         `Skipping creation for player ${id}. Already exists or is loading.`
-      );
-      return;
+      )
+      return
     }
-    this.loadingPlayers.add(id);
+    this.loadingPlayers.add(id)
 
-    const loader = new GLTFLoader();
+    const loader = new GLTFLoader()
     loader.load(
       CONFIG.modelPath,
       gltf => {
-        const remoteModel = gltf.scene;
+        const remoteModel = gltf.scene
 
         // Determine terrain height safely
-        let terrainHeight = 0; // Default value
-        if (this.terrain && typeof this.terrain.getTerrainHeightAt === 'function') {
-          terrainHeight = this.terrain.getTerrainHeightAt(data.x, data.z);
+        let terrainHeight = 0 // Default value
+        if (
+          this.terrain &&
+          typeof this.terrain.getTerrainHeightAt === 'function'
+        ) {
+          terrainHeight = this.terrain.getTerrainHeightAt(data.x, data.z)
         } else {
-          console.warn('Multiplayer: Terrain instance or method getTerrainHeightAt is unavailable.');
+          console.warn(
+            'Multiplayer: Terrain instance or method getTerrainHeightAt is unavailable.'
+          )
         }
 
-
         // Set the model's position based on data and terrain height
-        remoteModel.position.set(data.x, terrainHeight, data.z);
-        remoteModel.rotation.y = data.rotation;
+        remoteModel.position.set(data.x, terrainHeight, data.z)
+        remoteModel.rotation.y = data.rotation
 
         // Add to scene
-        this.scene.add(remoteModel);
+        this.scene.add(remoteModel)
 
         // Setup animations
-        const remoteMixer = new THREE.AnimationMixer(remoteModel);
-        const remoteActions = {};
-        gltf.animations.forEach((clip) => {
-          remoteActions[clip.name] = remoteMixer.clipAction(clip);
-        });
+        const remoteMixer = new THREE.AnimationMixer(remoteModel)
+        const remoteActions = {}
+        gltf.animations.forEach(clip => {
+          remoteActions[clip.name] = remoteMixer.clipAction(clip)
+        })
         if (remoteActions['idle']) {
-          remoteActions['idle'].play();
+          remoteActions['idle'].play()
         }
 
         this.players[id] = {
@@ -2005,13 +2195,14 @@ class Multiplayer {
           position: new THREE.Vector3(data.x, terrainHeight, data.z), // Updated y with terrainHeight
           rotation: data.rotation,
           currentAction: 'idle',
-          initialized: true,
-        };
-        this.loadingPlayers.delete(id);
+          initialized: true
+        }
+        this.loadingPlayers.delete(id)
       },
       undefined,
-      (err) => console.error(`Error loading model for player ${data.localId}:`, err)
-    );
+      err =>
+        console.error(`Error loading model for player ${data.localId}:`, err)
+    )
   }
 
   /**
@@ -2019,56 +2210,71 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  updateRemotePlayer(id, data) {
-    const player = this.players[id];
-    if (!player) return;
+  updateRemotePlayer (id, data) {
+    const player = this.players[id]
+    if (!player) return
 
     // Determine terrain height safely
-    let terrainHeight = 0; // Default value
-    terrainHeight = this.terrain.getTerrainHeightAt(data.x, data.z);
+    let terrainHeight = 0 // Default value
+    terrainHeight = this.terrain.getTerrainHeightAt(data.x, data.z)
     //console.warn(`Terrain height for player ${id}: ${terrainHeight}`);
     if (!player.initialized) {
-      player.model.position.set(data.x, 0, data.z);
-      player.model.rotation.y = data.rotation;
-      player.position.set(data.x, this.terrain.getTerrainHeightAt(data.x, data.z), data.z); // Ensure player's internal position is also updated
-      player.initialized = true;
-      return;
+      player.model.position.set(data.x, 0, data.z)
+      player.model.rotation.y = data.rotation
+      player.position.set(
+        data.x,
+        this.terrain.getTerrainHeightAt(data.x, data.z),
+        data.z
+      ) // Ensure player's internal position is also updated
+      player.initialized = true
+      return
     }
 
-    player.position.set(data.x, this.terrain.getTerrainHeightAt(data.x, data.z), data.z);
+    player.position.set(
+      data.x,
+      this.terrain.getTerrainHeightAt(data.x, data.z),
+      data.z
+    )
     //console.warn(`Player ${id} position: ${player.position.x}, ${player.position.y}, ${player.position.z}`);
-    player.model.position.lerp(player.position, 0.1);
+    player.model.position.lerp(player.position, 0.1)
 
-    const currentAngle = player.model.rotation.y;
-    const targetAngle = data.rotation;
-    player.model.rotation.y = Utils.lerpAngle(currentAngle, targetAngle, 0.1);
+    const currentAngle = player.model.rotation.y
+    const targetAngle = data.rotation
+    player.model.rotation.y = Utils.lerpAngle(currentAngle, targetAngle, 0.1)
 
     if (this.remoteAudioStreams[id]) {
-      this.remoteAudioStreams[id].positionalAudio.position.copy(player.model.position);
+      this.remoteAudioStreams[id].positionalAudio.position.copy(
+        player.model.position
+      )
     }
 
-    const distMoved = player.position.distanceTo(player.model.position);
-    const isMoving = distMoved > 0.01;
-    const movementDir = player.position.clone().sub(player.model.position).normalize();
-    const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(player.model.quaternion);
-    const isForward = movementDir.dot(forwardDir) > 0;
+    const distMoved = player.position.distanceTo(player.model.position)
+    const isMoving = distMoved > 0.01
+    const movementDir = player.position
+      .clone()
+      .sub(player.model.position)
+      .normalize()
+    const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(
+      player.model.quaternion
+    )
+    const isForward = movementDir.dot(forwardDir) > 0
 
-    let action = 'idle';
+    let action = 'idle'
     if (isMoving) {
-      action = distMoved > 0.5 ? 'run' : 'walk';
+      action = distMoved > 0.5 ? 'run' : 'walk'
     }
 
     if (player.currentAction !== action) {
       if (player.actions[player.currentAction]) {
-        player.actions[player.currentAction].fadeOut(0.5);
+        player.actions[player.currentAction].fadeOut(0.5)
       }
       if (player.actions[action]) {
-        player.actions[action].reset().fadeIn(0.5).play();
+        player.actions[action].reset().fadeIn(0.5).play()
         if (action === 'walk' || action === 'run') {
-          player.actions[action].timeScale = isForward ? 1 : -1;
+          player.actions[action].timeScale = isForward ? 1 : -1
         }
       }
-      player.currentAction = action;
+      player.currentAction = action
     }
   }
 
@@ -2076,95 +2282,103 @@ class Multiplayer {
    * Removes a remote player from the scene.
    * @param {string} id - The unique identifier for the player.
    */
-  removeRemotePlayer(id) {
+  removeRemotePlayer (id) {
     if (this.players[id]) {
-      this.scene.remove(this.players[id].model);
-      delete this.players[id];
+      this.scene.remove(this.players[id].model)
+      delete this.players[id]
     }
-    this.removeRemoteAudioStream(id);
+    this.removeRemoteAudioStream(id)
   }
 
   /**
    * Updates all players based on incoming data.
    * @param {Object} playersData - Data for all players.
    */
-  updatePlayers(playersData) {
-    Object.keys(playersData).forEach((id) => {
-      if (playersData[id].localId === this.myId) return;
-      this.addOrUpdatePlayer(id, playersData[id]);
-    });
-    Object.keys(this.players).forEach((id) => {
+  updatePlayers (playersData) {
+    Object.keys(playersData).forEach(id => {
+      if (playersData[id].localId === this.myId) return
+      this.addOrUpdatePlayer(id, playersData[id])
+    })
+    Object.keys(this.players).forEach(id => {
       if (!playersData[id]) {
-        this.removeRemotePlayer(id);
+        this.removeRemotePlayer(id)
       }
-    });
+    })
   }
 
   // ------------------------------
   // Audio Streaming
   // ------------------------------
-  addRemoteAudioStream(id) {
+  addRemoteAudioStream (id) {
     if (!this.socket) {
-      console.warn('Socket not initialized. Cannot add remote audio stream.');
-      return;
+      console.warn('Socket not initialized. Cannot add remote audio stream.')
+      return
     }
-    const player = this.players[id];
+    const player = this.players[id]
     if (!player) {
-      console.warn(`Player with ID ${id} not found.`);
-      return;
+      console.warn(`Player with ID ${id} not found.`)
+      return
     }
-    if (this.remoteAudioStreams && this.remoteAudioStreams[id]) return;
+    if (this.remoteAudioStreams && this.remoteAudioStreams[id]) return
 
-    const listener = new THREE.AudioListener();
-    this.scene.add(listener);
+    const listener = new THREE.AudioListener()
+    this.scene.add(listener)
 
-    const positionalAudio = new THREE.PositionalAudio(listener);
-    positionalAudio.setRefDistance(20);
-    positionalAudio.setVolume(1.0);
-    player.model.add(positionalAudio);
-    positionalAudio.play();
+    const positionalAudio = new THREE.PositionalAudio(listener)
+    positionalAudio.setRefDistance(20)
+    positionalAudio.setVolume(1.0)
+    player.model.add(positionalAudio)
+    positionalAudio.play()
 
     if (!this.remoteAudioStreams) {
-      this.remoteAudioStreams = {};
+      this.remoteAudioStreams = {}
     }
-    this.remoteAudioStreams[id] = { positionalAudio };
+    this.remoteAudioStreams[id] = { positionalAudio }
   }
 
-  removeRemoteAudioStream(id) {
-    const remoteAudio = this.remoteAudioStreams ? this.remoteAudioStreams[id] : null;
+  removeRemoteAudioStream (id) {
+    const remoteAudio = this.remoteAudioStreams
+      ? this.remoteAudioStreams[id]
+      : null
     if (remoteAudio) {
-      remoteAudio.positionalAudio.stop();
-      remoteAudio.positionalAudio.disconnect();
-      remoteAudio.positionalAudio = null;
-      delete this.remoteAudioStreams[id];
+      remoteAudio.positionalAudio.stop()
+      remoteAudio.positionalAudio.disconnect()
+      remoteAudio.positionalAudio = null
+      delete this.remoteAudioStreams[id]
     }
   }
 
-  receiveAudioStream(id, audioBuffer) {
+  receiveAudioStream (id, audioBuffer) {
     if (!this.remoteAudioStreams || !this.remoteAudioStreams[id]) {
-      console.warn(`Received audio data from ${id} before audio stream started.`);
-      return;
+      console.warn(
+        `Received audio data from ${id} before audio stream started.`
+      )
+      return
     }
 
-    const remoteAudio = this.remoteAudioStreams[id].positionalAudio;
-    const audioContext = remoteAudio.context;
+    const remoteAudio = this.remoteAudioStreams[id].positionalAudio
+    const audioContext = remoteAudio.context
 
-    const int16 = new Int16Array(audioBuffer);
-    const float32 = new Float32Array(int16.length);
+    const int16 = new Int16Array(audioBuffer)
+    const float32 = new Float32Array(int16.length)
     for (let i = 0; i < int16.length; i++) {
-      float32[i] = int16[i] / 32767;
+      float32[i] = int16[i] / 32767
     }
-    const buffer = audioContext.createBuffer(1, float32.length, audioContext.sampleRate);
-    buffer.copyToChannel(float32, 0, 0);
+    const buffer = audioContext.createBuffer(
+      1,
+      float32.length,
+      audioContext.sampleRate
+    )
+    buffer.copyToChannel(float32, 0, 0)
 
-    const bufferSource = audioContext.createBufferSource();
-    bufferSource.buffer = buffer;
-    bufferSource.connect(remoteAudio.gain);
-    bufferSource.start();
+    const bufferSource = audioContext.createBufferSource()
+    bufferSource.buffer = buffer
+    bufferSource.connect(remoteAudio.gain)
+    bufferSource.start()
 
     bufferSource.onended = () => {
-      bufferSource.disconnect();
-    };
+      bufferSource.disconnect()
+    }
   }
 }
 
@@ -2172,20 +2386,20 @@ class Multiplayer {
 // Movement Class
 // ------------------------------
 class Movement {
-  constructor(app) {
-    this.app = app;
-    this.moveForward = false;
-    this.moveBackward = false;
-    this.strafeLeft = false;
-    this.strafeRight = false;
-    this.isRunning = false;
+  constructor (app) {
+    this.app = app
+    this.moveForward = false
+    this.moveBackward = false
+    this.strafeLeft = false
+    this.strafeRight = false
+    this.isRunning = false
 
-    this.yaw = 0;
-    this.pitch = 0;
-    this.mouseSensitivity = 0.002;
+    this.yaw = 0
+    this.pitch = 0
+    this.mouseSensitivity = 0.002
 
-    this.pitchMin = -Math.PI / 2 + 0.1;
-    this.pitchMax = Math.PI / 2 - 0.1;
+    this.pitchMin = -Math.PI / 2 + 0.1
+    this.pitchMax = Math.PI / 2 - 0.1
 
     this.keyStates = {
       w: false,
@@ -2193,300 +2407,331 @@ class Movement {
       s: false,
       d: false,
       Shift: false,
-      r: false,
-    };
+      r: false
+    }
 
-    this.initKeyboardEvents();
+    this.initKeyboardEvents()
   }
 
-  initKeyboardEvents() {
-    console.log('Initializing keyboard events for movement.');
-    document.addEventListener('keydown', this.onKeyDown.bind(this));
-    document.addEventListener('keyup', this.onKeyUp.bind(this));
+  initKeyboardEvents () {
+    console.log('Initializing keyboard events for movement.')
+    document.addEventListener('keydown', this.onKeyDown.bind(this))
+    document.addEventListener('keyup', this.onKeyUp.bind(this))
   }
 
-  onKeyDown(e) {
+  onKeyDown (e) {
     switch (e.key.toLowerCase()) {
       case 'w':
-        this.keyStates.w = true;
-        break;
+        this.keyStates.w = true
+        break
       case 's':
-        this.keyStates.s = true;
-        break;
+        this.keyStates.s = true
+        break
       case 'a':
-        this.keyStates.a = true;
-        break;
+        this.keyStates.a = true
+        break
       case 'd':
-        this.keyStates.d = true;
-        break;
+        this.keyStates.d = true
+        break
       case 'shift':
-        this.keyStates.Shift = true;
-        break;
+        this.keyStates.Shift = true
+        break
       case 'r':
-        if (!this.keyStates.r) this.app.startBroadcast();
-        this.keyStates.r = true;
-        break;
+        if (!this.keyStates.r) this.app.startBroadcast()
+        this.keyStates.r = true
+        break
     }
     //console.warn(`Key Down: ${e.key}`);
-    this.handleKeyStates();
+    this.handleKeyStates()
   }
 
-  onKeyUp(e) {
+  onKeyUp (e) {
     switch (e.key.toLowerCase()) {
       case 'w':
-        this.keyStates.w = false;
-        break;
+        this.keyStates.w = false
+        break
       case 's':
-        this.keyStates.s = false;
-        break;
+        this.keyStates.s = false
+        break
       case 'a':
-        this.keyStates.a = false;
-        break;
+        this.keyStates.a = false
+        break
       case 'd':
-        this.keyStates.d = false;
-        break;
+        this.keyStates.d = false
+        break
       case 'shift':
-        this.keyStates.Shift = false;
-        break;
+        this.keyStates.Shift = false
+        break
       case 'r':
-        this.app.stopBroadcast();
-        this.keyStates.r = false;
-        break;
+        this.app.stopBroadcast()
+        this.keyStates.r = false
+        break
     }
     //console.warn(`Key Up: ${e.key}`);
-    this.handleKeyStates();
+    this.handleKeyStates()
   }
 
-  handleKeyStates() {
-    this.moveForward = this.keyStates.w;
-    this.moveBackward = this.keyStates.s;
-    this.strafeLeft = this.keyStates.a;
-    this.strafeRight = this.keyStates.d;
+  handleKeyStates () {
+    this.moveForward = this.keyStates.w
+    this.moveBackward = this.keyStates.s
+    this.strafeLeft = this.keyStates.a
+    this.strafeRight = this.keyStates.d
     this.isRunning =
       this.keyStates.Shift &&
-      (this.moveForward || this.moveBackward || this.strafeLeft || this.strafeRight);
+      (this.moveForward ||
+        this.moveBackward ||
+        this.strafeLeft ||
+        this.strafeRight)
 
-    let action = 'idle';
-    if (this.moveForward || this.moveBackward || this.strafeLeft || this.strafeRight) {
-      action = this.isRunning ? 'run' : 'walk';
+    let action = 'idle'
+    if (
+      this.moveForward ||
+      this.moveBackward ||
+      this.strafeLeft ||
+      this.strafeRight
+    ) {
+      action = this.isRunning ? 'run' : 'walk'
     }
-    this.app.setLocalAction(action);
+    this.app.setLocalAction(action)
     //console.warn(`Action: ${action}`);
-  }/**
- * Handles character movement based on keyboard inputs with acceleration over time.
- * @param {number} delta - Time delta since last frame.
- */
-  moveCharacter(delta) {
-    if (!this.app.localModel) return;
+  }
+  /**
+   * Handles character movement based on keyboard inputs with acceleration over time.
+   * @param {number} delta - Time delta since last frame.
+   */
+  moveCharacter (delta) {
+    if (!this.app.localModel) return
 
     // Initialize acceleration properties if not already present
     if (this.accelerationMultiplier === undefined) {
-      this.accelerationMultiplier = 1; // Starts at base speed
+      this.accelerationMultiplier = 1 // Starts at base speed
     }
 
     // Configuration for acceleration
-    const accelerationDuration = CONFIG.motionVars.accelerationDuration || 5; // Duration in seconds
-    const maxMultiplier = CONFIG.motionVars.maxSpeedFactor || 100; // Maximum speed multiplier
+    const accelerationDuration = CONFIG.motionVars.accelerationDuration || 5 // Duration in seconds
+    const maxMultiplier = CONFIG.motionVars.maxSpeedFactor || 100 // Maximum speed multiplier
 
     // Calculate acceleration and deceleration rates
-    const accelerationRate = (maxMultiplier - 1) / accelerationDuration; // Multiplier units per second
-    const decelerationRate = (maxMultiplier - 1) / accelerationDuration; // Assuming same rate for simplicity
+    const accelerationRate = (maxMultiplier - 1) / accelerationDuration // Multiplier units per second
+    const decelerationRate = (maxMultiplier - 1) / accelerationDuration // Assuming same rate for simplicity
 
     // Determine if the character is running or walking
-    const isRunning = this.isRunning; // Boolean indicating running state
+    const isRunning = this.isRunning // Boolean indicating running state
 
     // Base speed based on running state
-    const baseSpeed = isRunning ? CONFIG.motionVars.runSpeed : CONFIG.motionVars.walkSpeed;
+    const baseSpeed = isRunning
+      ? CONFIG.motionVars.runSpeed
+      : CONFIG.motionVars.walkSpeed
 
     // Validate baseSpeed and delta
     if (typeof baseSpeed !== 'number' || isNaN(baseSpeed)) {
-      console.error(`Invalid base speed value: ${baseSpeed}. Movement aborted.`);
-      return;
+      console.error(`Invalid base speed value: ${baseSpeed}. Movement aborted.`)
+      return
     }
 
     if (typeof delta !== 'number' || isNaN(delta)) {
-      console.error(`Invalid delta value: ${delta}. Movement aborted.`);
-      return;
+      console.error(`Invalid delta value: ${delta}. Movement aborted.`)
+      return
     }
 
-    const forwardVec = new THREE.Vector3();
-    const rightVec = new THREE.Vector3();
+    const forwardVec = new THREE.Vector3()
+    const rightVec = new THREE.Vector3()
 
     // Get camera's yaw
     const cameraYaw = new THREE.Euler().setFromQuaternion(
       this.app.camera.quaternion,
       'YXZ'
-    ).y;
+    ).y
 
-    forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0));
-    rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0));
+    forwardVec.set(0, 0, -1).applyEuler(new THREE.Euler(0, cameraYaw, 0))
+    rightVec.set(1, 0, 0).applyEuler(new THREE.Euler(0, cameraYaw, 0))
 
-    const movement = new THREE.Vector3();
+    const movement = new THREE.Vector3()
 
-    if (this.moveForward) movement.add(forwardVec);
-    if (this.moveBackward) movement.sub(forwardVec);
-    if (this.strafeLeft) movement.sub(rightVec);
-    if (this.strafeRight) movement.add(rightVec);
+    if (this.moveForward) movement.add(forwardVec)
+    if (this.moveBackward) movement.sub(forwardVec)
+    if (this.strafeLeft) movement.sub(rightVec)
+    if (this.strafeRight) movement.add(rightVec)
 
     if (movement.length() > 0) {
       // Normalize movement vector
-      movement.normalize();
+      movement.normalize()
 
       if (isRunning) {
         // Increment accelerationMultiplier based on accelerationRate and delta
-        this.accelerationMultiplier += accelerationRate * delta;
+        this.accelerationMultiplier += accelerationRate * delta
         // Clamp to maxMultiplier
-        this.accelerationMultiplier = Math.min(this.accelerationMultiplier, maxMultiplier);
+        this.accelerationMultiplier = Math.min(
+          this.accelerationMultiplier,
+          maxMultiplier
+        )
       } else {
         // Decrement accelerationMultiplier based on decelerationRate and delta
-        this.accelerationMultiplier -= decelerationRate * delta;
+        this.accelerationMultiplier -= decelerationRate * delta
         // Clamp to a minimum of 1
-        this.accelerationMultiplier = Math.max(this.accelerationMultiplier, 1);
+        this.accelerationMultiplier = Math.max(this.accelerationMultiplier, 1)
       }
 
       // Calculate current speed
-      const currentSpeed = baseSpeed * this.accelerationMultiplier;
+      const currentSpeed = baseSpeed * this.accelerationMultiplier
 
       // Calculate movement based on currentSpeed
-      const movementVector = movement.clone().multiplyScalar(currentSpeed * delta);
+      const movementVector = movement
+        .clone()
+        .multiplyScalar(currentSpeed * delta)
 
       // Add movement to the localModel's position
-      this.app.localModel.position.add(movementVector);
+      this.app.localModel.position.add(movementVector)
 
       // Get terrain height at the new localModel position
       const terrainHeight = this.app.terrain.getTerrainHeightAt(
         this.app.localModel.position.x,
         this.app.localModel.position.z
-      );// Assuming this.app.terrain.findClosestGridPoint is a method that calculates the closest point
+      ) // Assuming this.app.terrain.findClosestGridPoint is a method that calculates the closest point
       const closestPoint = this.app.terrain.findClosestGridPoint(
         this.app.localModel.position.x,
         this.app.localModel.position.z
-      );
+      )
 
       // Log the closest point to the console for debugging
-      console.warn(closestPoint);
+      console.warn(closestPoint)
 
       // Expose the closest point to the global window object
       window.terrainPointClosest = {
         latitude: closestPoint.latitude,
         longitude: closestPoint.longitude,
         elevation: closestPoint.elevation.toString() // Ensure elevation is a string as per schema
-      };
+      }
 
       // Log the global variable to confirm the assignment
       //console.log('Global terrainPointClosest set:', window.terrainPointClosest);
 
       // Validate and apply terrainHeight to localModel's y position
       if (typeof terrainHeight !== 'number' || isNaN(terrainHeight)) {
-        console.error('Terrain height is invalid. Setting localModel y position to default value (0).');
-        this.app.localModel.position.y = 0; // Assign a default value
+        console.error(
+          'Terrain height is invalid. Setting localModel y position to default value (0).'
+        )
+        this.app.localModel.position.y = 0 // Assign a default value
       } else {
-        this.app.localModel.position.y = terrainHeight;
+        this.app.localModel.position.y = terrainHeight
       }
 
       // Update camera position to follow the localModel with a fixed offset
-      const cameraOffset = new THREE.Vector3(0, 1.7, 0);
-      this.app.camera.position.copy(this.app.localModel.position.clone().add(cameraOffset));
+      const cameraOffset = new THREE.Vector3(0, 1.7, 0)
+      this.app.camera.position.copy(
+        this.app.localModel.position.clone().add(cameraOffset)
+      )
     } else {
       // No movement detected; reset accelerationMultiplier towards 1
       if (this.accelerationMultiplier > 1) {
-        this.accelerationMultiplier -= decelerationRate * delta;
-        this.accelerationMultiplier = Math.max(this.accelerationMultiplier, 1);
+        this.accelerationMultiplier -= decelerationRate * delta
+        this.accelerationMultiplier = Math.max(this.accelerationMultiplier, 1)
       }
     }
 
     // Set rotation based on camera yaw
-    this.app.localModel.rotation.y = (cameraYaw + Math.PI) % (Math.PI * 2);
+    this.app.localModel.rotation.y = (cameraYaw + Math.PI) % (Math.PI * 2)
 
     // Save the updated position to local storage
-    this.app.savePositionToLocalStorage();
+    this.app.savePositionToLocalStorage()
 
     // Determine the new action based on movement
     const newAction =
-      movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle';
+      movement.length() > 0 ? (isRunning ? 'run' : 'walk') : 'idle'
 
-    const movementX = this.app.localModel.position.x;
-    const movementZ = this.app.localModel.position.z;
+    const movementX = this.app.localModel.position.x
+    const movementZ = this.app.localModel.position.z
 
     // Validate movementX and movementZ before emitting
-    if (typeof movementX !== 'number' || typeof movementZ !== 'number' || isNaN(movementX) || isNaN(movementZ)) {
-      console.error('movementX or movementZ is invalid. Skipping emitMovementIfChanged.');
+    if (
+      typeof movementX !== 'number' ||
+      typeof movementZ !== 'number' ||
+      isNaN(movementX) ||
+      isNaN(movementZ)
+    ) {
+      console.error(
+        'movementX or movementZ is invalid. Skipping emitMovementIfChanged.'
+      )
     } else {
       this.app.emitMovementIfChanged({
         x: movementX,
         z: movementZ,
         rotation: this.app.localModel.rotation.y,
-        action: newAction,
-      });
+        action: newAction
+      })
     }
 
     // Update UI fields with current position and rotation
-    UI.updateField('localX', `X ${this.app.localModel.position.x.toFixed(5)}`);
-    UI.updateField('localY', `Y ${this.app.localModel.position.y.toFixed(5)}`);
-    UI.updateField('localZ', `Z ${this.app.localModel.position.z.toFixed(5)}`);
-    UI.updateField('localR', this.app.camera.quaternion.toArray().map(num => num.toFixed(5)).join(', '));
+    UI.updateField('localX', `X ${this.app.localModel.position.x.toFixed(5)}`)
+    UI.updateField('localY', `Y ${this.app.localModel.position.y.toFixed(5)}`)
+    UI.updateField('localZ', `Z ${this.app.localModel.position.z.toFixed(5)}`)
+    UI.updateField(
+      'localR',
+      this.app.camera.quaternion
+        .toArray()
+        .map(num => num.toFixed(5))
+        .join(', ')
+    )
 
     // Trigger animations if the action has changed
     if (this.app.currentAction !== newAction) {
-      this.app.setLocalAction(newAction);
-      this.app.currentAction = newAction;
+      this.app.setLocalAction(newAction)
+      this.app.currentAction = newAction
     }
   }
-
-
 }
 // ------------------------------
 // App Class (Main Application)
 // ------------------------------
 class App {
-  constructor() {
-    this.initPaths();
-    this.injectFont();
-    this.socket = io(CONFIG.socketURL);
-    this.simplex = new SimplexNoise();
-    this.initScene();
-    this.initSensors();
-    this.initPostProcessing();
-    this.setupVRControllers();
-    this.initDayNightCycle();
-    this.bindUIEvents();
+  constructor () {
+    this.initPaths()
+    this.injectFont()
+    this.socket = io(CONFIG.socketURL)
+    this.simplex = new SimplexNoise()
+    this.initScene()
+    this.initSensors()
+    this.initPostProcessing()
+    this.setupVRControllers()
+    this.initDayNightCycle()
+    this.bindUIEvents()
 
     // Initialize movement without Terrain (will pass Terrain later)
-    this.movement = new Movement(this);
+    this.movement = new Movement(this)
 
     // Initialize the render loop
-    this.animate();
+    this.animate()
 
     // Initialize Terrain and dependent classes
     this.initTerrain()
       .then(() => {
         // Initialize Multiplayer after Terrain is ready
-        this.initSocketEvents();
+        this.initSocketEvents()
 
         // Load the local player model after Terrain is ready
-        this.loadLocalModel();
+        this.loadLocalModel()
       })
-      .catch((err) => {
-        console.error('Error initializing Terrain:', err);
+      .catch(err => {
+        console.error('Error initializing Terrain:', err)
         // Even if Terrain fails, proceed to initialize Multiplayer with default Terrain
-        this.initSocketEvents();
-        this.loadLocalModel();
-      });
+        this.initSocketEvents()
+        this.loadLocalModel()
+      })
   }
 
   /**
    * Initializes paths for models and fonts.
    */
-  initPaths() {
-    console.log(`Model Path: ${CONFIG.modelPath}`);
-    console.log(`Font Path: ${CONFIG.fontPath}`);
+  initPaths () {
+    console.log(`Model Path: ${CONFIG.modelPath}`)
+    console.log(`Font Path: ${CONFIG.fontPath}`)
   }
 
   /**
    * Injects custom font into the document.
    */
-  injectFont() {
-    const styleSheet = new CSSStyleSheet();
+  injectFont () {
+    const styleSheet = new CSSStyleSheet()
     styleSheet.insertRule(`
       @font-face {
         font-family: 'Uno';
@@ -2494,98 +2739,101 @@ class App {
         font-weight: normal;
         font-style: normal;
       }
-    `);
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, styleSheet];
+    `)
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, styleSheet]
   }
 
   /**
    * Initializes the Three.js scene, camera, and renderer.
    */
-  initScene() {
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x333333);
+  initScene () {
+    this.scene = new THREE.Scene()
+    this.scene.background = new THREE.Color(0x333333)
 
     this.camera = new THREE.PerspectiveCamera(
       45,
       window.innerWidth / window.innerHeight,
       1,
       1000000
-    );
-    this.camera.position.set(0, 1.7, 0);
+    )
+    this.camera.position.set(0, 1.7, 0)
 
-    this.listener = new THREE.AudioListener();
-    this.camera.add(this.listener);
+    this.listener = new THREE.AudioListener()
+    this.camera.add(this.listener)
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.xr.enabled = true;
-    document.body.appendChild(this.renderer.domElement);
+    this.renderer = new THREE.WebGLRenderer({ antialias: true })
+    this.renderer.setSize(window.innerWidth, window.innerHeight)
+    this.renderer.shadowMap.enabled = true
+    this.renderer.xr.enabled = true
+    document.body.appendChild(this.renderer.domElement)
 
-    const sessionInit = { requiredFeatures: ['hand-tracking'] };
-    document.body.appendChild(VRButton.createButton(this.renderer, sessionInit));
+    const sessionInit = { requiredFeatures: ['hand-tracking'] }
+    document.body.appendChild(VRButton.createButton(this.renderer, sessionInit))
     this.renderer.xr.addEventListener('sessionstart', () => {
-      this.baseReferenceSpace = this.renderer.xr.getReferenceSpace();
-    });
+      this.baseReferenceSpace = this.renderer.xr.getReferenceSpace()
+    })
 
     // Teleport marker
     this.markerMesh = new THREE.Mesh(
       new THREE.CircleGeometry(0.25, 32).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0xbcbcbc })
-    );
-    this.markerMesh.visible = false;
-    this.scene.add(this.markerMesh);
+    )
+    this.markerMesh.visible = false
+    this.scene.add(this.markerMesh)
 
     // Pointer Lock Controls (Desktop)
-    this.controls = new PointerLockControls(this.camera, document.getElementById('app'));
+    this.controls = new PointerLockControls(
+      this.camera,
+      document.getElementById('app')
+    )
 
-    const instructions = document.getElementById('app');
+    const instructions = document.getElementById('app')
     instructions.addEventListener('click', () => {
-      this.controls.lock();
-    });
-    this.scene.add(this.controls.object);
+      this.controls.lock()
+    })
+    this.scene.add(this.controls.object)
 
     // Load saved camera position if available
-    const savedCam = this.loadPositionFromLocalStorage();
+    const savedCam = this.loadPositionFromLocalStorage()
     if (savedCam) {
-      console.log('Loaded camera from localStorage:', savedCam);
-      this.camera.position.set(savedCam.x, savedCam.y, savedCam.z);
-      this.camera.rotation.set(0, savedCam.rotation, 0); // Set only yaw; pitch remains as updated via device orientation
+      console.log('Loaded camera from localStorage:', savedCam)
+      this.camera.position.set(savedCam.x, savedCam.y, savedCam.z)
+      this.camera.rotation.set(0, savedCam.rotation, 0) // Set only yaw; pitch remains as updated via device orientation
     } else {
-      console.log('No saved camera location, using defaults...');
+      console.log('No saved camera location, using defaults...')
     }
 
-    window.addEventListener('resize', this.onWindowResize.bind(this), false);
+    window.addEventListener('resize', this.onWindowResize.bind(this), false)
   }
 
   /**
    * Initializes post-processing effects.
    */
-  initPostProcessing() {
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
+  initPostProcessing () {
+    this.composer = new EffectComposer(this.renderer)
+    this.composer.addPass(new RenderPass(this.scene, this.camera))
 
     if (CONFIG.postProcessing.enableFilmPass) {
-      const effectFilm = new FilmPass(0.25);
-      this.composer.addPass(effectFilm);
+      const effectFilm = new FilmPass(0.25)
+      this.composer.addPass(effectFilm)
     }
 
     if (CONFIG.postProcessing.enableRGBShift) {
-      const rgbShift = new ShaderPass(RGBShiftShader);
-      rgbShift.uniforms['amount'].value = 0.0025;
-      this.composer.addPass(rgbShift);
+      const rgbShift = new ShaderPass(RGBShiftShader)
+      rgbShift.uniforms['amount'].value = 0.0025
+      this.composer.addPass(rgbShift)
     }
 
     if (CONFIG.postProcessing.enableFXAAPass) {
-      const fxaaPass = new ShaderPass(FXAAShader);
-      this.composer.addPass(fxaaPass);
+      const fxaaPass = new ShaderPass(FXAAShader)
+      this.composer.addPass(fxaaPass)
     }
 
     if (CONFIG.postProcessing.enableSSAARenderPass) {
-      const ssaaPass = new SSAARenderPass(this.scene, this.camera);
-      ssaaPass.sampleLevel = 1;
-      ssaaPass.unbiased = false;
-      this.composer.addPass(ssaaPass);
+      const ssaaPass = new SSAARenderPass(this.scene, this.camera)
+      ssaaPass.sampleLevel = 1
+      ssaaPass.unbiased = false
+      this.composer.addPass(ssaaPass)
     }
 
     //this.composer.addPass(new OutputPass());
@@ -2594,59 +2842,60 @@ class App {
   /**
    * Sets up VR controllers.
    */
-  setupVRControllers() {
-    this.vrControllers = new VRControllers(this.renderer, this.scene, this.handleTeleport.bind(this));
+  setupVRControllers () {
+    this.vrControllers = new VRControllers(
+      this.renderer,
+      this.scene,
+      this.handleTeleport.bind(this)
+    )
   }
 
   /**
    * Handles teleportation logic.
    * @param {Object} point - The destination point for teleportation.
    */
-  handleTeleport(point) {
-    if (!this.baseReferenceSpace) return;
+  handleTeleport (point) {
+    if (!this.baseReferenceSpace) return
 
     const offsetPosition = {
       x: -point.x,
       y: -point.y,
       z: -point.z,
-      w: 1,
-    };
-    const offsetRotation = new THREE.Quaternion();
-    const transform = new XRRigidTransform(offsetPosition, offsetRotation);
-    const teleportSpaceOffset = this.baseReferenceSpace.getOffsetReferenceSpace(transform);
-    this.renderer.xr.setReferenceSpace(teleportSpaceOffset);
+      w: 1
+    }
+    const offsetRotation = new THREE.Quaternion()
+    const transform = new XRRigidTransform(offsetPosition, offsetRotation)
+    const teleportSpaceOffset =
+      this.baseReferenceSpace.getOffsetReferenceSpace(transform)
+    this.renderer.xr.setReferenceSpace(teleportSpaceOffset)
 
     if (this.localModel) {
-      const terrainHeight = this.terrain.getTerrainHeightAt(point.x, point.z);
-      this.localModel.position.set(point.x, terrainHeight, point.z);
+      const terrainHeight = this.terrain.getTerrainHeightAt(point.x, point.z)
+      this.localModel.position.set(point.x, terrainHeight, point.z)
       this.emitMovementIfChanged({
         x: this.localModel.position.x,
         z: this.localModel.position.z,
-        rotation: this.myId, // Assuming rotation is handled differently
-      });
+        rotation: this.myId // Assuming rotation is handled differently
+      })
     }
   }
 
-
-    
   /**
    * Initializes sensor event listeners.
    */
-  initSensors() {
-    
+  initSensors () {
     window.addEventListener('appPermissionsChanged', () => {
       // Possibly reload CONFIG from localStorage if you like:
       // const newConfig = loadConfig();
       // Then pass updated permissions to Sensors:
-      Sensors.initialize(CONFIG.permissions);
-
-    });
+      Sensors.initialize(CONFIG.permissions)
+    })
   }
 
   /**
    * Initializes the day-night cycle.
    */
-  initDayNightCycle() {
+  initDayNightCycle () {
     this.dayNightCycle = new DayNightCycle(this.scene, {
       skyScale: 450000,
       directionalLightColor: 0xffffff,
@@ -2663,181 +2912,204 @@ class App {
       ambientLightIntensityDay: 0.8,
       ambientLightIntensityNight: 0.5,
       transitionSpeed: 0.01, // Speed of transitions
-      updateInterval: 60 * 1000, // Update every minute
-    });
+      updateInterval: 60 * 1000 // Update every minute
+    })
   }
 
   /**
    * Initializes Terrain and ensures it's ready before initializing dependent classes.
    * @returns {Promise} - Resolves when Terrain is initialized.
    */
-  initTerrain() {
+  initTerrain () {
     return new Promise((resolve, reject) => {
       // Attempt to get user's geolocation
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          (position) => {
-            window.latitude = position.coords.latitude;
-            window.longitude = position.coords.longitude;
+          position => {
+            window.latitude = position.coords.latitude
+            window.longitude = position.coords.longitude
 
             // Initialize Terrain instance
-            this.terrain = new Terrain(this.scene, {}, {
-              originLatitude: window.latitude,
-              originLongitude: window.longitude,
-              size: CONFIG.terrain.size,
-              segments: CONFIG.terrain.segments,
-              scaleMultiplier: CONFIG.terrain.scaleMultiplier,
-              gridSizeMeters: CONFIG.terrain.gridSizeMeters,
-              gridResolution: CONFIG.terrain.gridResolution,
-              elevationAPI: CONFIG.terrain.elevationAPI,
-            });
+            this.terrain = new Terrain(
+              this.scene,
+              {},
+              {
+                originLatitude: window.latitude,
+                originLongitude: window.longitude,
+                size: CONFIG.terrain.size,
+                segments: CONFIG.terrain.segments,
+                scaleMultiplier: CONFIG.terrain.scaleMultiplier,
+                gridSizeMeters: CONFIG.terrain.gridSizeMeters,
+                gridResolution: CONFIG.terrain.gridResolution,
+                elevationAPI: CONFIG.terrain.elevationAPI
+              }
+            )
 
-            console.log('Terrain initialized successfully.');
-            resolve();
+            console.log('Terrain initialized successfully.')
+            resolve()
           },
-          (error) => {
-            console.error('Geolocation error:', error);
+          error => {
+            console.error('Geolocation error:', error)
 
             // Fallback to default origin if geolocation fails
-            this.terrain = new Terrain(this.scene, {}, {
-              originLatitude: 0,
-              originLongitude: 0,
-              size: CONFIG.terrain.size,
-              segments: CONFIG.terrain.segments,
-              scaleMultiplier: CONFIG.terrain.scaleMultiplier,
-              gridSizeMeters: CONFIG.terrain.gridSizeMeters,
-              gridResolution: CONFIG.terrain.gridResolution,
-              elevationAPI: CONFIG.terrain.elevationAPI,
-            });
+            this.terrain = new Terrain(
+              this.scene,
+              {},
+              {
+                originLatitude: 0,
+                originLongitude: 0,
+                size: CONFIG.terrain.size,
+                segments: CONFIG.terrain.segments,
+                scaleMultiplier: CONFIG.terrain.scaleMultiplier,
+                gridSizeMeters: CONFIG.terrain.gridSizeMeters,
+                gridResolution: CONFIG.terrain.gridResolution,
+                elevationAPI: CONFIG.terrain.elevationAPI
+              }
+            )
 
-            console.log('Terrain initialized with default origin.');
-            resolve(); // Proceed even if geolocation fails
+            console.log('Terrain initialized with default origin.')
+            resolve() // Proceed even if geolocation fails
           }
-        );
+        )
       } else {
-        console.error('Geolocation not supported.');
+        console.error('Geolocation not supported.')
 
         // Fallback to default origin if geolocation is not supported
-        this.terrain = new Terrain(this.scene, {}, {
-          originLatitude: 0,
-          originLongitude: 0,
-          size: CONFIG.terrain.size,
-          segments: CONFIG.terrain.segments,
-          scaleMultiplier: CONFIG.terrain.scaleMultiplier,
-          gridSizeMeters: CONFIG.terrain.gridSizeMeters,
-          gridResolution: CONFIG.terrain.gridResolution,
-          elevationAPI: CONFIG.terrain.elevationAPI,
-        });
+        this.terrain = new Terrain(
+          this.scene,
+          {},
+          {
+            originLatitude: 0,
+            originLongitude: 0,
+            size: CONFIG.terrain.size,
+            segments: CONFIG.terrain.segments,
+            scaleMultiplier: CONFIG.terrain.scaleMultiplier,
+            gridSizeMeters: CONFIG.terrain.gridSizeMeters,
+            gridResolution: CONFIG.terrain.gridResolution,
+            elevationAPI: CONFIG.terrain.elevationAPI
+          }
+        )
 
-        console.log('Terrain initialized with default origin.');
-        resolve(); // Proceed even if geolocation is not supported
+        console.log('Terrain initialized with default origin.')
+        resolve() // Proceed even if geolocation is not supported
       }
-    });
+    })
   }
 
   /**
    * Initializes socket event listeners, now dependent on Terrain being ready.
    */
-  initSocketEvents() {
-    console.warn('[Socket] Connected to server.');
-    this.multiplayer = new Multiplayer(this.socket, this.scene, this.terrain);
+  initSocketEvents () {
+    console.warn('[Socket] Connected to server.')
+    this.multiplayer = new Multiplayer(this.socket, this.scene, this.terrain)
   }
 
   /**
    * Binds UI-related events.
    */
-  bindUIEvents() {
-    document.addEventListener('click', this.handleUserInteraction.bind(this), { once: true });
-    document.addEventListener('keydown', this.handleUserInteraction.bind(this), { once: true });
-    window.addEventListener('beforeunload', this.savePositionToLocalStorage.bind(this));
+  bindUIEvents () {
+    document.addEventListener('click', this.handleUserInteraction.bind(this), {
+      once: true
+    })
+    document.addEventListener(
+      'keydown',
+      this.handleUserInteraction.bind(this),
+      { once: true }
+    )
+    window.addEventListener(
+      'beforeunload',
+      this.savePositionToLocalStorage.bind(this)
+    )
 
     // Encrypt/Decrypt Button
-    const encryptDecryptBtn = document.getElementById('encryptDecryptBtn');
+    const encryptDecryptBtn = document.getElementById('encryptDecryptBtn')
     if (encryptDecryptBtn) {
       encryptDecryptBtn.addEventListener('click', async () => {
-        const passwordInput = document.getElementById('password');
-        const password = passwordInput.value.trim();
+        const passwordInput = document.getElementById('password')
+        const password = passwordInput.value.trim()
 
         if (!password) {
-          console.error('Password cannot be empty.');
-          UI.updateField('encryptDecryptBtn', "Password cannot be empty.");
-          return;
+          console.error('Password cannot be empty.')
+          UI.updateField('encryptDecryptBtn', 'Password cannot be empty.')
+          return
         }
 
-        Storage.save(CONFIG.localStorageKeys.encryptedPassword, password);
-        await this.encryptAndEmitLatLon();
-      });
-      console.log('Encrypt/Decrypt button event listener added.');
+        Storage.save(CONFIG.localStorageKeys.encryptedPassword, password)
+        await this.encryptAndEmitLatLon()
+      })
+      console.log('Encrypt/Decrypt button event listener added.')
     } else {
-      console.warn('Encrypt/Decrypt button not found in the DOM.');
+      console.warn('Encrypt/Decrypt button not found in the DOM.')
     }
 
     // Password Input Change
-    const passwordField = document.getElementById('password');
+    const passwordField = document.getElementById('password')
     if (passwordField) {
       passwordField.addEventListener('change', async () => {
-        const newPassword = passwordField.value.trim();
+        const newPassword = passwordField.value.trim()
 
         if (!newPassword) {
-          console.error('Password cannot be empty.');
-          return;
+          console.error('Password cannot be empty.')
+          return
         }
 
-        Storage.save(CONFIG.localStorageKeys.encryptedPassword, newPassword);
-        await this.encryptAndEmitLatLon();
-      });
-      console.log('Password input change event listener added.');
+        Storage.save(CONFIG.localStorageKeys.encryptedPassword, newPassword)
+        await this.encryptAndEmitLatLon()
+      })
+      console.log('Password input change event listener added.')
     } else {
-      console.warn('Password input field not found in the DOM.');
+      console.warn('Password input field not found in the DOM.')
     }
 
     // Load Saved Password on DOM Content Loaded
     window.addEventListener('DOMContentLoaded', () => {
       if (passwordField) {
-        const savedPassword = Storage.load(CONFIG.localStorageKeys.encryptedPassword);
+        const savedPassword = Storage.load(
+          CONFIG.localStorageKeys.encryptedPassword
+        )
         if (savedPassword) {
-          passwordField.value = savedPassword;
-          console.log('Loaded saved password into the input field.');
+          passwordField.value = savedPassword
+          console.log('Loaded saved password into the input field.')
         } else {
-          console.log('No saved password found.');
+          console.log('No saved password found.')
         }
       }
-    });
+    })
   }
 
   /**
    * Handles user interactions to resume AudioContext.
    */
-  handleUserInteraction() {
+  handleUserInteraction () {
     if (this.listener && this.listener.context.state === 'suspended') {
       this.listener.context
         .resume()
         .then(() => {
-          console.log('AudioContext resumed on user interaction.');
+          console.log('AudioContext resumed on user interaction.')
         })
-        .catch((err) => {
-          console.error('Error resuming AudioContext:', err);
-        });
+        .catch(err => {
+          console.error('Error resuming AudioContext:', err)
+        })
     }
   }
 
   /**
    * Encrypts and emits latitude and longitude data.
    */
-  async encryptAndEmitLatLon() {
-    const latitude = window.latitude;
-    const longitude = window.longitude;
+  async encryptAndEmitLatLon () {
+    const latitude = window.latitude
+    const longitude = window.longitude
     if (typeof latitude !== 'number' || typeof longitude !== 'number') {
       console.error(
         'window.latitude and window.longitude must be set to numerical values.'
-      );
-      return;
+      )
+      return
     }
 
-    const password = Storage.load(CONFIG.localStorageKeys.encryptedPassword);
+    const password = Storage.load(CONFIG.localStorageKeys.encryptedPassword)
     if (!password) {
-      console.error('Password not found. Cannot encrypt position data.');
-      return;
+      console.error('Password not found. Cannot encrypt position data.')
+      return
     }
 
     try {
@@ -2845,28 +3117,28 @@ class App {
         latitude,
         longitude,
         password
-      );
-      console.log('Encrypted Package:', encryptedPackageStr);
-      this.socket.emit('position', encryptedPackageStr);
+      )
+      console.log('Encrypted Package:', encryptedPackageStr)
+      this.socket.emit('position', encryptedPackageStr)
     } catch (error) {
-      console.error('Encryption failed:', error);
+      console.error('Encryption failed:', error)
     }
   }
 
   /**
    * Saves the camera's position to localStorage.
    */
-  savePositionToLocalStorage() {
-    if (!this.camera) return;
+  savePositionToLocalStorage () {
+    if (!this.camera) return
 
     const pos = {
       x: this.camera.position.x,
       y: this.camera.position.y, // optional if you also care about vertical
       z: this.camera.position.z,
-      rotation: this.getCameraYaw(), // yaw in radians
-    };
+      rotation: this.getCameraYaw() // yaw in radians
+    }
 
-    Storage.save(CONFIG.localStorageKeys.lastPosition, pos);
+    Storage.save(CONFIG.localStorageKeys.lastPosition, pos)
     //console.log('Saved camera position to LS:', pos);
   }
 
@@ -2874,8 +3146,8 @@ class App {
    * Loads the camera's position from localStorage.
    * @returns {Object|null} - The saved position or null if not found.
    */
-  loadPositionFromLocalStorage() {
-    return Storage.load(CONFIG.localStorageKeys.lastPosition);
+  loadPositionFromLocalStorage () {
+    return Storage.load(CONFIG.localStorageKeys.lastPosition)
   }
 
   /**
@@ -2883,119 +3155,135 @@ class App {
    * @param {number} angle - The angle in radians.
    * @returns {number} - The normalized angle.
    */
-  normalizeAngle(angle) {
-    return Utils.normalizeAngle(angle);
+  normalizeAngle (angle) {
+    return Utils.normalizeAngle(angle)
   }
 
   /**
    * Retrieves the camera's yaw rotation.
    * @returns {number} - The yaw angle in radians.
    */
-  getCameraYaw() {
-    const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
-    const yaw = euler.y;
-    return Utils.normalizeAngle(yaw);
+  getCameraYaw () {
+    const euler = new THREE.Euler().setFromQuaternion(
+      this.camera.quaternion,
+      'YXZ'
+    )
+    const yaw = euler.y
+    return Utils.normalizeAngle(yaw)
   }
 
   /**
    * Emits movement data if there are changes.
    * @param {Object} newState - The new state data.
    */
-  emitMovementIfChanged(newState) {
-    const loadedId = this.multiplayer.myId;
-    newState.id = loadedId;
-    const newString = JSON.stringify(newState);
-    const oldString = this.lastEmittedState ? JSON.stringify(this.lastEmittedState) : null;
+  emitMovementIfChanged (newState) {
+    const loadedId = this.multiplayer.myId
+    newState.id = loadedId
+    const newString = JSON.stringify(newState)
+    const oldString = this.lastEmittedState
+      ? JSON.stringify(this.lastEmittedState)
+      : null
     //console.warn(`New State: ${newString}`);
     if (newString !== oldString) {
       //console.warn('[Socket] Emitting movement:', newState);
-      this.socket.emit('move', newState);
-      this.lastEmittedState = newState;
+      this.socket.emit('move', newState)
+      this.lastEmittedState = newState
     }
   }
 
   /**
    * Reports the player's current geographic position.
    */
-  reportPosition() {
-    if (!this.multiplayer.terrain || !this.localModel) return;
+  reportPosition () {
+    if (!this.multiplayer.terrain || !this.localModel) return
 
     // Extract the local model's current x and z positions
-    const userX = this.localModel.position.x;
-    const userZ = this.localModel.position.z;
+    const userX = this.localModel.position.x
+    const userZ = this.localModel.position.z
 
     // Find the closest grid point
-    const closestPoint = this.multiplayer.terrain.findClosestGridPoint(userX, userZ);
+    const closestPoint = this.multiplayer.terrain.findClosestGridPoint(
+      userX,
+      userZ
+    )
 
     if (closestPoint) {
-      const formattedLat = parseFloat(closestPoint.latitude.toFixed(5));
-      const formattedLon = parseFloat(closestPoint.longitude.toFixed(5));
+      const formattedLat = parseFloat(closestPoint.latitude.toFixed(5))
+      const formattedLon = parseFloat(closestPoint.longitude.toFixed(5))
 
       // Update window.latitudeDelta and window.longitudeDelta
-      window.latitudeDelta = formattedLat;
-      window.longitudeDelta = formattedLon;
+      window.latitudeDelta = formattedLat
+      window.longitudeDelta = formattedLon
 
       // Update the HTML element with the formatted latitude and longitude
-      UI.updateField('position', `Lat: ${formattedLat}, Lon: ${formattedLon}`);
+      UI.updateField('position', `Lat: ${formattedLat}, Lon: ${formattedLon}`)
     } else {
       // Handle cases where no closest point is found
-      UI.updateField('position', 'Position: Unknown');
+      UI.updateField('position', 'Position: Unknown')
     }
   }
 
   /**
    * Updates the camera's orientation based on device sensors.
    */
-  updateCameraOrientation() {
-    alert('updateCameraOrientation running');
+  // app.js
 
-    const alphaDeg = Sensors.orientationData.alpha || window.orientationData.alpha || 0; // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || window.orientationData.beta || 0; // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || window.orientationData.gamma || 0; // -90..90 degrees
-    alert(`${alphaDeg} ${betaDeg} ${gammaDeg}`);
+updateCameraOrientation () {
+  // Remove or comment out the alert statements once confirmed working
+  // alert('updateCameraOrientation running')
 
-    // Check if compass data is available and accurate
-    const hasCompass =
-      Sensors.orientationData.webkitCompassHeading !== undefined &&
-      Sensors.orientationData.webkitCompassAccuracy !== undefined &&
-      Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10; // Adjust threshold as needed
+  // Access orientation data directly from Sensors.orientationData
+  const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
+  const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
+  const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
 
-    let yawDeg;
+  // Optional: Remove alerts or replace with console logs
+  // alert(`${alphaDeg} ${betaDeg} ${gammaDeg}`)
+  console.log(`Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`)
 
-    if (hasCompass) {
-      // Use compass heading as yaw
-      yawDeg = Sensors.orientationData.webkitCompassHeading;
-    } else {
-      // Fallback: Calculate yaw using gamma
-      yawDeg = gammaDeg;
-    }
+  // Check if compass data is available and accurate
+  const hasCompass =
+    Sensors.orientationData.webkitCompassHeading !== undefined &&
+    Sensors.orientationData.webkitCompassAccuracy !== undefined &&
+    Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
 
-    // Convert degrees to radians
-    const yawRad = THREE.MathUtils.degToRad(yawDeg);
-    const betaRad = THREE.MathUtils.degToRad(betaDeg);
-    const alphaRad = THREE.MathUtils.degToRad(alphaDeg);
+  let yawDeg
 
-    // Calculate pitch based on beta
-    const pitchAngle = THREE.MathUtils.clamp(
-      betaRad - Math.PI / 2,
-      this.movement.pitchMin,
-      this.movement.pitchMax
-    );
-
-    // Update camera rotation using quaternions for smoothness
-    const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ');
-    const quaternion = new THREE.Quaternion().setFromEuler(euler);
-    this.camera.quaternion.copy(quaternion);
+  if (hasCompass) {
+    // Use compass heading as yaw
+    yawDeg = Sensors.orientationData.webkitCompassHeading
+  } else {
+    // Fallback: Calculate yaw using alpha
+    yawDeg = alphaDeg
   }
+
+  // Convert degrees to radians
+  const yawRad = THREE.MathUtils.degToRad(yawDeg)
+  const betaRad = THREE.MathUtils.degToRad(betaDeg)
+  const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
+
+  // Calculate pitch based on beta
+  const pitchAngle = THREE.MathUtils.clamp(
+    betaRad - Math.PI / 2,
+    this.movement.pitchMin,
+    this.movement.pitchMax
+  )
+
+  // Update camera rotation using quaternions for smoothness
+  const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
+  const quaternion = new THREE.Quaternion().setFromEuler(euler)
+  this.camera.quaternion.copy(quaternion)
+}
+
 
   /**
    * Handles window resize events.
    */
-  onWindowResize() {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+  onWindowResize () {
+    this.camera.aspect = window.innerWidth / window.innerHeight
+    this.camera.updateProjectionMatrix()
+    this.renderer.setSize(window.innerWidth, window.innerHeight)
+    this.renderer.setPixelRatio(window.devicePixelRatio)
   }
 
   /**
@@ -3006,19 +3294,19 @@ class App {
    * Sets the local player's action and manages animations.
    * @param {string} action - The action to set ('idle', 'walk', 'run').
    */
-  setLocalAction(action) {
+  setLocalAction (action) {
     //console.warn(`Setting local action: ${action}`);
     if (this.currentAction !== action) {
       if (this.localActions && this.localActions[this.currentAction]) {
-        this.localActions[this.currentAction].fadeOut(0.5);
+        this.localActions[this.currentAction].fadeOut(0.5)
       }
       if (this.localActions && this.localActions[action]) {
-        this.localActions[action].reset().fadeIn(0.5).play();
+        this.localActions[action].reset().fadeIn(0.5).play()
         if (action === 'walk' || action === 'run') {
-          this.localActions[action].timeScale = 1;
+          this.localActions[action].timeScale = 1
         }
       }
-      this.currentAction = action;
+      this.currentAction = action
       //console.warn(`Local Action: ${action}`);
     }
   }
@@ -3026,127 +3314,126 @@ class App {
   /**
    * Loads the local player model.
    */
-  loadLocalModel() {
-    console.warn('Loading local model...');
+  loadLocalModel () {
+    console.warn('Loading local model...')
     // Check if a VR session is active; if so, do not load the local model
     if (this.renderer.xr.isPresenting) {
       console.log(
         'VR session active. Skipping loading of local model to prevent camera obstruction.'
-      );
-      return;
+      )
+      return
     }
-    const spawnRecall = this.loadPositionFromLocalStorage();
-    const spawnX = spawnRecall.x;
-    const spawnZ = spawnRecall.z;
-    const spawnRotation = spawnRecall.rotation;
-    const finalSpawn = { x: spawnX, z: spawnZ, rotation: spawnRotation }; // Replace with actual spawn logic
-    console.warn('Set Spawn Location: ', finalSpawn);
+    const spawnRecall = this.loadPositionFromLocalStorage()
+    const spawnX = spawnRecall.x
+    const spawnZ = spawnRecall.z
+    const spawnRotation = spawnRecall.rotation
+    const finalSpawn = { x: spawnX, z: spawnZ, rotation: spawnRotation } // Replace with actual spawn logic
+    console.warn('Set Spawn Location: ', finalSpawn)
 
-    const loader = new GLTFLoader();
-    console.warn('Loader Debug: ', loader);
+    const loader = new GLTFLoader()
+    console.warn('Loader Debug: ', loader)
 
     loader.load(
       CONFIG.modelPath,
       gltf => {
-        this.localModel = gltf.scene;
+        this.localModel = gltf.scene
 
-        console.warn('Local Model: ', CONFIG.modelPath);
+        console.warn('Local Model: ', CONFIG.modelPath)
         // Set the model's position based on finalSpawn
-        this.localModel.position.set(finalSpawn.x, 0, finalSpawn.z);
-        console.warn('Local Model Position: ', this.localModel.position);
+        this.localModel.position.set(finalSpawn.x, 0, finalSpawn.z)
+        console.warn('Local Model Position: ', this.localModel.position)
         // Set the model's rotation around the Y-axis
-        this.localModel.rotation.y = finalSpawn.rotation || 0;
-        console.warn('Local Model Rotation: ', this.localModel.rotation.y);
+        this.localModel.rotation.y = finalSpawn.rotation || 0
+        console.warn('Local Model Rotation: ', this.localModel.rotation.y)
         // Add the model to the scene
-        this.scene.add(this.localModel);
-        console.warn('Scene: ', this.scene);
+        this.scene.add(this.localModel)
+        console.warn('Scene: ', this.scene)
         // Enable shadow casting for all meshes within the model
-        this.localModel.traverse((obj) => {
-          if (obj.isMesh) obj.castShadow = true;
-        });
+        this.localModel.traverse(obj => {
+          if (obj.isMesh) obj.castShadow = true
+        })
 
         // Setup localMixer for animations
-        this.localMixer = new THREE.AnimationMixer(this.localModel);
-        this.localActions = {}; // Initialize localActions
-        gltf.animations.forEach((clip) => {
-          this.localActions[clip.name] = this.localMixer.clipAction(clip);
-          this.localActions[clip.name].loop = THREE.LoopRepeat;
-          if (clip.name === 'idle') this.localActions[clip.name].play();
-        });
-        console.warn(this.multiplayer.myId);
-        const loadedId = this.multiplayer.myId;
+        this.localMixer = new THREE.AnimationMixer(this.localModel)
+        this.localActions = {} // Initialize localActions
+        gltf.animations.forEach(clip => {
+          this.localActions[clip.name] = this.localMixer.clipAction(clip)
+          this.localActions[clip.name].loop = THREE.LoopRepeat
+          if (clip.name === 'idle') this.localActions[clip.name].play()
+        })
+        console.warn(this.multiplayer.myId)
+        const loadedId = this.multiplayer.myId
         // Inform the server about the player joining
         this.socket.emit('player_joined', {
           x: finalSpawn.x,
           z: finalSpawn.z,
           rotation: finalSpawn.rotation,
           action: 'idle',
-          id: loadedId, // include localStorage ID
-        });
+          id: loadedId // include localStorage ID
+        })
       },
       undefined,
-      (err) => console.error('Error loading local model:', err)
-    );
+      err => console.error('Error loading local model:', err)
+    )
   }
 
   /**
    * Initializes the render loop.
    */
-  animate() {
-    this.clock = new THREE.Clock();
+  animate () {
+    this.clock = new THREE.Clock()
     this.renderer.setAnimationLoop(() => {
-      const delta = this.clock.getDelta();
+      const delta = this.clock.getDelta()
 
       // Update local animations
       if (this.localMixer) {
-        this.localMixer.update(delta);
+        this.localMixer.update(delta)
       }
 
       // Update camera orientation based on device orientation data, if enabled
       if (Sensors.isOrientationEnabled) {
-        alert('isOrientationEnabled running');
+        alert('isOrientationEnabled running')
 
-        this.updateCameraOrientation();
+        this.updateCameraOrientation()
       }
 
       // Update day-night cycle
-      this.dayNightCycle.update();
+      this.dayNightCycle.update()
 
       // Handle movements
       if (this.localModel) {
         // Desktop Mode
-        this.movement.moveCharacter(delta);
+        this.movement.moveCharacter(delta)
       }
 
       // Render
       if (this.renderer.xr.isPresenting) {
         // VR Mode
-        this.renderer.render(this.scene, this.camera);
+        this.renderer.render(this.scene, this.camera)
       } else {
         // Desktop/Mobile Mode
-        this.composer.render();
+        this.composer.render()
       }
 
       // Update remote players' animations
       if (this.multiplayer && this.multiplayer.players) {
-        Object.values(this.multiplayer.players).forEach((p) => {
-          if (p.mixer) p.mixer.update(delta);
-        });
+        Object.values(this.multiplayer.players).forEach(p => {
+          if (p.mixer) p.mixer.update(delta)
+        })
       }
 
       // Render dynamic terrain points
       //this.terrain.renderTerrainPoints();
-    });
+    })
 
-    console.log('Render loop started.');
+    console.log('Render loop started.')
   }
-  
 }
 
 // ------------------------------
 // Initialization
 // ------------------------------
 window.addEventListener('DOMContentLoaded', () => {
-  const app = new App();
-  console.log('App initialized.');
-});
+  const app = new App()
+  console.log('App initialized.')
+})
