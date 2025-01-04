@@ -2639,7 +2639,6 @@ class App {
       // const newConfig = loadConfig();
       // Then pass updated permissions to Sensors:
       const sensordebug = document.getElementById("sensordata");
-      sensordebug.textContent = CONFIG.permissions.toArray();
 
       Sensors.initialize(CONFIG.permissions);
 
