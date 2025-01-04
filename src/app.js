@@ -372,6 +372,7 @@ class Sensors {
       window.orientationGlobal &&
       typeof window.orientationGlobal === 'object'
     ) {
+      alert('orientationGlobal Exists and is Read by app.js')
       // Use the window.orientation values
       const alpha = parseFloat(window.orientationGlobal.alpha) || 0
       const beta = parseFloat(window.orientationGlobal.beta) || 0
@@ -1849,73 +1850,133 @@ class Terrain {
 // VRControllers Class
 // ------------------------------
 class VRControllers {
-  constructor (renderer, scene, handleTeleportCallback) {
-    this.renderer = renderer
-    this.scene = scene
-    this.handleTeleportCallback = handleTeleportCallback
-    this.controllers = []
-    this.controllerGrips = []
-    this.initControllers()
+  constructor(
+    renderer,
+    scene,
+    handleTeleportCallback,
+    teleportableObjects = []
+  ) {
+    this.renderer = renderer;
+    this.scene = scene;
+    this.handleTeleportCallback = handleTeleportCallback;
+
+    // The objects (meshes) we raycast against for teleporting:
+    this.teleportableObjects = teleportableObjects;
+
+    this.controllers = [];
+    this.controllerGrips = [];
+    this.raycaster = new THREE.Raycaster();
+    this.tempMatrix = new THREE.Matrix4();
+    this.INTERSECTION = null;
+
+    // Optional "marker" to show where you'd teleport:
+    this.marker = new THREE.Mesh(
+      new THREE.CircleGeometry(0.25, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xbcbcbc })
+    );
+    this.marker.visible = false;
+    this.scene.add(this.marker);
+
+    this.baseReferenceSpace = null;
+    this.renderer.xr.addEventListener('sessionstart', () => {
+      this.baseReferenceSpace = this.renderer.xr.getReferenceSpace();
+    });
+
+    this.controllerData = [];
+    this.initControllers();
   }
 
-  initControllers () {
-    const controllerModelFactory = new XRControllerModelFactory()
+  initControllers() {
+    const modelFactory = new XRControllerModelFactory();
 
     for (let i = 0; i < 2; i++) {
-      const controller = this.renderer.xr.getController(i)
-      controller.addEventListener('selectstart', this.onSelectStart.bind(this))
-      controller.addEventListener('selectend', this.onSelectEnd.bind(this))
-      this.scene.add(controller)
-      this.controllers.push(controller)
+      const controller = this.renderer.xr.getController(i);
+      controller.addEventListener('selectstart', (evt) => this.onSelectStart(evt, i));
+      controller.addEventListener('selectend',   (evt) => this.onSelectEnd(evt, i));
+      this.scene.add(controller);
+      this.controllers.push(controller);
 
-      const controllerGrip = this.renderer.xr.getControllerGrip(i)
-      controllerGrip.add(
-        controllerModelFactory.createControllerModel(controllerGrip)
-      )
-      this.scene.add(controllerGrip)
-      this.controllerGrips.push(controllerGrip)
+      // A separate "grip" with the device model
+      const controllerGrip = this.renderer.xr.getControllerGrip(i);
+      controllerGrip.add(modelFactory.createControllerModel(controllerGrip));
+      this.scene.add(controllerGrip);
+      this.controllerGrips.push(controllerGrip);
+
+      // Data about each controller
+      this.controllerData[i] = {
+        isSelecting: false,
+        xrController: controller
+      };
     }
   }
 
-  onSelectStart (event) {
-    event.target.userData.isSelecting = true
+  onSelectStart(event, index) {
+    this.controllerData[index].isSelecting = true;
   }
 
-  onSelectEnd (event) {
-    event.target.userData.isSelecting = false
-    // Implement teleportation logic here
-    // For example, determine the teleport destination and call the callback
-    // this.handleTeleportCallback(destinationPoint);
-  }
+  onSelectEnd(event, index) {
+    this.controllerData[index].isSelecting = false;
+    // If we have an intersection and a valid reference space, TELEPORT
+    if (this.INTERSECTION && this.baseReferenceSpace) {
+      const offsetPos = {
+        x: -this.INTERSECTION.x,
+        y: -this.INTERSECTION.y,
+        z: -this.INTERSECTION.z,
+        w: 1
+      };
+      const offsetRot = new THREE.Quaternion();
+      const transform = new XRRigidTransform(offsetPos, offsetRot);
+      const teleportSpaceOffset = this.baseReferenceSpace.getOffsetReferenceSpace(transform);
+      this.renderer.xr.setReferenceSpace(teleportSpaceOffset);
 
-  buildControllerRay (data) {
-    let geometry, material
-    switch (data.targetRayMode) {
-      case 'tracked-pointer':
-        geometry = new THREE.BufferGeometry()
-        geometry.setAttribute(
-          'position',
-          new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3)
-        )
-        geometry.setAttribute(
-          'color',
-          new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3)
-        )
-        material = new THREE.LineBasicMaterial({
-          vertexColors: true,
-          blending: THREE.AdditiveBlending
-        })
-        return new THREE.Line(geometry, material)
-
-      case 'gaze':
-        geometry = new THREE.RingGeometry(0.02, 0.04, 32).rotateX(-Math.PI / 2)
-        material = new THREE.MeshBasicMaterial({
-          opacity: 0.5,
-          transparent: true
-        })
-        return new THREE.Mesh(geometry, material)
+      // If you have extra teleport logic:
+      if (typeof this.handleTeleportCallback === 'function') {
+        this.handleTeleportCallback(this.INTERSECTION);
+      }
     }
-    return new THREE.Object3D()
+  }
+
+  /**
+   * Call this each frame from your main render loop to perform raycast checks.
+   */
+  update() {
+    this.INTERSECTION = null;
+    let foundIntersection = false;
+
+    for (let i = 0; i < this.controllerData.length; i++) {
+      const data = this.controllerData[i];
+      if (!data || !data.xrController) continue;
+
+      if (data.isSelecting) {
+        this.tempMatrix.identity().extractRotation(data.xrController.matrixWorld);
+
+        this.raycaster.ray.origin.setFromMatrixPosition(data.xrController.matrixWorld);
+        this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.tempMatrix);
+
+        // Raycast against the array of "teleportable" objects
+        const intersects = this.raycaster.intersectObjects(this.teleportableObjects, false);
+        if (intersects.length > 0) {
+          this.INTERSECTION = intersects[0].point;
+          foundIntersection = true;
+          break; // if only want first intersection
+        }
+      }
+    }
+
+    // Show or hide the marker
+    if (this.INTERSECTION) {
+      this.marker.position.copy(this.INTERSECTION);
+      this.marker.visible = true;
+    } else {
+      this.marker.visible = false;
+    }
+  }
+
+  /**
+   * Optionally allow you to set the teleportable objects later if you want.
+   */
+  setTeleportableObjects(meshes) {
+    this.teleportableObjects = meshes || [];
   }
 }
 
@@ -3361,7 +3422,11 @@ class App {
     this.clock = new THREE.Clock()
     this.renderer.setAnimationLoop(() => {
       const delta = this.clock.getDelta()
-
+      
+      // 2) VRControllers: do the raycast
+      if (this.vrControllers) {
+        this.vrControllers.update();
+      }
       // Update local animations
       if (this.localMixer) {
         this.localMixer.update(delta)
@@ -3369,7 +3434,7 @@ class App {
 
       // Update camera orientation based on device orientation data, if enabled
       if (Sensors.isOrientationEnabled) {
-        //alert('isOrientationEnabled running')
+        alert('isOrientationEnabled = true')
 
         this.updateCameraOrientation()
       }
