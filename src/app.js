@@ -3104,7 +3104,6 @@ class App {
       if (this.localMixer) {
         this.localMixer.update(delta);
       }
-      alert(`${Sensors.isOrientationEnabled}`);
 
       // Update camera orientation based on device orientation data, if enabled
       if (Sensors.isOrientationEnabled) {
