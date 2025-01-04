@@ -343,7 +343,8 @@ class Sensors {
    */
   static initialize(permissions) {
     try {
-      alert('permissions try')
+      const alphie = window.orientationGlobal.alpha;
+      alert(alphie)
       // If orientation permission was granted, attach the orientation listener.
       if (permissions.orientationGranted) {
         alert('orientationGranted')
