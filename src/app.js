@@ -326,8 +326,6 @@ class Storage {
   }
 }
 
-// app.js
-
 class Sensors {
   static orientationData = {
     alpha: null,
@@ -335,47 +333,50 @@ class Sensors {
     gamma: null,
     webkitCompassHeading: undefined,
     webkitCompassAccuracy: undefined
-  };
+  }
 
-  static isOrientationEnabled = false;
-  static isMotionEnabled = false;
+  static isOrientationEnabled = false
+  static isMotionEnabled = false
 
   /**
    * Initializes sensor event listeners based on permissions.
-   * If permissions are not granted, it requests them.
+   * Requests permissions via user gesture (e.g., tap on #app).
    */
-  static async initialize() {
+  static async initialize () {
     try {
-      console.log('Initializing Sensors...');
-      
+      console.log('Initializing Sensors...')
+
       // Request orientation permission if needed
-      const orientationGranted = await Sensors.requestOrientationPermission();
+      const orientationGranted = await Sensors.requestOrientationPermission()
+      console.log(`Orientation permission granted: ${orientationGranted}`)
 
       // Request motion permission if needed (for iOS 13+)
-      const motionGranted = await Sensors.requestMotionPermission();
+      const motionGranted = await Sensors.requestMotionPermission()
+      console.log(`Motion permission granted: ${motionGranted}`)
 
       // Attach event listeners based on granted permissions
       if (orientationGranted) {
-        window.addEventListener('deviceorientation', Sensors.handleOrientation);
-        Sensors.isOrientationEnabled = true;
-        console.log('DeviceOrientation event listener added.');
+        window.addEventListener('deviceorientation', Sensors.handleOrientation)
+        Sensors.isOrientationEnabled = true
+        console.log('DeviceOrientation event listener added.')
+        alert('Device Orientation enabled.')
       } else {
-        console.warn('DeviceOrientation permission not granted.');
-        UI.displayError('Device Orientation permission denied.');
+        console.warn('DeviceOrientation permission not granted.')
+        alert('Device Orientation permission denied.')
       }
 
       if (motionGranted) {
-        window.addEventListener('devicemotion', Sensors.handleMotion);
-        Sensors.isMotionEnabled = true;
-        console.log('DeviceMotion event listener added.');
+        window.addEventListener('devicemotion', Sensors.handleMotion)
+        Sensors.isMotionEnabled = true
+        console.log('DeviceMotion event listener added.')
+        alert('Device Motion enabled.')
       } else {
-        console.warn('DeviceMotion permission not granted.');
-        // You can choose to notify the user or handle it silently
+        console.warn('DeviceMotion permission not granted.')
+        alert('Device Motion permission denied.')
       }
-      
     } catch (err) {
-      console.error('Error initializing Sensors:', err);
-      UI.displayError('Error initializing sensors. Please try again.');
+      console.error('Error initializing Sensors:', err)
+      alert('Error initializing sensors. Please try again.')
     }
   }
 
@@ -383,84 +384,93 @@ class Sensors {
    * Requests device orientation permission (required for iOS 13+)
    * @returns {Promise<boolean>} - Resolves to true if permission is granted
    */
-  static requestOrientationPermission() {
+  static requestOrientationPermission () {
     return new Promise((resolve, reject) => {
       // Check if permission is needed (iOS 13+)
-      if (typeof DeviceOrientationEvent !== 'undefined' && 
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        // Create a temporary button to request permission
-        UI.showTemporaryPermissionButton('Request Device Orientation Permission', async () => {
-          try {
-            const response = await DeviceOrientationEvent.requestPermission();
+      if (
+        typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function'
+      ) {
+        console.log('Requesting Device Orientation permission...')
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
             if (response === 'granted') {
-              resolve(true);
+              resolve(true)
             } else {
-              resolve(false);
+              resolve(false)
             }
-          } catch (error) {
-            console.error('Error requesting DeviceOrientation permission:', error);
-            resolve(false);
-          }
-        });
+          })
+          .catch(error => {
+            console.error('Error requesting DeviceOrientation permission:', error)
+            resolve(false)
+          })
       } else {
         // Permission not required
-        resolve(true);
+        console.log('DeviceOrientation permission not required.')
+        resolve(true)
       }
-    });
+    })
   }
 
   /**
    * Requests device motion permission (required for iOS 13+)
    * @returns {Promise<boolean>} - Resolves to true if permission is granted
    */
-  static requestMotionPermission() {
+  static requestMotionPermission () {
     return new Promise((resolve, reject) => {
       // Check if permission is needed (iOS 13+)
-      if (typeof DeviceMotionEvent !== 'undefined' && 
-          typeof DeviceMotionEvent.requestPermission === 'function') {
-        // Create a temporary button to request permission
-        UI.showTemporaryPermissionButton('Request Device Motion Permission', async () => {
-          try {
-            const response = await DeviceMotionEvent.requestPermission();
+      if (
+        typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function'
+      ) {
+        console.log('Requesting Device Motion permission...')
+        DeviceMotionEvent.requestPermission()
+          .then(response => {
             if (response === 'granted') {
-              resolve(true);
+              resolve(true)
             } else {
-              resolve(false);
+              resolve(false)
             }
-          } catch (error) {
-            console.error('Error requesting DeviceMotion permission:', error);
-            resolve(false);
-          }
-        });
+          })
+          .catch(error => {
+            console.error('Error requesting DeviceMotion permission:', error)
+            resolve(false)
+          })
       } else {
         // Permission not required
-        resolve(true);
+        console.log('DeviceMotion permission not required.')
+        resolve(true)
       }
-    });
+    })
   }
 
   /**
    * Handles device orientation events.
    * @param {DeviceOrientationEvent} event
    */
-  static handleOrientation(event) {
+  static handleOrientation (event) {
     try {
-      Sensors.orientationData.alpha = event.alpha !== null ? event.alpha : Sensors.orientationData.alpha;
-      Sensors.orientationData.beta  = event.beta !== null ? event.beta : Sensors.orientationData.beta;
-      Sensors.orientationData.gamma = event.gamma !== null ? event.gamma : Sensors.orientationData.gamma;
+      Sensors.orientationData.alpha =
+        event.alpha !== null ? event.alpha : Sensors.orientationData.alpha
+      Sensors.orientationData.beta =
+        event.beta !== null ? event.beta : Sensors.orientationData.beta
+      Sensors.orientationData.gamma =
+        event.gamma !== null ? event.gamma : Sensors.orientationData.gamma
 
       if (event.webkitCompassHeading !== undefined) {
-        Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
-        Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+        Sensors.orientationData.webkitCompassHeading =
+          event.webkitCompassHeading
+        Sensors.orientationData.webkitCompassAccuracy =
+          event.webkitCompassAccuracy
       }
 
-
-      // Optionally, update Three.js or other components here
-      // Example: ThreeJSRenderer.updateCubeOrientation(Sensors.orientationData);
-
+      // Log the updated orientation data for debugging
+      console.log(
+        `Orientation Updated - Alpha: ${Sensors.orientationData.alpha}, Beta: ${Sensors.orientationData.beta}, Gamma: ${Sensors.orientationData.gamma}`
+      )
     } catch (err) {
-      console.error('Error in handleOrientation:', err);
-      UI.displayError('Error handling orientation data.');
+      console.error('Error in handleOrientation:', err)
+      alert('Error handling orientation data.')
     }
   }
 
@@ -468,16 +478,13 @@ class Sensors {
    * Handles device motion events.
    * @param {DeviceMotionEvent} event
    */
-  static handleMotion(event) {
+  static handleMotion (event) {
     try {
-      // Example: Update UI with motion data
-      // UI.updateMotionDisplay(event.acceleration, event.rotationRate);
-
       // Implement motion data handling as needed
-      console.log('DeviceMotionEvent:', event);
+      console.log('DeviceMotionEvent:', event)
     } catch (err) {
-      console.error('Error in handleMotion:', err);
-      UI.displayError('Error handling motion data.');
+      console.error('Error in handleMotion:', err)
+      alert('Error handling motion data.')
     }
   }
 }
@@ -1890,72 +1897,74 @@ class Terrain {
 // VRControllers Class
 // ------------------------------
 class VRControllers {
-  constructor(
+  constructor (
     renderer,
     scene,
     handleTeleportCallback,
     teleportableObjects = []
   ) {
-    this.renderer = renderer;
-    this.scene = scene;
-    this.handleTeleportCallback = handleTeleportCallback;
+    this.renderer = renderer
+    this.scene = scene
+    this.handleTeleportCallback = handleTeleportCallback
 
     // The objects (meshes) we raycast against for teleporting:
-    this.teleportableObjects = teleportableObjects;
+    this.teleportableObjects = teleportableObjects
 
-    this.controllers = [];
-    this.controllerGrips = [];
-    this.raycaster = new THREE.Raycaster();
-    this.tempMatrix = new THREE.Matrix4();
-    this.INTERSECTION = null;
+    this.controllers = []
+    this.controllerGrips = []
+    this.raycaster = new THREE.Raycaster()
+    this.tempMatrix = new THREE.Matrix4()
+    this.INTERSECTION = null
 
     // Optional "marker" to show where you'd teleport:
     this.marker = new THREE.Mesh(
       new THREE.CircleGeometry(0.25, 32).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0xbcbcbc })
-    );
-    this.marker.visible = false;
-    this.scene.add(this.marker);
+    )
+    this.marker.visible = false
+    this.scene.add(this.marker)
 
-    this.baseReferenceSpace = null;
+    this.baseReferenceSpace = null
     this.renderer.xr.addEventListener('sessionstart', () => {
-      this.baseReferenceSpace = this.renderer.xr.getReferenceSpace();
-    });
+      this.baseReferenceSpace = this.renderer.xr.getReferenceSpace()
+    })
 
-    this.controllerData = [];
-    this.initControllers();
+    this.controllerData = []
+    this.initControllers()
   }
 
-  initControllers() {
-    const modelFactory = new XRControllerModelFactory();
+  initControllers () {
+    const modelFactory = new XRControllerModelFactory()
 
     for (let i = 0; i < 2; i++) {
-      const controller = this.renderer.xr.getController(i);
-      controller.addEventListener('selectstart', (evt) => this.onSelectStart(evt, i));
-      controller.addEventListener('selectend',   (evt) => this.onSelectEnd(evt, i));
-      this.scene.add(controller);
-      this.controllers.push(controller);
+      const controller = this.renderer.xr.getController(i)
+      controller.addEventListener('selectstart', evt =>
+        this.onSelectStart(evt, i)
+      )
+      controller.addEventListener('selectend', evt => this.onSelectEnd(evt, i))
+      this.scene.add(controller)
+      this.controllers.push(controller)
 
       // A separate "grip" with the device model
-      const controllerGrip = this.renderer.xr.getControllerGrip(i);
-      controllerGrip.add(modelFactory.createControllerModel(controllerGrip));
-      this.scene.add(controllerGrip);
-      this.controllerGrips.push(controllerGrip);
+      const controllerGrip = this.renderer.xr.getControllerGrip(i)
+      controllerGrip.add(modelFactory.createControllerModel(controllerGrip))
+      this.scene.add(controllerGrip)
+      this.controllerGrips.push(controllerGrip)
 
       // Data about each controller
       this.controllerData[i] = {
         isSelecting: false,
         xrController: controller
-      };
+      }
     }
   }
 
-  onSelectStart(event, index) {
-    this.controllerData[index].isSelecting = true;
+  onSelectStart (event, index) {
+    this.controllerData[index].isSelecting = true
   }
 
-  onSelectEnd(event, index) {
-    this.controllerData[index].isSelecting = false;
+  onSelectEnd (event, index) {
+    this.controllerData[index].isSelecting = false
     // If we have an intersection and a valid reference space, TELEPORT
     if (this.INTERSECTION && this.baseReferenceSpace) {
       const offsetPos = {
@@ -1963,15 +1972,16 @@ class VRControllers {
         y: -this.INTERSECTION.y,
         z: -this.INTERSECTION.z,
         w: 1
-      };
-      const offsetRot = new THREE.Quaternion();
-      const transform = new XRRigidTransform(offsetPos, offsetRot);
-      const teleportSpaceOffset = this.baseReferenceSpace.getOffsetReferenceSpace(transform);
-      this.renderer.xr.setReferenceSpace(teleportSpaceOffset);
+      }
+      const offsetRot = new THREE.Quaternion()
+      const transform = new XRRigidTransform(offsetPos, offsetRot)
+      const teleportSpaceOffset =
+        this.baseReferenceSpace.getOffsetReferenceSpace(transform)
+      this.renderer.xr.setReferenceSpace(teleportSpaceOffset)
 
       // If you have extra teleport logic:
       if (typeof this.handleTeleportCallback === 'function') {
-        this.handleTeleportCallback(this.INTERSECTION);
+        this.handleTeleportCallback(this.INTERSECTION)
       }
     }
   }
@@ -1979,44 +1989,51 @@ class VRControllers {
   /**
    * Call this each frame from your main render loop to perform raycast checks.
    */
-  update() {
-    this.INTERSECTION = null;
-    let foundIntersection = false;
+  update () {
+    this.INTERSECTION = null
+    let foundIntersection = false
 
     for (let i = 0; i < this.controllerData.length; i++) {
-      const data = this.controllerData[i];
-      if (!data || !data.xrController) continue;
+      const data = this.controllerData[i]
+      if (!data || !data.xrController) continue
 
       if (data.isSelecting) {
-        this.tempMatrix.identity().extractRotation(data.xrController.matrixWorld);
+        this.tempMatrix
+          .identity()
+          .extractRotation(data.xrController.matrixWorld)
 
-        this.raycaster.ray.origin.setFromMatrixPosition(data.xrController.matrixWorld);
-        this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.tempMatrix);
+        this.raycaster.ray.origin.setFromMatrixPosition(
+          data.xrController.matrixWorld
+        )
+        this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.tempMatrix)
 
         // Raycast against the array of "teleportable" objects
-        const intersects = this.raycaster.intersectObjects(this.teleportableObjects, false);
+        const intersects = this.raycaster.intersectObjects(
+          this.teleportableObjects,
+          false
+        )
         if (intersects.length > 0) {
-          this.INTERSECTION = intersects[0].point;
-          foundIntersection = true;
-          break; // if only want first intersection
+          this.INTERSECTION = intersects[0].point
+          foundIntersection = true
+          break // if only want first intersection
         }
       }
     }
 
     // Show or hide the marker
     if (this.INTERSECTION) {
-      this.marker.position.copy(this.INTERSECTION);
-      this.marker.visible = true;
+      this.marker.position.copy(this.INTERSECTION)
+      this.marker.visible = true
     } else {
-      this.marker.visible = false;
+      this.marker.visible = false
     }
   }
 
   /**
    * Optionally allow you to set the teleportable objects later if you want.
    */
-  setTeleportableObjects(meshes) {
-    this.teleportableObjects = meshes || [];
+  setTeleportableObjects (meshes) {
+    this.teleportableObjects = meshes || []
   }
 }
 
@@ -2957,12 +2974,26 @@ class App {
    * Initializes sensor event listeners.
    */
   initSensors () {
-    window.addEventListener('appPermissionsChanged', () => {
-      // Possibly reload CONFIG from localStorage if you like:
-      // const newConfig = loadConfig();
-      // Then pass updated permissions to Sensors:
-      Sensors.initialize(CONFIG.permissions)
-    })
+    const appElement = document.getElementById('app')
+    if (!appElement) {
+      console.error("Element with id 'app' not found.")
+      return
+    }
+
+    const handleUserGesture = () => {
+      console.log('User gesture detected on #app. Initializing Sensors.')
+      Sensors.initialize()
+
+      // Remove the event listener after initialization to prevent repeated calls
+      appElement.removeEventListener('click', handleUserGesture)
+      appElement.removeEventListener('touchstart', handleUserGesture)
+    }
+
+    // Add event listeners for click and touchstart
+    appElement.addEventListener('click', handleUserGesture)
+    appElement.addEventListener('touchstart', handleUserGesture)
+
+    console.log("Added event listeners for 'click' and 'touchstart' on #app.")
   }
 
   /**
@@ -3076,7 +3107,6 @@ class App {
     console.warn('[Socket] Connected to server.')
     this.multiplayer = new Multiplayer(this.socket, this.scene, this.terrain)
   }
-  
 
   /**
    * Binds UI-related events.
@@ -3303,32 +3333,40 @@ class App {
 
   updateCameraOrientation () {
     // Pull orientation data from window.orientationGlobal if available
-    if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
-      Sensors.orientationData.alpha = parseFloat(window.orientationGlobal.alpha) || 0 // 0..360 degrees
-      Sensors.orientationData.beta = parseFloat(window.orientationGlobal.beta) || 0 // -180..180 degrees
-      Sensors.orientationData.gamma = parseFloat(window.orientationGlobal.gamma) || 0 // -90..90 degrees
+    if (
+      window.orientationGlobal &&
+      typeof window.orientationGlobal === 'object'
+    ) {
+      Sensors.orientationData.alpha =
+        parseFloat(window.orientationGlobal.alpha) // || 0 // 0..360 degrees
+      Sensors.orientationData.beta =
+        parseFloat(window.orientationGlobal.beta)// || 0 // -180..180 degrees
+      Sensors.orientationData.gamma =
+        parseFloat(window.orientationGlobal.gamma)// || 0 // -90..90 degrees
     }
-  
+
     // Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
-  
-      UI.updateField('Orientation_a', alphaDeg)
-      UI.updateField('Orientation_b', betaDeg)
-      UI.updateField('Orientation_g', gammaDeg)
+    const alphaDeg = Sensors.orientationData.alpha// || 0 // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta// || 0 // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma// || 0 // -90..90 degrees
+
+    UI.updateField('Orientation_a', alphaDeg)
+    UI.updateField('Orientation_b', betaDeg)
+    UI.updateField('Orientation_g', gammaDeg)
 
     // Optional: Replace alerts with console logs for debugging
-    console.log(`Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`)
-  
+    console.log(
+      `Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`
+    )
+
     // Check if compass data is available and accurate
     const hasCompass =
       Sensors.orientationData.webkitCompassHeading !== undefined &&
       Sensors.orientationData.webkitCompassAccuracy !== undefined &&
       Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
-  
+
     let yawDeg
-  
+
     if (hasCompass) {
       // Use compass heading as yaw
       yawDeg = Sensors.orientationData.webkitCompassHeading
@@ -3336,26 +3374,24 @@ class App {
       // Fallback: Calculate yaw using alpha
       yawDeg = alphaDeg
     }
-  
+
     // Convert degrees to radians
     const yawRad = THREE.MathUtils.degToRad(yawDeg)
     const betaRad = THREE.MathUtils.degToRad(betaDeg)
     const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
-  
+
     // Calculate pitch based on beta
     const pitchAngle = THREE.MathUtils.clamp(
       betaRad - Math.PI / 2,
       this.movement.pitchMin,
       this.movement.pitchMax
     )
-  
+
     // Update camera rotation using quaternions for smoothness
     const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
     const quaternion = new THREE.Quaternion().setFromEuler(euler)
     this.camera.quaternion.copy(quaternion)
   }
-  
-
 
   /**
    * Handles window resize events.
@@ -3465,10 +3501,10 @@ class App {
     this.clock = new THREE.Clock()
     this.renderer.setAnimationLoop(() => {
       const delta = this.clock.getDelta()
-      
+
       // 2) VRControllers: do the raycast
       if (this.vrControllers) {
-        this.vrControllers.update();
+        this.vrControllers.update()
       }
       // Update local animations
       if (this.localMixer) {
@@ -3477,7 +3513,6 @@ class App {
 
       // Update camera orientation based on device orientation data, if enabled
       if (Sensors.isOrientationEnabled) {
-
         this.updateCameraOrientation()
       }
 
