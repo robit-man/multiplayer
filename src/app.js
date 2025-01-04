@@ -2974,14 +2974,14 @@ class App {
    * Initializes sensor event listeners.
    */
   initSensors () {
-    const appElement = document.getElementById('app')
+    const appElement = document.getElementById('request_orient')
     if (!appElement) {
       console.error("Element with id 'app' not found.")
       return
     }
 
     const handleUserGesture = () => {
-      console.log('User gesture detected on #app. Initializing Sensors.')
+      console.log('User gesture detected on #request_button. Initializing Sensors.')
       Sensors.initialize()
 
       // Remove the event listener after initialization to prevent repeated calls

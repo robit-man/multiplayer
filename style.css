@@ -22,6 +22,7 @@
     opacity: 1;
   }
 }
+
 body {
   background: black !important;
   margin: 0;
@@ -30,6 +31,15 @@ body {
   font-family: 'Rajdhani', serif;
   font-weight: 700;
   font-style: normal;
+}
+
+.commit-info {
+  padding: 20px;
+  border-radius: 10px;
+  color: white;
+  font-size: 18px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .uno {
@@ -197,6 +207,16 @@ body {
   animation: fadein 1s;
 }
 
+.nc {
+  font-family: 'Uno', sans-serif;
+
+  margin: unset;
+  margin-top: -0.5rem;
+  font-size: 1rem;
+  letter-spacing: 1.5rem;
+  margin-right: -1.5rem;
+}
+
 @keyframes fadein {
   from {
     opacity: 0;
@@ -205,6 +225,15 @@ body {
   to {
     opacity: 1;
   }
+}
+
+#commit-timestamp {
+  background: white;
+  margin: unset;
+  padding: 0.25rem;
+  color: black;
+  font-size: 0.6rem;
+  font-family: 'Rajdhani', sans-serif !important;
 }
 
 /* Instructional Overlay */
@@ -335,7 +364,8 @@ body {
   overflow: visible;
 }
 
-#request_button,
+#request_location,
+#request_orient,
 #clear,
 #cache {
   font-family: 'Rajdhani', serif;
@@ -347,10 +377,10 @@ body {
   font-size: 0.6rem;
   background: white;
   transition: all 0.2s ease;
-  width: calc(33.33% - 0.5px);
+  width: calc(25% - 0.5px);
 }
 
-#request_button {
+#request_location {
   border-top-left-radius: 0.25rem;
 }
 

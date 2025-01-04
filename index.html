@@ -18,8 +18,7 @@
       <div class="textinfo">
         <h2>
           <b style="font-size: calc(2.5vw + 2.5vh); color: orange"
-            >NOCLIP BETA</b
-          >
+            >NOCLIP BETA</b>
         </h2>
       </div>
       <div
@@ -44,18 +43,15 @@
         <div id="minimap"></div>
       </div>
       <div class="data" id="data">
-        <p
-          style="margin: unset; margin-top: -0.7rem; font-size: 2rem"
-          class="uno"
-        >
-          NOCLIP
-        </p>
-        <div class="button-stack">
+        <p class="nc" style="">
+          NOCLIP</p>
+          <div class="button-stack">
           <!-- Removed 'Permission Request' button -->
           <span class="row">
-            <button id="request_button">Access</button>
-            <button id="clear">Reset</button>
-            <button id="cache">Clear</button>
+            <button id="request_location">LOC</button>
+            <button id="request_orient">XYZ</button>
+            <button id="clear">LCLSTG</button>
+            <button id="cache">CLR</button>
           </span>
         </div>
         <div class="sensor-readouts">
@@ -126,6 +122,7 @@
             <span id="num-observed-events">0</span>
           </p>
           <p id="sensordata" style="padding-bottom: 0.2rem"></p>
+          <p id="commit-timestamp">Fetching...</p>
 
           <div class="share">
             <input type="password" id="password" placeholder="Enter Password" />
@@ -197,6 +194,27 @@
         }
       })
     </script>
+
+
+<script>
+  async function fetchLatestCommitTimestamp() {
+      const url = 'https://api.github.com/repos/robit-man/multiplayer/branches/stable_terrain_gen';
+      try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`Error: ${response.status}`);
+          const data = await response.json();
+          const commitDate = data.commit.commit.author.date;
+          const formattedDate = new Date(commitDate).toLocaleString();
+          document.getElementById('commit-timestamp').textContent = `Last commit made on: ${formattedDate}`;
+      } catch (error) {
+          console.error('Failed to fetch commit timestamp:', error);
+          document.getElementById('commit-timestamp').textContent = 'Error fetching data';
+      }
+  }
+
+  fetchLatestCommitTimestamp();
+</script>
+
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         // =========== Monitor and Remove Elements ===========
@@ -578,7 +596,7 @@
 
         // =========== DEMO PERMISSION-BUTTON LOGIC ===========
         function initializePermissionDemo() {
-          const requestButton = document.getElementById('request_button')
+          const requestButton = document.getElementById('request_location')
           if (!requestButton) {
             console.warn('No #request_button found in DOM.')
             return

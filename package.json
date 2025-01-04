@@ -16,6 +16,7 @@
     "vite": "^6.0.3"
   },
   "dependencies": {
+    "badge-maker": "^4.1.0",
     "suncalc": "^1.9.0"
   }
 }
