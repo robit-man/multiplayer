@@ -17,7 +17,7 @@
     <div class="info">
       <div class="textinfo">
         <h2>
-          <b style="font-size: calc(2.5vw + 2.5vh); text-shadow: calc(0.5vh + 0.5vw) calc(0.5vh + 0.5vw) calc(0.5vh + 0.5vw) grey;color: orange"
+          <b style="font-size: calc(2.5vw + 2.5vh); text-shadow: calc(0.1vw + 0.1vh) calc(0.1vh + 0.1vw) #555555;color: orange"
             >NOCLIP BETA</b>
         </h2>
       </div>
@@ -610,9 +610,9 @@
         // =========== MINIMAP LOGIC ===========
         function initializeMinimap() {
           const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-          const TILE_SIZE = 256
+          const TILE_SIZE = 200
           const ZOOM = 10
-          const MAP_SIZE = TILE_SIZE * 0.75
+          const MAP_SIZE = TILE_SIZE * 1
 
           const container = document.getElementById('minimap')
           const wrapper = document.getElementById('minimapwrapper')
