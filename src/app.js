@@ -325,9 +325,7 @@ class Storage {
     }
   }
 }
-// ------------------------------
-// Sensors Module
-// ------------------------------
+
 class Sensors {
   static orientationData = {
     alpha: 0,
@@ -366,13 +364,10 @@ class Sensors {
    * @param {DeviceOrientationEvent} event
    */
   static handleOrientation (event) {
-    alert('handleOrientation running')
+    // Removed alert to prevent disruption
+    // alert('handleOrientation running')
 
-    // In some setups, you might rely purely on `window.orientation`, e.g.:
-    //   window.orientation = { alpha: ..., beta: ..., gamma: ... }
-    // If that’s the case, read from there. Otherwise, read from `event.alpha`, etc.
-
-    // Check if we have a global 'window.orientation' object
+    // Pull orientation data from window.orientationGlobal if available
     if (
       window.orientationGlobal &&
       typeof window.orientationGlobal === 'object'
@@ -395,10 +390,10 @@ class Sensors {
           event.webkitCompassAccuracy
       }
 
-      // Debug UI
-      UI.updateField('Orientation_a', alpha.toFixed(2))
-      UI.updateField('Orientation_b', beta.toFixed(2))
-      UI.updateField('Orientation_g', gamma.toFixed(2))
+      // Debug UI - Ensure IDs match with HTML
+      UI.updateField('Orientation_a_test', alpha.toFixed(2))
+      UI.updateField('Orientation_b_test', beta.toFixed(2))
+      UI.updateField('Orientation_g_test', gamma.toFixed(2))
       UI.incrementEventCount()
     } else if (event && (event.alpha || event.beta || event.gamma)) {
       // Fallback: if you do want to use the real deviceorientation event directly
@@ -417,17 +412,17 @@ class Sensors {
           event.webkitCompassAccuracy
       }
 
-      UI.updateField('Orientation_a', alpha.toFixed(2))
-      UI.updateField('Orientation_b', beta.toFixed(2))
-      UI.updateField('Orientation_g', gamma.toFixed(2))
+      UI.updateField('Orientation_a_test', alpha.toFixed(2))
+      UI.updateField('Orientation_b_test', beta.toFixed(2))
+      UI.updateField('Orientation_g_test', gamma.toFixed(2))
       UI.incrementEventCount()
     } else {
       // If neither window.orientation nor event data is present, show debug text:
-      UI.updateField('Orientation_a', 'No orientation data')
-      UI.updateField('Orientation_b', 'No orientation data')
-      UI.updateField('Orientation_g', 'No orientation data')
+      UI.updateField('Orientation_a_test', 'No orientation data')
+      UI.updateField('Orientation_b_test', 'No orientation data')
+      UI.updateField('Orientation_g_test', 'No orientation data')
       console.warn(
-        'Sensors: No orientation data found in window.orientation or event.'
+        'Sensors: No orientation data found in window.orientationGlobal or event.'
       )
     }
   }
@@ -437,38 +432,15 @@ class Sensors {
    * @param {DeviceMotionEvent} event
    */
   static handleMotion (event) {
-    if (event.accelerationIncludingGravity) {
-      UI.updateFieldIfNotNull(
-        'Accelerometer_gx',
-        event.accelerationIncludingGravity.x,
-        2
-      )
-      UI.updateFieldIfNotNull(
-        'Accelerometer_gy',
-        event.accelerationIncludingGravity.y,
-        2
-      )
-      UI.updateFieldIfNotNull(
-        'Accelerometer_gz',
-        event.accelerationIncludingGravity.z,
-        2
-      )
-    }
-    if (event.acceleration) {
-      UI.updateFieldIfNotNull('Accelerometer_x', event.acceleration.x, 2)
-      UI.updateFieldIfNotNull('Accelerometer_y', event.acceleration.y, 2)
-      UI.updateFieldIfNotNull('Accelerometer_z', event.acceleration.z, 2)
-    }
-    if (event.rotationRate) {
-      UI.updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha, 2)
-      UI.updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta, 2)
-      UI.updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma, 2)
-    }
-
-    UI.updateFieldIfNotNull('Accelerometer_i', event.interval, 2)
-    UI.incrementEventCount()
+    // Implement motion handling logic if needed
+    // For example:
+    // Sensors.motionData.acceleration = event.acceleration
+    // UI.updateField('Accelerometer_x', event.acceleration.x.toFixed(2))
+    // UI.updateField('Accelerometer_y', event.acceleration.y.toFixed(2))
+    // UI.updateField('Accelerometer_z', event.acceleration.z.toFixed(2))
   }
 }
+
 
 // ------------------------------
 // UI Module
@@ -3003,6 +2975,7 @@ class App {
     console.warn('[Socket] Connected to server.')
     this.multiplayer = new Multiplayer(this.socket, this.scene, this.terrain)
   }
+  
 
   /**
    * Binds UI-related events.
@@ -3395,11 +3368,11 @@ class App {
       }
 
       // Update camera orientation based on device orientation data, if enabled
-      //if (Sensors.isOrientationEnabled) {
+      if (Sensors.isOrientationEnabled) {
         //alert('isOrientationEnabled running')
 
         this.updateCameraOrientation()
-      //}
+      }
 
       // Update day-night cycle
       this.dayNightCycle.update()
