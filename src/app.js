@@ -392,9 +392,9 @@ class Sensors {
        }
 
       // Update UI
-      UI.updateFieldIfNotNull('Orientation_a', alpha, 2);
-      UI.updateFieldIfNotNull('Orientation_b', beta, 2);
-      UI.updateFieldIfNotNull('Orientation_g', gamma, 2);
+      UI.updateField('Orientation_a', alpha);
+      UI.updateField('Orientation_b', beta);
+      UI.updateField('Orientation_g', gamma);
 
       UI.incrementEventCount();
     }
