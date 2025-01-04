@@ -3228,52 +3228,56 @@ class App {
    */
   // app.js
 
-updateCameraOrientation () {
-  // Remove or comment out the alert statements once confirmed working
-  // alert('updateCameraOrientation running')
-
-  // Access orientation data directly from Sensors.orientationData
-  const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
-  const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
-  const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
-
-  // Optional: Remove alerts or replace with console logs
-  // alert(`${alphaDeg} ${betaDeg} ${gammaDeg}`)
-  console.log(`Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`)
-
-  // Check if compass data is available and accurate
-  const hasCompass =
-    Sensors.orientationData.webkitCompassHeading !== undefined &&
-    Sensors.orientationData.webkitCompassAccuracy !== undefined &&
-    Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
-
-  let yawDeg
-
-  if (hasCompass) {
-    // Use compass heading as yaw
-    yawDeg = Sensors.orientationData.webkitCompassHeading
-  } else {
-    // Fallback: Calculate yaw using alpha
-    yawDeg = alphaDeg
+  updateCameraOrientation () {
+    // Pull orientation data from window.orientationGlobal if available
+    if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
+      Sensors.orientationData.alpha = parseFloat(window.orientationGlobal.alpha) || 0 // 0..360 degrees
+      Sensors.orientationData.beta = parseFloat(window.orientationGlobal.beta) || 0 // -180..180 degrees
+      Sensors.orientationData.gamma = parseFloat(window.orientationGlobal.gamma) || 0 // -90..90 degrees
+    }
+  
+    // Access orientation data directly from Sensors.orientationData
+    const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
+  
+    // Optional: Replace alerts with console logs for debugging
+    console.log(`Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`)
+  
+    // Check if compass data is available and accurate
+    const hasCompass =
+      Sensors.orientationData.webkitCompassHeading !== undefined &&
+      Sensors.orientationData.webkitCompassAccuracy !== undefined &&
+      Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
+  
+    let yawDeg
+  
+    if (hasCompass) {
+      // Use compass heading as yaw
+      yawDeg = Sensors.orientationData.webkitCompassHeading
+    } else {
+      // Fallback: Calculate yaw using alpha
+      yawDeg = alphaDeg
+    }
+  
+    // Convert degrees to radians
+    const yawRad = THREE.MathUtils.degToRad(yawDeg)
+    const betaRad = THREE.MathUtils.degToRad(betaDeg)
+    const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
+  
+    // Calculate pitch based on beta
+    const pitchAngle = THREE.MathUtils.clamp(
+      betaRad - Math.PI / 2,
+      this.movement.pitchMin,
+      this.movement.pitchMax
+    )
+  
+    // Update camera rotation using quaternions for smoothness
+    const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
+    const quaternion = new THREE.Quaternion().setFromEuler(euler)
+    this.camera.quaternion.copy(quaternion)
   }
-
-  // Convert degrees to radians
-  const yawRad = THREE.MathUtils.degToRad(yawDeg)
-  const betaRad = THREE.MathUtils.degToRad(betaDeg)
-  const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
-
-  // Calculate pitch based on beta
-  const pitchAngle = THREE.MathUtils.clamp(
-    betaRad - Math.PI / 2,
-    this.movement.pitchMin,
-    this.movement.pitchMax
-  )
-
-  // Update camera rotation using quaternions for smoothness
-  const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
-  const quaternion = new THREE.Quaternion().setFromEuler(euler)
-  this.camera.quaternion.copy(quaternion)
-}
+  
 
 
   /**
@@ -3391,11 +3395,11 @@ updateCameraOrientation () {
       }
 
       // Update camera orientation based on device orientation data, if enabled
-      if (Sensors.isOrientationEnabled) {
-        alert('isOrientationEnabled running')
+      //if (Sensors.isOrientationEnabled) {
+        //alert('isOrientationEnabled running')
 
         this.updateCameraOrientation()
-      }
+      //}
 
       // Update day-night cycle
       this.dayNightCycle.update()
