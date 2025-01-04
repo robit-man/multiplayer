@@ -3330,17 +3330,17 @@ class App {
       typeof window.orientationGlobal === 'object'
     ) {
       Sensors.orientationData.alpha =
-        parseFloat(window.orientationGlobal.alpha) || 0 // 0..360 degrees
+        parseFloat(window.orientationGlobal.alpha) // || 0 // 0..360 degrees
       Sensors.orientationData.beta =
-        parseFloat(window.orientationGlobal.beta) || 0 // -180..180 degrees
+        parseFloat(window.orientationGlobal.beta)// || 0 // -180..180 degrees
       Sensors.orientationData.gamma =
-        parseFloat(window.orientationGlobal.gamma) || 0 // -90..90 degrees
+        parseFloat(window.orientationGlobal.gamma)// || 0 // -90..90 degrees
     }
 
     // Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
+    const alphaDeg = Sensors.orientationData.alpha// || 0 // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta// || 0 // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma// || 0 // -90..90 degrees
 
     UI.updateField('Orientation_a', alphaDeg)
     UI.updateField('Orientation_b', betaDeg)
