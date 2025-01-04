@@ -2927,6 +2927,7 @@ class App {
       // Possibly reload CONFIG from localStorage if you like:
       // const newConfig = loadConfig();
       // Then pass updated permissions to Sensors:
+      alert('initSensors');
       Sensors.initialize(CONFIG.permissions)
     })
   }
