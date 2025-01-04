@@ -2435,6 +2435,7 @@ class App {
     this.socket = io(CONFIG.socketURL);
     this.simplex = new SimplexNoise();
     this.initScene();
+    this.initSensors();
     this.initPostProcessing();
     this.setupVRControllers();
     this.initDayNightCycle();
@@ -2621,13 +2622,11 @@ class App {
    */
   initSensors() {
     window.addEventListener('appPermissionsChanged', () => {
-      // Possibly reload CONFIG from localStorage here if needed:
-      // const CONFIG = loadConfig();
-      
-      // Then call Sensors.initialize() with the new flags:
+      // Possibly reload CONFIG from localStorage if you like:
+      // const newConfig = loadConfig();
+      // Then pass updated permissions to Sensors:
       Sensors.initialize(CONFIG.permissions);
     });
-    
   }
 
   /**
