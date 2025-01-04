@@ -204,7 +204,7 @@
           const data = await response.json();
           const commitDate = data.commit.commit.author.date;
           const formattedDate = new Date(commitDate).toLocaleString();
-          document.getElementById('commit-timestamp').textContent = `Last commit made on: ${formattedDate}`;
+          document.getElementById('commit-timestamp').textContent = `COMMITED: ${formattedDate}`;
       } catch (error) {
           console.error('Failed to fetch commit timestamp:', error);
           document.getElementById('commit-timestamp').textContent = 'Error fetching data';
