@@ -326,7 +326,6 @@ class Storage {
   }
 }
 
-
 class Sensors {
   static orientationData = {
     alpha: null,
@@ -341,7 +340,7 @@ class Sensors {
 
   /**
    * Initializes sensor event listeners based on permissions.
-   * If permissions are not granted, it requests them.
+   * Requests permissions via user gesture (e.g., tap on #app).
    */
   static async initialize () {
     try {
@@ -349,31 +348,35 @@ class Sensors {
 
       // Request orientation permission if needed
       const orientationGranted = await Sensors.requestOrientationPermission()
+      console.log(`Orientation permission granted: ${orientationGranted}`)
 
       // Request motion permission if needed (for iOS 13+)
       const motionGranted = await Sensors.requestMotionPermission()
+      console.log(`Motion permission granted: ${motionGranted}`)
 
       // Attach event listeners based on granted permissions
       if (orientationGranted) {
         window.addEventListener('deviceorientation', Sensors.handleOrientation)
         Sensors.isOrientationEnabled = true
         console.log('DeviceOrientation event listener added.')
+        alert('Device Orientation enabled.')
       } else {
         console.warn('DeviceOrientation permission not granted.')
-        UI.displayError('Device Orientation permission denied.')
+        alert('Device Orientation permission denied.')
       }
 
       if (motionGranted) {
         window.addEventListener('devicemotion', Sensors.handleMotion)
         Sensors.isMotionEnabled = true
         console.log('DeviceMotion event listener added.')
+        alert('Device Motion enabled.')
       } else {
         console.warn('DeviceMotion permission not granted.')
-        // You can choose to notify the user or handle it silently
+        alert('Device Motion permission denied.')
       }
     } catch (err) {
       console.error('Error initializing Sensors:', err)
-      UI.displayError('Error initializing sensors. Please try again.')
+      alert('Error initializing sensors. Please try again.')
     }
   }
 
@@ -388,28 +391,22 @@ class Sensors {
         typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function'
       ) {
-        // Create a temporary button to request permission
-        UI.showTemporaryPermissionButton(
-          'Request Device Orientation Permission',
-          async () => {
-            try {
-              const response = await DeviceOrientationEvent.requestPermission()
-              if (response === 'granted') {
-                resolve(true)
-              } else {
-                resolve(false)
-              }
-            } catch (error) {
-              console.error(
-                'Error requesting DeviceOrientation permission:',
-                error
-              )
+        console.log('Requesting Device Orientation permission...')
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              resolve(true)
+            } else {
               resolve(false)
             }
-          }
-        )
+          })
+          .catch(error => {
+            console.error('Error requesting DeviceOrientation permission:', error)
+            resolve(false)
+          })
       } else {
         // Permission not required
+        console.log('DeviceOrientation permission not required.')
         resolve(true)
       }
     })
@@ -426,25 +423,22 @@ class Sensors {
         typeof DeviceMotionEvent !== 'undefined' &&
         typeof DeviceMotionEvent.requestPermission === 'function'
       ) {
-        // Create a temporary button to request permission
-        UI.showTemporaryPermissionButton(
-          'Request Device Motion Permission',
-          async () => {
-            try {
-              const response = await DeviceMotionEvent.requestPermission()
-              if (response === 'granted') {
-                resolve(true)
-              } else {
-                resolve(false)
-              }
-            } catch (error) {
-              console.error('Error requesting DeviceMotion permission:', error)
+        console.log('Requesting Device Motion permission...')
+        DeviceMotionEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              resolve(true)
+            } else {
               resolve(false)
             }
-          }
-        )
+          })
+          .catch(error => {
+            console.error('Error requesting DeviceMotion permission:', error)
+            resolve(false)
+          })
       } else {
         // Permission not required
+        console.log('DeviceMotion permission not required.')
         resolve(true)
       }
     })
@@ -470,11 +464,13 @@ class Sensors {
           event.webkitCompassAccuracy
       }
 
-      // Optionally, update Three.js or other components here
-      // Example: ThreeJSRenderer.updateCubeOrientation(Sensors.orientationData);
+      // Log the updated orientation data for debugging
+      console.log(
+        `Orientation Updated - Alpha: ${Sensors.orientationData.alpha}, Beta: ${Sensors.orientationData.beta}, Gamma: ${Sensors.orientationData.gamma}`
+      )
     } catch (err) {
       console.error('Error in handleOrientation:', err)
-      UI.displayError('Error handling orientation data.')
+      alert('Error handling orientation data.')
     }
   }
 
@@ -484,17 +480,15 @@ class Sensors {
    */
   static handleMotion (event) {
     try {
-      // Example: Update UI with motion data
-      // UI.updateMotionDisplay(event.acceleration, event.rotationRate);
-
       // Implement motion data handling as needed
       console.log('DeviceMotionEvent:', event)
     } catch (err) {
       console.error('Error in handleMotion:', err)
-      UI.displayError('Error handling motion data.')
+      alert('Error handling motion data.')
     }
   }
 }
+
 
 // ------------------------------
 // UI Module
@@ -2980,12 +2974,26 @@ class App {
    * Initializes sensor event listeners.
    */
   initSensors () {
-    window.addEventListener('appPermissionsChanged', () => {
-      // Possibly reload CONFIG from localStorage if you like:
-      // const newConfig = loadConfig();
-      // Then pass updated permissions to Sensors:
-      Sensors.initialize(CONFIG.permissions)
-    })
+    const appElement = document.getElementById('app')
+    if (!appElement) {
+      console.error("Element with id 'app' not found.")
+      return
+    }
+
+    const handleUserGesture = () => {
+      console.log('User gesture detected on #app. Initializing Sensors.')
+      Sensors.initialize()
+
+      // Remove the event listener after initialization to prevent repeated calls
+      appElement.removeEventListener('click', handleUserGesture)
+      appElement.removeEventListener('touchstart', handleUserGesture)
+    }
+
+    // Add event listeners for click and touchstart
+    appElement.addEventListener('click', handleUserGesture)
+    appElement.addEventListener('touchstart', handleUserGesture)
+
+    console.log("Added event listeners for 'click' and 'touchstart' on #app.")
   }
 
   /**
