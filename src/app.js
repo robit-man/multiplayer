@@ -412,15 +412,15 @@ class Sensors {
           event.webkitCompassAccuracy
       }
 
-      UI.updateField('Orientation_a_test', alpha.toFixed(2))
-      UI.updateField('Orientation_b_test', beta.toFixed(2))
-      UI.updateField('Orientation_g_test', gamma.toFixed(2))
+      UI.updateField('Orientation_a', alpha.toFixed(2))
+      UI.updateField('Orientation_b', beta.toFixed(2))
+      UI.updateField('Orientation_g', gamma.toFixed(2))
       UI.incrementEventCount()
     } else {
       // If neither window.orientation nor event data is present, show debug text:
-      UI.updateField('Orientation_a_test', 'No orientation data')
-      UI.updateField('Orientation_b_test', 'No orientation data')
-      UI.updateField('Orientation_g_test', 'No orientation data')
+      UI.updateField('Orientation_a', 'No orientation data')
+      UI.updateField('Orientation_b', 'No orientation data')
+      UI.updateField('Orientation_g', 'No orientation data')
       console.warn(
         'Sensors: No orientation data found in window.orientationGlobal or event.'
       )
