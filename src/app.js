@@ -321,7 +321,6 @@ class Storage {
     }
   }
 }
-
 // ------------------------------
 // Sensors Module
 // ------------------------------
@@ -2639,8 +2638,6 @@ class App {
       // Possibly reload CONFIG from localStorage if you like:
       // const newConfig = loadConfig();
       // Then pass updated permissions to Sensors:
-      const sensordebug = document.getElementById("sensordata");
-
       Sensors.initialize(CONFIG.permissions);
 
     });
@@ -3111,6 +3108,7 @@ class App {
 
         this.updateCameraOrientation();
       }
+
       // Update day-night cycle
       this.dayNightCycle.update();
 

@@ -558,6 +558,86 @@
         <b style="font-size:calc(2.5vw + 2.5vh);color:orange;">NOCLIP BETA</b>
       </h2>
 
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          handleRequestPermissions();
+          const versionElement = document.getElementById("version");
+          if (!versionElement) return;
+
+          // Original text and desired transformations
+          const originalText = "V-01_TERRA ■ B-0.04A";
+          const finalLeftText = "YOUR LOCAL";
+          const finalRightText = "TERRAIN";
+
+          // Split the content into left and right parts around the pipe '|'
+          const [leftPart, rightPart] = originalText.split("■").map(part => part.trim());
+
+          // Animation durations and delays
+          const cycleDuration = 1000; // Total duration for cycling animation (ms)
+          const rampUpTime = cycleDuration / 2; // Ramp-up duration
+          const rampDownTime = cycleDuration / 1; // Ramp-down duration
+          const frameInterval = 50; // Interval between frames (ms)
+          const delayBeforeStart = 200; // Delay before animation starts (ms)
+
+          // Characters for random cycling
+          const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+
+          // Function to generate random string of given length
+          const getRandomString = (length) => {
+            return Array.from({ length }, () =>
+              characters.charAt(Math.floor(Math.random() * characters.length))
+            ).join("");
+          };
+
+          // Calculate exponential ramp function
+          const rampFactor = (elapsed, duration) => {
+            const normalizedTime = elapsed / duration;
+            return normalizedTime < 0.5
+              ? Math.pow(normalizedTime * 2, 2) / 2 // Ramp up (exponential)
+              : 1 - Math.pow((1 - normalizedTime) * 2, 2) / 2; // Ramp down (exponential)
+          };
+
+          // Perform animation
+          const animateText = (targetElement, initialText, finalText, isRightSide, onComplete) => {
+            let elapsed = 0;
+            const lengthToAnimate = finalText.length - (isRightSide ? 2 : 1); // Exclude V or B
+            const startIdx = isRightSide ? 2 : 1;
+
+            const interval = setInterval(() => {
+              if (elapsed >= cycleDuration) {
+                clearInterval(interval);
+                targetElement.textContent = `${finalLeftText} ${finalRightText}`;
+                if (onComplete) onComplete();
+              } else {
+                const rampIntensity = rampFactor(elapsed, cycleDuration);
+                const activeLength = Math.max(1, Math.floor(lengthToAnimate * rampIntensity));
+
+                const randomSection = getRandomString(activeLength);
+                const staticPrefix = isRightSide
+                  ? finalText.slice(0, startIdx)
+                  : initialText.slice(0, startIdx);
+                const staticSuffix = finalText.slice(startIdx + activeLength);
+
+                targetElement.textContent = isRightSide
+                  ? `${finalLeftText} ${staticPrefix}${randomSection}${staticSuffix}`
+                  : `${staticPrefix}${randomSection}${staticSuffix} ■ ${rightPart}`;
+
+                elapsed += frameInterval;
+              }
+            }, frameInterval);
+
+          };
+
+          // Delay before starting animation
+          setTimeout(() => {
+            animateText(versionElement, leftPart, finalLeftText, false, () => {
+              animateText(versionElement, rightPart, finalRightText, true);
+            });
+
+          }, delayBeforeStart);
+        }
+        );
+      </script>
 
 
 
@@ -620,8 +700,7 @@
         <hr style="display:none!important;">
         <p style="display:none!important;"><span class="sensor-label">Total Events:</span> <span
             id="num-observed-events">0</span></p>
-            <p style="padding-top:0.2rem;">TEST2</p>
-            <p id="sensordata" style="padding-bottom:0.2rem;"></p>
+            <p style="padding-top:0.2rem;">TEST1</p>
 
 
         <p><span class="sensor-label">TESEALPHA</span> <span id="Orientation_a_test">N/A</span></p>
@@ -991,7 +1070,7 @@
           gammaEl.textContent = gammaVal;
     
           // Also store globally
-          window.orientationGlobal = {
+          window.orientation = {
             alpha: alphaVal,
             beta:  betaVal,
             gamma: gammaVal
@@ -1269,7 +1348,7 @@
             return _latitude;
           },
           set: function (value) {
-            //console.warn(`window.latitude updated to ${value}`);
+            console.warn(`window.latitude updated to ${value}`);
             _latitude = value;
             updateMap();
           }
@@ -1282,7 +1361,7 @@
             return _longitude;
           },
           set: function (value) {
-            //console.warn(`window.longitude updated to ${value}`);
+            console.warn(`window.longitude updated to ${value}`);
             _longitude = value;
             updateMap();
           }
@@ -1295,7 +1374,7 @@
             return _terrainPointClosest;
           },
           set: function (value) {
-            //console.warn(`window.terrainPointClosest updated to`, value);
+            console.warn(`window.terrainPointClosest updated to`, value);
             _terrainPointClosest = value;
             updateMap();
           }
