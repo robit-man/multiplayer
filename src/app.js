@@ -325,8 +325,6 @@ class Storage {
     }
   }
 }
-
-
 class Sensors {
   static orientationData = {
     alpha: 0,
@@ -345,19 +343,11 @@ class Sensors {
    */
   static initialize(permissions) {
     try {
-      const alphie = window.orientationGlobal.alpha;
-      alert(alphie)
       // If orientation permission was granted, attach the orientation listener.
       if (permissions.orientationGranted) {
-        alert('orientationGranted')
-
-        // Use 'Sensors.handleOrientation' instead of 'this.Sensors.handleOrientation'
         window.addEventListener('deviceorientation', Sensors.handleOrientation);
         Sensors.isOrientationEnabled = true;
-        alert(isOrientationEnabled)
-
         console.log('DeviceOrientation event listener added (Sensors).');
-        alert('DeviceOrientation event listener added (Sensors).');
       }
 
       // If motion permission was granted, attach the devicemotion listener.
@@ -365,34 +355,236 @@ class Sensors {
         window.addEventListener('devicemotion', Sensors.handleMotion);
         Sensors.isMotionEnabled = true;
         console.log('DeviceMotion event listener added (Sensors).');
-        alert('DeviceMotion event listener added (Sensors).');
       }
 
     } catch (err) {
       console.error('Error while initializing Sensors:', err);
-      alert(`Error while initializing Sensors: ${err}`);
     }
   }
 
   /**
-   * Handles device orientation events, or checks window.orientationGlobal if you’re populating orientation data that way.
+   * Requests all necessary permissions and initializes sensors.
+   */
+  static async requestAllPermissions() {
+    try {
+      const { motionGranted, orientationGranted } = await Sensors.requestSensorPermissions();
+      const locationGranted = await Sensors.requestLocationPermission();
+
+      if (locationGranted) {
+        Sensors.initializeGeolocation();
+      }
+
+      // Update CONFIG.permissions
+      CONFIG.permissions.motionGranted = motionGranted;
+      CONFIG.permissions.orientationGranted = orientationGranted;
+      CONFIG.permissions.locationGranted = locationGranted;
+      Sensors.saveConfig(CONFIG);
+
+      // Dispatch the permissions change event
+      window.dispatchEvent(new Event('appPermissionsChanged'));
+
+      // Attach orientation debug listener if orientation is granted
+      if (orientationGranted) {
+        Sensors.attachOrientationDebugListener();
+      }
+
+      console.log('All permissions requested:', {
+        motionGranted,
+        orientationGranted,
+        locationGranted
+      });
+
+      return {
+        motionGranted,
+        orientationGranted,
+        locationGranted
+      };
+    } catch (error) {
+      console.error('Error requesting all permissions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Requests sensor permissions (orientation and motion).
+   * Handles iOS 13+ permission requests.
+   * @returns {Promise<Object>} - Object containing motionGranted and orientationGranted booleans.
+   */
+  static async requestSensorPermissions() {
+    let motionGranted = false;
+    let orientationGranted = false;
+
+    // Request DeviceMotion permissions (iOS 13+)
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        const motionPermission = await DeviceMotionEvent.requestPermission();
+        motionGranted = (motionPermission === 'granted');
+        console.log(`DeviceMotion permission granted: ${motionGranted}`);
+      } catch (e) {
+        console.error('DeviceMotion permission request error:', e);
+      }
+    } else {
+      // Non-iOS or iOS below 13, assume permissions are granted
+      motionGranted = true;
+      console.log('DeviceMotion permission assumed granted (non-iOS or iOS <13).');
+    }
+
+    // Request DeviceOrientation permissions (iOS 13+)
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const orientationPermission = await DeviceOrientationEvent.requestPermission();
+        orientationGranted = (orientationPermission === 'granted');
+        console.log(`DeviceOrientation permission granted: ${orientationGranted}`);
+      } catch (e) {
+        console.error('DeviceOrientation permission request error:', e);
+      }
+    } else {
+      // Non-iOS or iOS below 13, assume permissions are granted
+      orientationGranted = true;
+      console.log('DeviceOrientation permission assumed granted (non-iOS or iOS <13).');
+    }
+
+    return { motionGranted, orientationGranted };
+  }
+
+  /**
+   * Requests geolocation permission.
+   * @returns {Promise<boolean>} - True if granted, false otherwise.
+   */
+  static async requestLocationPermission() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        console.warn('Geolocation not supported.');
+        resolve(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          console.log('Geolocation permission granted.');
+          resolve(true);
+        },
+        (error) => {
+          console.warn('Geolocation permission denied or error:', error);
+          resolve(false);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        }
+      );
+    });
+  }
+
+  /**
+   * Initializes geolocation tracking.
+   */
+  static initializeGeolocation() {
+    const locationElement = document.getElementById('location');
+    if (!navigator.geolocation || !locationElement) {
+      if (locationElement) {
+        locationElement.textContent = 'Location: Not Supported';
+      }
+      return;
+    }
+
+    const geoOptions = {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 5000
+    };
+
+    let normalLocationObtained = false;
+
+    function geoSuccess(pos) {
+      normalLocationObtained = true;
+      const { latitude, longitude } = pos.coords;
+      window.latitude = latitude;
+      window.longitude = longitude;
+      if (locationElement) {
+        locationElement.textContent = `Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      }
+      window.dispatchEvent(new Event('locationUpdated'));
+    }
+
+    async function geoError(err) {
+      console.warn('Geolocation error or denied:', err);
+      if (!normalLocationObtained) {
+        try {
+          const response = await fetch('https://ipapi.co/json/');
+          if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+          }
+          const data = await response.json();
+          if (data.latitude && data.longitude) {
+            window.latitude = data.latitude;
+            window.longitude = data.longitude;
+            if (locationElement) {
+              locationElement.textContent = `Location (IP-based): ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+            }
+            window.dispatchEvent(new Event('locationUpdated'));
+          } else {
+            throw new Error('IP-based location incomplete');
+          }
+        } catch (ipError) {
+          console.error('IP-based location fetch error:', ipError);
+          if (locationElement) {
+            locationElement.textContent = 'Location: Unable to determine via IP';
+          }
+        }
+      }
+    }
+
+    navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
+  }
+
+  /**
+   * Attaches a deviceorientation event listener for debugging.
+   * Updates window.orientationGlobal and UI fields.
+   */
+  static attachOrientationDebugListener() {
+    window.addEventListener('deviceorientation', event => {
+      const alphaEl = document.getElementById('Orientation_a');
+      const betaEl = document.getElementById('Orientation_b');
+      const gammaEl = document.getElementById('Orientation_g');
+
+      if (!alphaEl || !betaEl || !gammaEl) return;
+
+      const alphaVal = (event.alpha || 0).toFixed(2);
+      const betaVal = (event.beta || 0).toFixed(2);
+      const gammaVal = (event.gamma || 0).toFixed(2);
+
+      alphaEl.textContent = alphaVal;
+      betaEl.textContent = betaVal;
+      gammaEl.textContent = gammaVal;
+
+      window.orientationGlobal = {
+        alpha: alphaVal,
+        beta: betaVal,
+        gamma: gammaVal
+      };
+
+      console.log('Orientation Debug Listener Updated:', window.orientationGlobal);
+    });
+  }
+
+  /**
+   * Handles device orientation events.
    * @param {DeviceOrientationEvent} event
    */
   static handleOrientation(event) {
     try {
-      // If your code on index.html sets window.orientationGlobal, we can use that:
-      if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
-        console.log('Detected window.orientationGlobal from index.html');
-        // Use the window.orientationGlobal values
-        const alpha = parseFloat(window.orientationGlobal.alpha) || 0;
-        const beta  = parseFloat(window.orientationGlobal.beta)  || 0;
-        const gamma = parseFloat(window.orientationGlobal.gamma) || 0;
+      if (event && (event.alpha !== null || event.beta !== null || event.gamma !== null)) {
+        const alpha = event.alpha || 0;
+        const beta = event.beta || 0;
+        const gamma = event.gamma || 0;
 
         Sensors.orientationData.alpha = alpha;
-        Sensors.orientationData.beta  = beta;
+        Sensors.orientationData.beta = beta;
         Sensors.orientationData.gamma = gamma;
 
-        if (event && event.webkitCompassHeading !== undefined) {
+        if (event.webkitCompassHeading !== undefined) {
           Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
           Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
         }
@@ -403,38 +595,18 @@ class Sensors {
         UI.updateField('Orientation_g', gamma.toFixed(2));
         UI.incrementEventCount();
 
-      } else if (event && (event.alpha !== null || event.beta !== null || event.gamma !== null)) {
-        // Fallback: if you do want to use the real deviceorientation event directly
-        const alpha = event.alpha || 0;
-        const beta  = event.beta  || 0;
-        const gamma = event.gamma || 0;
-
-        Sensors.orientationData.alpha = alpha;
-        Sensors.orientationData.beta  = beta;
-        Sensors.orientationData.gamma = gamma;
-
-        if (event.webkitCompassHeading !== undefined) {
-          Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
-          Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
-        }
-
-        UI.updateField('Orientation_a', alpha.toFixed(2));
-        UI.updateField('Orientation_b', beta.toFixed(2));
-        UI.updateField('Orientation_g', gamma.toFixed(2));
-        UI.incrementEventCount();
-
+        console.log(`Orientation Data: alpha=${alpha}, beta=${beta}, gamma=${gamma}`);
       } else {
-        // If neither window.orientation nor event data is present, show debug text:
+        // If no valid orientation data, show debug text:
         UI.updateField('Orientation_a', 'No orientation data');
         UI.updateField('Orientation_b', 'No orientation data');
         UI.updateField('Orientation_g', 'No orientation data');
-        console.warn(
-          'Sensors: No orientation data found in window.orientationGlobal or event.'
-        );
+        console.warn('Sensors: No orientation data found in event.');
       }
     } catch (err) {
       console.error('Error in handleOrientation:', err);
-      alert('Error in handleOrientation:', err);
+      // Consider removing alert statements for better UX
+      // alert(`Error in handleOrientation: ${err}`);
     }
   }
 
@@ -444,18 +616,49 @@ class Sensors {
    */
   static handleMotion(event) {
     try {
-      // For example, if you want to display some motion data:
+      // Implement motion handling logic if needed
+      // Example:
+      // Sensors.motionData.acceleration = event.acceleration;
       // UI.updateField('Accelerometer_x', event.acceleration.x.toFixed(2));
-      // ...
-      // For now, we simply log if we want to:
-      // console.log('DeviceMotionEvent:', event);
+      // UI.updateField('Accelerometer_y', event.acceleration.y.toFixed(2));
+      // UI.updateField('Accelerometer_z', event.acceleration.z.toFixed(2));
+      console.log('DeviceMotionEvent received:', event);
     } catch (err) {
       console.error('Error in handleMotion:', err);
-      alert('Error in handleMotion:', err);
+      // Consider removing alert statements for better UX
+      // alert(`Error in handleMotion: ${err}`);
     }
   }
-}
 
+  /**
+   * Saves the CONFIG object to localStorage.
+   * @param {Object} config - Configuration object.
+   */
+  static saveConfig(config) {
+    try {
+      localStorage.setItem('CONFIG', JSON.stringify(config));
+      console.log('CONFIG saved to localStorage.');
+    } catch (e) {
+      console.error('Error saving CONFIG to localStorage:', e);
+    }
+  }
+
+  /**
+   * Placeholder for loadConfig function.
+   * Ensure that this method matches your existing loadConfig implementation.
+   */
+  static loadConfig() {
+    try {
+      const saved = localStorage.getItem('CONFIG');
+      return saved ? JSON.parse(saved) : defaultConfig;
+    } catch (e) {
+      console.error('Error parsing CONFIG from localStorage:', e);
+      return defaultConfig;
+    }
+  }
+
+  // ... any other sensor-related methods ...
+}
 
 // ------------------------------
 // UI Module
