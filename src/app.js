@@ -362,6 +362,8 @@ class Sensors {
    * @param {DeviceOrientationEvent} event
    */
   static handleOrientation(event) {
+    alert('handleOrientation running');
+
     // In some setups, you might rely purely on `window.orientation`, e.g.:
     //   window.orientation = { alpha: ..., beta: ..., gamma: ... }
     // If that’s the case, read from there. Otherwise, read from `event.alpha`, etc.
@@ -2948,9 +2950,12 @@ class App {
    * Updates the camera's orientation based on device sensors.
    */
   updateCameraOrientation() {
+    alert('updateCameraOrientation running');
+
     const alphaDeg = Sensors.orientationData.alpha || window.orientationData.alpha || 0; // 0..360 degrees
     const betaDeg = Sensors.orientationData.beta || window.orientationData.beta || 0; // -180..180 degrees
     const gammaDeg = Sensors.orientationData.gamma || window.orientationData.gamma || 0; // -90..90 degrees
+    alert(`${alphaDeg} ${betaDeg} ${gammaDeg}`);
 
     // Check if compass data is available and accurate
     const hasCompass =
@@ -3099,9 +3104,12 @@ class App {
       if (this.localMixer) {
         this.localMixer.update(delta);
       }
+      alert(`${Sensors.isOrientationEnabled}`);
 
       // Update camera orientation based on device orientation data, if enabled
       if (Sensors.isOrientationEnabled) {
+        alert('isOrientationEnabled running');
+
         this.updateCameraOrientation();
       }
 
