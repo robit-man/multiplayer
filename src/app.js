@@ -343,11 +343,16 @@ class Sensors {
    */
   static initialize(permissions) {
     try {
+      alert('permissions try')
       // If orientation permission was granted, attach the orientation listener.
       if (permissions.orientationGranted) {
+        alert(`Granted Permissions? ${permissions.orientationGranted}`)
+
         // Use 'Sensors.handleOrientation' instead of 'this.Sensors.handleOrientation'
         window.addEventListener('deviceorientation', Sensors.handleOrientation);
         Sensors.isOrientationEnabled = true;
+        alert(`Orientation Enabled: ${isOrientationEnabled}`)
+
         console.log('DeviceOrientation event listener added (Sensors).');
         alert('DeviceOrientation event listener added (Sensors).');
       }
