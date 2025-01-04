@@ -3375,8 +3375,8 @@ class App {
   
     // 2. Access orientation data directly from Sensors.orientationData
     const alphaDeg = Sensors.orientationData.alpha || 0; // 0..360 degrees
-    let betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
-    let gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
+    const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
   
     // 3. Fix decimal places for UI display
     const alphaConstraint = alphaDeg.toFixed(2);
@@ -3413,8 +3413,8 @@ class App {
   
     // 7. Convert degrees to radians
     const yawRad = THREE.MathUtils.degToRad(yawDeg);
-    let pitchRad = THREE.MathUtils.degToRad(betaDeg);
-    let rollRad = THREE.MathUtils.degToRad(gammaDeg);
+    const pitchRad = THREE.MathUtils.degToRad(betaDeg);
+    const rollRad = THREE.MathUtils.degToRad(gammaDeg);
   
     // 8. Determine the screen orientation (0, 90, 180, 270 degrees)
     const screenOrientationDeg = window.orientation || 0;
@@ -3423,27 +3423,30 @@ class App {
     // 9. Adjust yaw based on screen orientation
     const adjustedYawRad = yawRad - screenOrientationRad;
   
-    // 10. Clamp the pitch angle slightly below 90 degrees to prevent gimbal lock
-    const maxPitch = THREE.MathUtils.degToRad(this.movement.pitchMax - 1); // e.g., 89 degrees
-    const minPitch = THREE.MathUtils.degToRad(this.movement.pitchMin + 1); // e.g., -89 degrees
-    pitchRad = THREE.MathUtils.clamp(pitchRad, minPitch, maxPitch);
+    // 10. Create quaternions for each rotation
+    const quaternionYaw = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      adjustedYawRad
+    );
+    const quaternionPitch = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(1, 0, 0),
+      pitchRad
+    );
+    const quaternionRoll = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 0, 1),
+      rollRad
+    );
   
-    // 11. Neutralize roll when pitch is near ±85 degrees to prevent flipping
-    const pitchThreshold = THREE.MathUtils.degToRad(85); // Threshold to start neutralizing roll
-    if (Math.abs(pitchRad) > pitchThreshold) {
-      rollRad = 0; // Ignore roll to prevent flipping
-      console.log('Roll neutralized due to near-vertical pitch');
-    }
+    // 11. Combine the quaternions: Yaw * Pitch * Roll
+    const quaternion = new THREE.Quaternion()
+      .multiply(quaternionYaw)
+      .multiply(quaternionPitch)
+      .multiply(quaternionRoll);
   
-    // 12. Create Euler angles with the order YXZ to handle rotations properly
-    const euler = new THREE.Euler(pitchRad, adjustedYawRad, rollRad, 'YXZ');
-  
-    // 13. Convert Euler angles to Quaternion for smooth rotation
-    const quaternion = new THREE.Quaternion().setFromEuler(euler);
-  
-    // 14. Apply the quaternion to the camera
+    // 12. Apply the quaternion to the camera
     this.camera.quaternion.copy(quaternion);
   }
+  
   
   
   /**
