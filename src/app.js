@@ -346,12 +346,12 @@ class Sensors {
     if (permissions.orientationGranted) {
       // Option 1: If you don’t care about devicemotion events from the browser
       //           you can skip the deviceorientation listener altogether:
-      // window.addEventListener('deviceorientation', Sensors.handleOrientation);
+      window.addEventListener('deviceorientation', Sensors.handleOrientation);
 
       // Option 2: Or keep the event so we know each time something changes:
-      window.addEventListener('deviceorientation', Sensors.handleOrientation);
-      Sensors.isOrientationEnabled = true;
-      console.log('DeviceOrientation event listener added.');
+      //window.addEventListener('deviceorientation', Sensors.handleOrientation);
+      //Sensors.isOrientationEnabled = true;
+      //console.log('DeviceOrientation event listener added.');
     }
 
     if (permissions.motionGranted) {
