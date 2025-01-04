@@ -3338,9 +3338,9 @@ class App {
     }
 
     // Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha// || 0 // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta// || 0 // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma// || 0 // -90..90 degrees
+    const alphaDeg = Sensors.orientationData.alpha.toFixed(3)// || 0 // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta.toFixed(3)// || 0 // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma.toFixed(3)// || 0 // -90..90 degrees
 
     UI.updateField('Orientation_a', alphaDeg)
     UI.updateField('Orientation_b', betaDeg)
