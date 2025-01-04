@@ -325,7 +325,6 @@ class Storage {
     }
   }
 }
-
 class Sensors {
   static orientationData = {
     alpha: 0,
@@ -333,98 +332,101 @@ class Sensors {
     gamma: 0,
     webkitCompassHeading: undefined,
     webkitCompassAccuracy: undefined
-  }
+  };
 
-  static isOrientationEnabled = false
-  static isMotionEnabled = false
+  static isOrientationEnabled = false;
+  static isMotionEnabled = false;
 
   /**
    * Initializes sensor event listeners based on permissions.
    * @param {Object} permissions - Permissions object.
    */
-  static initialize (permissions) {
-    // If orientation permission was granted, attach the orientation listener.
-    if (permissions.orientationGranted) {
-      window.addEventListener('deviceorientation', Sensors.handleOrientation)
-      Sensors.isOrientationEnabled = true
-      console.log('DeviceOrientation event listener added (Sensors).')
-    }
+  static initialize(permissions) {
+    try {
+      // If orientation permission was granted, attach the orientation listener.
+      if (permissions.orientationGranted) {
+        // Use 'Sensors.handleOrientation' instead of 'this.Sensors.handleOrientation'
+        window.addEventListener('deviceorientation', Sensors.handleOrientation);
+        Sensors.isOrientationEnabled = true;
+        console.log('DeviceOrientation event listener added (Sensors).');
+        alert('DeviceOrientation event listener added (Sensors).');
+      }
 
-    // If motion permission was granted, attach the devicemotion listener.
-    if (permissions.motionGranted) {
-      window.addEventListener('devicemotion', Sensors.handleMotion)
-      Sensors.isMotionEnabled = true
-      console.log('DeviceMotion event listener added (Sensors).')
+      // If motion permission was granted, attach the devicemotion listener.
+      if (permissions.motionGranted) {
+        window.addEventListener('devicemotion', Sensors.handleMotion);
+        Sensors.isMotionEnabled = true;
+        console.log('DeviceMotion event listener added (Sensors).');
+        alert('DeviceMotion event listener added (Sensors).');
+      }
+
+    } catch (err) {
+      console.error('Error while initializing Sensors:', err);
+      alert('Error while initializing Sensors:', err);
     }
   }
 
   /**
-   * Handles device orientation events, or checks window.orientation
-   * if you're populating orientation data that way (index.html).
+   * Handles device orientation events, or checks window.orientationGlobal if you’re populating orientation data that way.
    * @param {DeviceOrientationEvent} event
    */
-  static handleOrientation (event) {
-    // Removed alert to prevent disruption
-    // alert('handleOrientation running')
+  static handleOrientation(event) {
+    try {
+      // If your code on index.html sets window.orientationGlobal, we can use that:
+      if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
+        console.log('Detected window.orientationGlobal from index.html');
+        // Use the window.orientationGlobal values
+        const alpha = parseFloat(window.orientationGlobal.alpha) || 0;
+        const beta  = parseFloat(window.orientationGlobal.beta)  || 0;
+        const gamma = parseFloat(window.orientationGlobal.gamma) || 0;
 
-    // Pull orientation data from window.orientationGlobal if available
-    if (
-      window.orientationGlobal &&
-      typeof window.orientationGlobal === 'object'
-    ) {
-      alert('orientationGlobal Exists and is Read by app.js')
-      // Use the window.orientation values
-      const alpha = parseFloat(window.orientationGlobal.alpha) || 0
-      const beta = parseFloat(window.orientationGlobal.beta) || 0
-      const gamma = parseFloat(window.orientationGlobal.gamma) || 0
+        Sensors.orientationData.alpha = alpha;
+        Sensors.orientationData.beta  = beta;
+        Sensors.orientationData.gamma = gamma;
 
-      Sensors.orientationData.alpha = alpha
-      Sensors.orientationData.beta = beta
-      Sensors.orientationData.gamma = gamma
+        if (event && event.webkitCompassHeading !== undefined) {
+          Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
+          Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+        }
 
-      // If we want to pull any compass heading from the real event:
-      // (Note that not all browsers provide webkitCompassHeading)
-      if (event && event.webkitCompassHeading !== undefined) {
-        Sensors.orientationData.webkitCompassHeading =
-          event.webkitCompassHeading
-        Sensors.orientationData.webkitCompassAccuracy =
-          event.webkitCompassAccuracy
+        // Update UI debug fields
+        UI.updateField('Orientation_a', alpha.toFixed(2));
+        UI.updateField('Orientation_b', beta.toFixed(2));
+        UI.updateField('Orientation_g', gamma.toFixed(2));
+        UI.incrementEventCount();
+
+      } else if (event && (event.alpha !== null || event.beta !== null || event.gamma !== null)) {
+        // Fallback: if you do want to use the real deviceorientation event directly
+        const alpha = event.alpha || 0;
+        const beta  = event.beta  || 0;
+        const gamma = event.gamma || 0;
+
+        Sensors.orientationData.alpha = alpha;
+        Sensors.orientationData.beta  = beta;
+        Sensors.orientationData.gamma = gamma;
+
+        if (event.webkitCompassHeading !== undefined) {
+          Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
+          Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+        }
+
+        UI.updateField('Orientation_a', alpha.toFixed(2));
+        UI.updateField('Orientation_b', beta.toFixed(2));
+        UI.updateField('Orientation_g', gamma.toFixed(2));
+        UI.incrementEventCount();
+
+      } else {
+        // If neither window.orientation nor event data is present, show debug text:
+        UI.updateField('Orientation_a', 'No orientation data');
+        UI.updateField('Orientation_b', 'No orientation data');
+        UI.updateField('Orientation_g', 'No orientation data');
+        console.warn(
+          'Sensors: No orientation data found in window.orientationGlobal or event.'
+        );
       }
-
-      // Debug UI - Ensure IDs match with HTML
-      UI.updateField('Orientation_a', alpha.toFixed(2))
-      UI.updateField('Orientation_b', beta.toFixed(2))
-      UI.updateField('Orientation_g', gamma.toFixed(2))
-      UI.incrementEventCount()
-    } else if (event && (event.alpha || event.beta || event.gamma)) {
-      // Fallback: if you do want to use the real deviceorientation event directly
-      const alpha = event.alpha || 0
-      const beta = event.beta || 0
-      const gamma = event.gamma || 0
-
-      Sensors.orientationData.alpha = alpha
-      Sensors.orientationData.beta = beta
-      Sensors.orientationData.gamma = gamma
-
-      if (event.webkitCompassHeading !== undefined) {
-        Sensors.orientationData.webkitCompassHeading =
-          event.webkitCompassHeading
-        Sensors.orientationData.webkitCompassAccuracy =
-          event.webkitCompassAccuracy
-      }
-
-      UI.updateField('Orientation_a', alpha.toFixed(2))
-      UI.updateField('Orientation_b', beta.toFixed(2))
-      UI.updateField('Orientation_g', gamma.toFixed(2))
-      UI.incrementEventCount()
-    } else {
-      // If neither window.orientation nor event data is present, show debug text:
-      UI.updateField('Orientation_a', 'No orientation data')
-      UI.updateField('Orientation_b', 'No orientation data')
-      UI.updateField('Orientation_g', 'No orientation data')
-      console.warn(
-        'Sensors: No orientation data found in window.orientationGlobal or event.'
-      )
+    } catch (err) {
+      console.error('Error in handleOrientation:', err);
+      alert('Error in handleOrientation:', err);
     }
   }
 
@@ -432,13 +434,17 @@ class Sensors {
    * Handles device motion events.
    * @param {DeviceMotionEvent} event
    */
-  static handleMotion (event) {
-    // Implement motion handling logic if needed
-    // For example:
-    // Sensors.motionData.acceleration = event.acceleration
-    // UI.updateField('Accelerometer_x', event.acceleration.x.toFixed(2))
-    // UI.updateField('Accelerometer_y', event.acceleration.y.toFixed(2))
-    // UI.updateField('Accelerometer_z', event.acceleration.z.toFixed(2))
+  static handleMotion(event) {
+    try {
+      // For example, if you want to display some motion data:
+      // UI.updateField('Accelerometer_x', event.acceleration.x.toFixed(2));
+      // ...
+      // For now, we simply log if we want to:
+      // console.log('DeviceMotionEvent:', event);
+    } catch (err) {
+      console.error('Error in handleMotion:', err);
+      alert('Error in handleMotion:', err);
+    }
   }
 }
 
