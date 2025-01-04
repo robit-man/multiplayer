@@ -3442,6 +3442,7 @@ class App {
     this.camera.quaternion.copy(quaternion);
   }
   
+  
   /**
    * Handles window resize events.
    */
