@@ -3379,9 +3379,9 @@ class App {
     let gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
   
     // Fix decimal places for UI display
-    let alphaConstraint = alphaDeg.toFixed(2);
-    let betaConstraint = betaDeg.toFixed(2);
-    let gammaConstraint = gammaDeg.toFixed(2);
+    const alphaConstraint = alphaDeg.toFixed(2);
+    const betaConstraint = betaDeg.toFixed(2);
+    const gammaConstraint = gammaDeg.toFixed(2);
   
     // Update UI fields with orientation data
     UI.updateField('Orientation_a', alphaConstraint);
@@ -3414,19 +3414,26 @@ class App {
     let pitchRad = THREE.MathUtils.degToRad(betaDeg);
     let rollRad = THREE.MathUtils.degToRad(gammaDeg);
   
+    // Determine the screen orientation (0, 90, 180, 270 degrees)
+    const screenOrientationDeg = window.orientation || 0;
+    const screenOrientationRad = THREE.MathUtils.degToRad(screenOrientationDeg);
+  
+    // Adjust alpha based on screen orientation
+    const adjustedAlphaRad = yawRad - screenOrientationRad;
+  
     // Clamp the pitch angle slightly below 90 degrees to prevent gimbal lock
     const maxPitch = THREE.MathUtils.degToRad(this.movement.pitchMax - 1); // e.g., 89 degrees
     const minPitch = THREE.MathUtils.degToRad(this.movement.pitchMin + 1); // e.g., -89 degrees
     pitchRad = THREE.MathUtils.clamp(pitchRad, minPitch, maxPitch);
   
-    // Neutralize roll when pitch is near ±90 degrees
+    // Neutralize roll when pitch is near ±85 degrees to prevent flipping
     const pitchThreshold = THREE.MathUtils.degToRad(85); // Threshold to start neutralizing roll
     if (Math.abs(pitchRad) > pitchThreshold) {
       rollRad = 0; // Ignore roll to prevent flipping
     }
   
     // Create Euler angles with the order YXZ to handle rotations properly
-    const euler = new THREE.Euler(pitchRad, yawRad, rollRad, 'YXZ');
+    const euler = new THREE.Euler(pitchRad, adjustedAlphaRad, rollRad, 'YXZ');
   
     // Convert Euler angles to Quaternion for smooth rotation
     const quaternion = new THREE.Quaternion().setFromEuler(euler);
