@@ -321,7 +321,6 @@ class Storage {
     }
   }
 }
-
 // ------------------------------
 // Sensors Module
 // ------------------------------
@@ -342,7 +341,14 @@ class Sensors {
    * @param {Object} permissions - Permissions object.
    */
   static initialize(permissions) {
+    // We only attach event listeners if you still want them
+    // for devicemotion, but for orientation we'll rely on window.orientation.
     if (permissions.orientationGranted) {
+      // Option 1: If you don’t care about devicemotion events from the browser
+      //           you can skip the deviceorientation listener altogether:
+      // window.addEventListener('deviceorientation', Sensors.handleOrientation);
+
+      // Option 2: Or keep the event so we know each time something changes:
       window.addEventListener('deviceorientation', Sensors.handleOrientation);
       Sensors.isOrientationEnabled = true;
       console.log('DeviceOrientation event listener added.');
@@ -356,24 +362,42 @@ class Sensors {
   }
 
   /**
-   * Handles device orientation events.
-   * @param {DeviceOrientationEvent} event
+   * Handles device orientation events, but instead of reading
+   * event.alpha/beta/gamma, we read from window.orientation.
+   * @param {DeviceOrientationEvent} event  (Unused if you're ignoring it)
    */
-  static handleOrientation(event) {
-    Sensors.orientationData.alpha = event.alpha || 0;
-    Sensors.orientationData.beta = event.beta || 0;
-    Sensors.orientationData.gamma = event.gamma || 0;
+  static handleOrientation(/* event */) {
+    // We assume index.html or some other script sets:
+    //   window.orientation = { alpha: "...", beta: "...", gamma: "..." }
 
-    if (event.webkitCompassHeading !== undefined) {
-      Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
-      Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+    if (window.orientation && typeof window.orientation === 'object') {
+      // Convert them to numbers just in case
+      const alpha = parseFloat(window.orientation.alpha) || 0;
+      const beta  = parseFloat(window.orientation.beta)  || 0;
+      const gamma = parseFloat(window.orientation.gamma) || 0;
+
+      // Store in Sensors.orientationData
+      Sensors.orientationData.alpha = alpha;
+      Sensors.orientationData.beta  = beta;
+      Sensors.orientationData.gamma = gamma;
+
+      // If you still want compass data, keep checking event.webkitCompassHeading
+      // but remember you’re ignoring the `event` param in this approach.
+      // If you truly want that, you’d need to rely on the event object,
+      // or store that in `window.orientation` as well.
+      //
+      if (event && event.webkitCompassHeading !== undefined) {
+         Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
+         Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+       }
+
+      // Update UI
+      UI.updateFieldIfNotNull('Orientation_a', alpha, 2);
+      UI.updateFieldIfNotNull('Orientation_b', beta, 2);
+      UI.updateFieldIfNotNull('Orientation_g', gamma, 2);
+
+      UI.incrementEventCount();
     }
-
-    UI.updateFieldIfNotNull('Orientation_a', Sensors.orientationData.alpha, 2);
-    UI.updateFieldIfNotNull('Orientation_b', Sensors.orientationData.beta, 2);
-    UI.updateFieldIfNotNull('Orientation_g', Sensors.orientationData.gamma, 2);
-
-    UI.incrementEventCount();
   }
 
   /**

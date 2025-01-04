@@ -794,7 +794,8 @@
      *  7) Misc. utilities: IP fetch, time updates, localStorage clearing, etc.
      *
      *  In addition, we have an optional local deviceorientation handler 
-     *  to display alpha/beta/gamma in index.html for debugging.
+     *  to display alpha/beta/gamma in index.html for debugging,
+     *  AND we also store them in window.orientation = { alpha, beta, gamma }.
      */
     
     (function() {
@@ -1007,7 +1008,7 @@
        * 4) Update CONFIG.permissions
        * 5) saveConfig(CONFIG)
        * 6) Dispatch "appPermissionsChanged"
-       * 7) If orientation is granted, attach a local debug event listener to update #Orientation_a / #Orientation_b / #Orientation_g
+       * 7) If orientation is granted, attach a local debug event listener
        */
       async function requestAllPermissions() {
         // 1) orientation & motion
@@ -1043,7 +1044,8 @@
     
       /**
        * Simple function that listens to deviceorientation events
-       * and updates the #Orientation_a / #Orientation_b / #Orientation_g spans in index.html
+       * and updates the #Orientation_a / #Orientation_b / #Orientation_g spans in index.html.
+       * Also sets window.orientation = { alpha, beta, gamma } for global usage.
        */
       function attachOrientationDebugListener() {
         window.addEventListener('deviceorientation', (event) => {
@@ -1057,9 +1059,17 @@
           const betaVal  = (event.beta  || 0).toFixed(2);
           const gammaVal = (event.gamma || 0).toFixed(2);
     
+          // Update the text content in the HTML
           alphaEl.textContent = alphaVal;
           betaEl.textContent  = betaVal;
           gammaEl.textContent = gammaVal;
+    
+          // Also store globally
+          window.orientation = {
+            alpha: alphaVal,
+            beta:  betaVal,
+            gamma: gammaVal
+          };
         });
       }
     
@@ -1179,6 +1189,7 @@
     
     })();
     </script>
+    
     
   
 
