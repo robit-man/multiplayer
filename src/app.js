@@ -2974,7 +2974,7 @@ class App {
    * Initializes sensor event listeners.
    */
   initSensors () {
-    const appElement = document.getElementById('app')
+    const appElement = document.getElementById('request_button')
     if (!appElement) {
       console.error("Element with id 'app' not found.")
       return
