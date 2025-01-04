@@ -3425,27 +3425,39 @@ class App {
   
     // 10. Create quaternions for each rotation
     const quaternionYaw = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, 1, 0), // Y-axis
       adjustedYawRad
     );
     const quaternionPitch = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(1, 0, 0), // X-axis
       pitchRad
     );
     const quaternionRoll = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, 1), // Z-axis
       rollRad
     );
   
     // 11. Combine the quaternions: Yaw * Pitch * Roll
-    const quaternion = new THREE.Quaternion()
+    const deviceQuaternion = new THREE.Quaternion()
       .multiply(quaternionYaw)
       .multiply(quaternionPitch)
       .multiply(quaternionRoll);
   
-    // 12. Apply the quaternion to the camera
-    this.camera.quaternion.copy(quaternion);
+    // 12. Reference Quaternion: Rotate -90 degrees around X-axis to align device frame with Three.js frame
+    const referenceQuaternion = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(-Math.PI / 2, 0, 0, 'YXZ') // -90 degrees around X-axis
+    );
+  
+    // 13. Combine Device Quaternion with Reference Quaternion
+    const finalQuaternion = deviceQuaternion.multiply(referenceQuaternion);
+  
+    // 14. Apply the final quaternion to the camera
+    this.camera.quaternion.copy(finalQuaternion);
+  
+    // 15. Optional: Log final quaternion for debugging
+    console.log(`Final Quaternion: ${finalQuaternion.x}, ${finalQuaternion.y}, ${finalQuaternion.z}, ${finalQuaternion.w}`);
   }
+  
   
   
   
