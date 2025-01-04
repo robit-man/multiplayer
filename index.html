@@ -52,7 +52,7 @@
           <!-- Removed 'Permission Request' button -->
           <span class="row">
             <button id="request_button">Access</button>
-            <button id="clear">Reset</button>
+            <button id="cache">Reset</button>
           </span>
         </div>
         <div class="sensor-readouts">
@@ -171,7 +171,42 @@
 
     <!-- The main 3D or WebXR app container -->
     <div id="app"></div>
+    <script>
+      // Ensure the script runs after the DOM is fully loaded
+      document.addEventListener('DOMContentLoaded', () => {
+        // Get the element with the ID 'cache'
+        const cacheButton = document.getElementById('cache')
 
+        if (cacheButton) {
+          // Add a click event listener to the button
+          cacheButton.addEventListener('click', () => {
+            // Clear the cache by performing a hard reload
+            if ('caches' in window) {
+              caches
+                .keys()
+                .then(cacheNames => {
+                  cacheNames.forEach(cacheName => {
+                    caches.delete(cacheName).then(deleted => {
+                      console.log(`Cache '${cacheName}' deleted: ${deleted}`)
+                    })
+                  })
+                })
+                .then(() => {
+                  // Reload the page
+                  location.reload(true) // True forces the reload from the server
+                })
+            } else {
+              console.warn(
+                'Cache API is not supported in this browser. Performing reload only.'
+              )
+              location.reload(true)
+            }
+          })
+        } else {
+          console.error("Element with ID 'cache' not found.")
+        }
+      })
+    </script>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         // =========== Monitor and Remove Elements ===========
