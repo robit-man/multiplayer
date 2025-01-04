@@ -325,7 +325,9 @@ class Storage {
     }
   }
 }
-
+// ------------------------------
+// Sensors Module
+// ------------------------------
 class Sensors {
   static orientationData = {
     alpha: 0,
@@ -364,10 +366,13 @@ class Sensors {
    * @param {DeviceOrientationEvent} event
    */
   static handleOrientation (event) {
-    // Removed alert to prevent disruption
-    // alert('handleOrientation running')
+    alert('handleOrientation running')
 
-    // Pull orientation data from window.orientationGlobal if available
+    // In some setups, you might rely purely on `window.orientation`, e.g.:
+    //   window.orientation = { alpha: ..., beta: ..., gamma: ... }
+    // If that’s the case, read from there. Otherwise, read from `event.alpha`, etc.
+
+    // Check if we have a global 'window.orientation' object
     if (
       window.orientationGlobal &&
       typeof window.orientationGlobal === 'object'
@@ -390,10 +395,10 @@ class Sensors {
           event.webkitCompassAccuracy
       }
 
-      // Debug UI - Ensure IDs match with HTML
-      UI.updateField('Orientation_a_test', alpha.toFixed(2))
-      UI.updateField('Orientation_b_test', beta.toFixed(2))
-      UI.updateField('Orientation_g_test', gamma.toFixed(2))
+      // Debug UI
+      UI.updateField('Orientation_a', alpha.toFixed(2))
+      UI.updateField('Orientation_b', beta.toFixed(2))
+      UI.updateField('Orientation_g', gamma.toFixed(2))
       UI.incrementEventCount()
     } else if (event && (event.alpha || event.beta || event.gamma)) {
       // Fallback: if you do want to use the real deviceorientation event directly
@@ -422,7 +427,7 @@ class Sensors {
       UI.updateField('Orientation_b', 'No orientation data')
       UI.updateField('Orientation_g', 'No orientation data')
       console.warn(
-        'Sensors: No orientation data found in window.orientationGlobal or event.'
+        'Sensors: No orientation data found in window.orientation or event.'
       )
     }
   }
@@ -432,15 +437,38 @@ class Sensors {
    * @param {DeviceMotionEvent} event
    */
   static handleMotion (event) {
-    // Implement motion handling logic if needed
-    // For example:
-    // Sensors.motionData.acceleration = event.acceleration
-    // UI.updateField('Accelerometer_x', event.acceleration.x.toFixed(2))
-    // UI.updateField('Accelerometer_y', event.acceleration.y.toFixed(2))
-    // UI.updateField('Accelerometer_z', event.acceleration.z.toFixed(2))
+    if (event.accelerationIncludingGravity) {
+      UI.updateFieldIfNotNull(
+        'Accelerometer_gx',
+        event.accelerationIncludingGravity.x,
+        2
+      )
+      UI.updateFieldIfNotNull(
+        'Accelerometer_gy',
+        event.accelerationIncludingGravity.y,
+        2
+      )
+      UI.updateFieldIfNotNull(
+        'Accelerometer_gz',
+        event.accelerationIncludingGravity.z,
+        2
+      )
+    }
+    if (event.acceleration) {
+      UI.updateFieldIfNotNull('Accelerometer_x', event.acceleration.x, 2)
+      UI.updateFieldIfNotNull('Accelerometer_y', event.acceleration.y, 2)
+      UI.updateFieldIfNotNull('Accelerometer_z', event.acceleration.z, 2)
+    }
+    if (event.rotationRate) {
+      UI.updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha, 2)
+      UI.updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta, 2)
+      UI.updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma, 2)
+    }
+
+    UI.updateFieldIfNotNull('Accelerometer_i', event.interval, 2)
+    UI.incrementEventCount()
   }
 }
-
 
 // ------------------------------
 // UI Module
@@ -2975,7 +3003,6 @@ class App {
     console.warn('[Socket] Connected to server.')
     this.multiplayer = new Multiplayer(this.socket, this.scene, this.terrain)
   }
-  
 
   /**
    * Binds UI-related events.
@@ -3201,56 +3228,56 @@ class App {
    */
   // app.js
 
-  updateCameraOrientation () {
-    // Pull orientation data from window.orientationGlobal if available
-    if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
-      Sensors.orientationData.alpha = parseFloat(window.orientationGlobal.alpha) || 0 // 0..360 degrees
-      Sensors.orientationData.beta = parseFloat(window.orientationGlobal.beta) || 0 // -180..180 degrees
-      Sensors.orientationData.gamma = parseFloat(window.orientationGlobal.gamma) || 0 // -90..90 degrees
-    }
-  
-    // Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
-  
-    // Optional: Replace alerts with console logs for debugging
-    console.log(`Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`)
-  
-    // Check if compass data is available and accurate
-    const hasCompass =
-      Sensors.orientationData.webkitCompassHeading !== undefined &&
-      Sensors.orientationData.webkitCompassAccuracy !== undefined &&
-      Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
-  
-    let yawDeg
-  
-    if (hasCompass) {
-      // Use compass heading as yaw
-      yawDeg = Sensors.orientationData.webkitCompassHeading
-    } else {
-      // Fallback: Calculate yaw using alpha
-      yawDeg = alphaDeg
-    }
-  
-    // Convert degrees to radians
-    const yawRad = THREE.MathUtils.degToRad(yawDeg)
-    const betaRad = THREE.MathUtils.degToRad(betaDeg)
-    const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
-  
-    // Calculate pitch based on beta
-    const pitchAngle = THREE.MathUtils.clamp(
-      betaRad - Math.PI / 2,
-      this.movement.pitchMin,
-      this.movement.pitchMax
-    )
-  
-    // Update camera rotation using quaternions for smoothness
-    const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
-    const quaternion = new THREE.Quaternion().setFromEuler(euler)
-    this.camera.quaternion.copy(quaternion)
+updateCameraOrientation () {
+  // Pull orientation data from window.orientationGlobal if available
+  if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
+    Sensors.orientationData.alpha = parseFloat(window.orientationGlobal.alpha) || 0 // 0..360 degrees
+    Sensors.orientationData.beta = parseFloat(window.orientationGlobal.beta) || 0 // -180..180 degrees
+    Sensors.orientationData.gamma = parseFloat(window.orientationGlobal.gamma) || 0 // -90..90 degrees
   }
-  
+
+  // Access orientation data directly from Sensors.orientationData
+  const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
+  const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
+  const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
+
+  // Optional: Replace alerts with console logs for debugging
+  console.log(`Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`)
+
+  // Check if compass data is available and accurate
+  const hasCompass =
+    Sensors.orientationData.webkitCompassHeading !== undefined &&
+    Sensors.orientationData.webkitCompassAccuracy !== undefined &&
+    Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
+
+  let yawDeg
+
+  if (hasCompass) {
+    // Use compass heading as yaw
+    yawDeg = Sensors.orientationData.webkitCompassHeading
+  } else {
+    // Fallback: Calculate yaw using alpha
+    yawDeg = alphaDeg
+  }
+
+  // Convert degrees to radians
+  const yawRad = THREE.MathUtils.degToRad(yawDeg)
+  const betaRad = THREE.MathUtils.degToRad(betaDeg)
+  const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
+
+  // Calculate pitch based on beta
+  const pitchAngle = THREE.MathUtils.clamp(
+    betaRad - Math.PI / 2,
+    this.movement.pitchMin,
+    this.movement.pitchMax
+  )
+
+  // Update camera rotation using quaternions for smoothness
+  const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
+  const quaternion = new THREE.Quaternion().setFromEuler(euler)
+  this.camera.quaternion.copy(quaternion)
+}
+
 
 
   /**
@@ -3368,11 +3395,11 @@ class App {
       }
 
       // Update camera orientation based on device orientation data, if enabled
-      if (Sensors.isOrientationEnabled) {
+      //if (Sensors.isOrientationEnabled) {
         //alert('isOrientationEnabled running')
 
         this.updateCameraOrientation()
-      }
+      //}
 
       // Update day-night cycle
       this.dayNightCycle.update()
