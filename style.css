@@ -46,9 +46,6 @@ body {
   overflow: hidden;
   user-select: none;
 }
-.wrapcover {
-  mix-blend-mode: plus-lighter;
-}
 
 .noclip-circle {
   height: calc(20vw + 20vh);
@@ -260,7 +257,7 @@ body {
   font-size: 0.6rem;
   font-family: 'Rajdhani', sans-serif;
   cursor: default;
-  mix-blend-mode: exclusion;
+  mix-blend-mode: plus-lighter;
   text-shadow: 0px 0px 10px #000;
   overflow: visible;
   z-index: 10;
@@ -275,7 +272,7 @@ body {
   font-size: 0.6rem;
   font-family: 'Rajdhani', sans-serif;
   cursor: default;
-  mix-blend-mode: exclusion;
+  mix-blend-mode: plus-lighter;
   text-shadow: 0px 0px 10px #000;
   overflow: visible;
   z-index: 10;
@@ -292,7 +289,7 @@ body {
   font-size: 0.6rem;
   font-family: 'Rajdhani', sans-serif;
   cursor: default;
-  mix-blend-mode: exclusion;
+  mix-blend-mode: plus-lighter;
   text-shadow: 0px 0px 5px #fff4;
   overflow: visible;
   z-index: 10;
@@ -501,7 +498,7 @@ select:focus {
   border-right: unset;
   width: 202px;
   height: 202px;
-  mix-blend-mode: exclusion;
+  mix-blend-mode: plus-lighter;
 }
 
 .row {
