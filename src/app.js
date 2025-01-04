@@ -367,11 +367,11 @@ class Sensors {
     // If that’s the case, read from there. Otherwise, read from `event.alpha`, etc.
     
     // Check if we have a global 'window.orientation' object
-    if (window.orientation && typeof window.orientation === 'object') {
+    if (window.orientationData && typeof window.orientationData === 'object') {
       // Use the window.orientation values
-      const alpha = parseFloat(window.orientation.alpha) || 0;
-      const beta  = parseFloat(window.orientation.beta)  || 0;
-      const gamma = parseFloat(window.orientation.gamma) || 0;
+      const alpha = parseFloat(window.orientationData.alpha) || 0;
+      const beta  = parseFloat(window.orientationData.beta)  || 0;
+      const gamma = parseFloat(window.orientationData.gamma) || 0;
 
       Sensors.orientationData.alpha = alpha;
       Sensors.orientationData.beta  = beta;
@@ -2948,9 +2948,9 @@ class App {
    * Updates the camera's orientation based on device sensors.
    */
   updateCameraOrientation() {
-    const alphaDeg = Sensors.orientationData.alpha || 0; // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
+    const alphaDeg = Sensors.orientationData.alpha || window.orientationData.alpha || 0; // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta || window.orientationData.beta || 0; // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma || window.orientationData.gamma || 0; // -90..90 degrees
 
     // Check if compass data is available and accurate
     const hasCompass =
