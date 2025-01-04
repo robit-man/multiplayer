@@ -3375,8 +3375,8 @@ class App {
   
     // Access orientation data directly from Sensors.orientationData
     const alphaDeg = Sensors.orientationData.alpha || 0; // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
+    let betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
+    let gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
   
     // Fix decimal places for UI display
     let alphaConstraint = alphaDeg.toFixed(2);
@@ -3411,18 +3411,22 @@ class App {
   
     // Convert degrees to radians
     const yawRad = THREE.MathUtils.degToRad(yawDeg);
-    const pitchRad = THREE.MathUtils.degToRad(betaDeg);
-    const rollRad = THREE.MathUtils.degToRad(gammaDeg);
+    let pitchRad = THREE.MathUtils.degToRad(betaDeg);
+    let rollRad = THREE.MathUtils.degToRad(gammaDeg);
   
-    // Clamp the pitch angle to prevent unnatural camera rotations
-    const clampedPitch = THREE.MathUtils.clamp(
-      pitchRad,
-      THREE.MathUtils.degToRad(this.movement.pitchMin),
-      THREE.MathUtils.degToRad(this.movement.pitchMax)
-    );
+    // Clamp the pitch angle slightly below 90 degrees to prevent gimbal lock
+    const maxPitch = THREE.MathUtils.degToRad(this.movement.pitchMax - 1); // e.g., 89 degrees
+    const minPitch = THREE.MathUtils.degToRad(this.movement.pitchMin + 1); // e.g., -89 degrees
+    pitchRad = THREE.MathUtils.clamp(pitchRad, minPitch, maxPitch);
+  
+    // Neutralize roll when pitch is near ±90 degrees
+    const pitchThreshold = THREE.MathUtils.degToRad(85); // Threshold to start neutralizing roll
+    if (Math.abs(pitchRad) > pitchThreshold) {
+      rollRad = 0; // Ignore roll to prevent flipping
+    }
   
     // Create Euler angles with the order YXZ to handle rotations properly
-    const euler = new THREE.Euler(clampedPitch, yawRad, rollRad, 'YXZ');
+    const euler = new THREE.Euler(pitchRad, yawRad, rollRad, 'YXZ');
   
     // Convert Euler angles to Quaternion for smooth rotation
     const quaternion = new THREE.Quaternion().setFromEuler(euler);
