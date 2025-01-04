@@ -367,11 +367,11 @@ class Sensors {
     // If that’s the case, read from there. Otherwise, read from `event.alpha`, etc.
     
     // Check if we have a global 'window.orientation' object
-    if (window.orientationData && typeof window.orientationData === 'object') {
+    if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
       // Use the window.orientation values
-      const alpha = parseFloat(window.orientationData.alpha) || 0;
-      const beta  = parseFloat(window.orientationData.beta)  || 0;
-      const gamma = parseFloat(window.orientationData.gamma) || 0;
+      const alpha = parseFloat(window.orientationGlobal.alpha) || 0;
+      const beta  = parseFloat(window.orientationGlobal.beta)  || 0;
+      const gamma = parseFloat(window.orientationGlobal.gamma) || 0;
 
       Sensors.orientationData.alpha = alpha;
       Sensors.orientationData.beta  = beta;
