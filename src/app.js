@@ -326,6 +326,7 @@ class Storage {
   }
 }
 
+
 class Sensors {
   static orientationData = {
     alpha: 0,
@@ -344,11 +345,19 @@ class Sensors {
    */
   static initialize(permissions) {
     try {
+      const alphie = window.orientationGlobal.alpha;
+      alert(alphie)
       // If orientation permission was granted, attach the orientation listener.
       if (permissions.orientationGranted) {
+        alert('orientationGranted')
+
+        // Use 'Sensors.handleOrientation' instead of 'this.Sensors.handleOrientation'
         window.addEventListener('deviceorientation', Sensors.handleOrientation);
         Sensors.isOrientationEnabled = true;
+        alert(isOrientationEnabled)
+
         console.log('DeviceOrientation event listener added (Sensors).');
+        alert('DeviceOrientation event listener added (Sensors).');
       }
 
       // If motion permission was granted, attach the devicemotion listener.
@@ -356,30 +365,34 @@ class Sensors {
         window.addEventListener('devicemotion', Sensors.handleMotion);
         Sensors.isMotionEnabled = true;
         console.log('DeviceMotion event listener added (Sensors).');
+        alert('DeviceMotion event listener added (Sensors).');
       }
 
     } catch (err) {
       console.error('Error while initializing Sensors:', err);
+      alert(`Error while initializing Sensors: ${err}`);
     }
   }
 
   /**
-   * Handles device orientation events.
+   * Handles device orientation events, or checks window.orientationGlobal if you’re populating orientation data that way.
    * @param {DeviceOrientationEvent} event
    */
   static handleOrientation(event) {
     try {
-      // Use the deviceorientation event data directly
-      if (event && (event.alpha !== null || event.beta !== null || event.gamma !== null)) {
-        const alpha = event.alpha || 0;
-        const beta = event.beta || 0;
-        const gamma = event.gamma || 0;
+      // If your code on index.html sets window.orientationGlobal, we can use that:
+      if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
+        console.log('Detected window.orientationGlobal from index.html');
+        // Use the window.orientationGlobal values
+        const alpha = parseFloat(window.orientationGlobal.alpha) || 0;
+        const beta  = parseFloat(window.orientationGlobal.beta)  || 0;
+        const gamma = parseFloat(window.orientationGlobal.gamma) || 0;
 
         Sensors.orientationData.alpha = alpha;
-        Sensors.orientationData.beta = beta;
+        Sensors.orientationData.beta  = beta;
         Sensors.orientationData.gamma = gamma;
 
-        if (event.webkitCompassHeading !== undefined) {
+        if (event && event.webkitCompassHeading !== undefined) {
           Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
           Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
         }
@@ -390,16 +403,38 @@ class Sensors {
         UI.updateField('Orientation_g', gamma.toFixed(2));
         UI.incrementEventCount();
 
-        console.log(`Orientation Data: alpha=${alpha}, beta=${beta}, gamma=${gamma}`);
+      } else if (event && (event.alpha !== null || event.beta !== null || event.gamma !== null)) {
+        // Fallback: if you do want to use the real deviceorientation event directly
+        const alpha = event.alpha || 0;
+        const beta  = event.beta  || 0;
+        const gamma = event.gamma || 0;
+
+        Sensors.orientationData.alpha = alpha;
+        Sensors.orientationData.beta  = beta;
+        Sensors.orientationData.gamma = gamma;
+
+        if (event.webkitCompassHeading !== undefined) {
+          Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
+          Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
+        }
+
+        UI.updateField('Orientation_a', alpha.toFixed(2));
+        UI.updateField('Orientation_b', beta.toFixed(2));
+        UI.updateField('Orientation_g', gamma.toFixed(2));
+        UI.incrementEventCount();
+
       } else {
-        // If no valid orientation data, show debug text:
+        // If neither window.orientation nor event data is present, show debug text:
         UI.updateField('Orientation_a', 'No orientation data');
         UI.updateField('Orientation_b', 'No orientation data');
         UI.updateField('Orientation_g', 'No orientation data');
-        console.warn('Sensors: No orientation data found in event.');
+        console.warn(
+          'Sensors: No orientation data found in window.orientationGlobal or event.'
+        );
       }
     } catch (err) {
       console.error('Error in handleOrientation:', err);
+      alert('Error in handleOrientation:', err);
     }
   }
 
@@ -409,15 +444,14 @@ class Sensors {
    */
   static handleMotion(event) {
     try {
-      // Implement motion handling logic if needed
-      // Example:
-      // Sensors.motionData.acceleration = event.acceleration;
+      // For example, if you want to display some motion data:
       // UI.updateField('Accelerometer_x', event.acceleration.x.toFixed(2));
-      // UI.updateField('Accelerometer_y', event.acceleration.y.toFixed(2));
-      // UI.updateField('Accelerometer_z', event.acceleration.z.toFixed(2));
-      console.log('DeviceMotionEvent received:', event);
+      // ...
+      // For now, we simply log if we want to:
+      // console.log('DeviceMotionEvent:', event);
     } catch (err) {
       console.error('Error in handleMotion:', err);
+      alert('Error in handleMotion:', err);
     }
   }
 }
