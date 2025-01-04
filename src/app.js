@@ -3434,7 +3434,7 @@ class App {
     );
     const quaternionRoll = new THREE.Quaternion().setFromAxisAngle(
       new THREE.Vector3(0, 0, 1), // Z-axis
-      rollRad
+      -rollRad
     );
   
     // 11. Combine the quaternions: Yaw * Pitch * Roll
