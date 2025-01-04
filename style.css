@@ -213,8 +213,6 @@ body {
   margin: unset;
   margin-top: -0.5rem;
   font-size: 1rem;
-  letter-spacing: 1.5rem;
-  margin-right: -1.5rem;
 }
 
 @keyframes fadein {
@@ -319,7 +317,7 @@ body {
   font-family: 'Rajdhani', sans-serif;
   cursor: default;
   mix-blend-mode: plus-lighter;
-  text-shadow: 0px 0px 5px #fff4;
+  text-shadow: 0px 0px 5px #000000;
   overflow: visible;
   z-index: 10;
   transition: all 0.2s ease;
@@ -356,6 +354,8 @@ body {
   padding: 0rem 0.25rem;
   border-left: 1px solid white;
   border-right: 1px solid white;
+  text-shadow: 0px 0px 5px #000000;
+
 }
 
 .sensor-label {
@@ -378,6 +378,8 @@ body {
   background: white;
   transition: all 0.2s ease;
   width: calc(25% - 0.5px);
+  text-shadow: 0px 0px 5px #000000;
+
 }
 
 #request_location {
@@ -398,7 +400,8 @@ body {
   font-size: 0.6rem;
   background: transparent;
   border: 1px solid white;
-  border-bottom: unset;
+  border-bottom: unset;  text-shadow: 0px 0px 5px #000000;
+
 }
 
 #encryptDecryptBtn {

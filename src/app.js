@@ -37,7 +37,7 @@ const fontPathDir = fileExists('/public/uno.ttf')
  * @param {string} path - The path to the file.
  * @returns {boolean} - Returns true if the file exists, false otherwise.
  */
-function fileExists (path) {
+function fileExists(path) {
   const xhr = new XMLHttpRequest()
   try {
     xhr.open('HEAD', path, false) // false for synchronous request
@@ -96,11 +96,11 @@ const CONFIG = {
 // Utilities Module
 // ------------------------------
 class Utils {
-  static normalizeAngle (angle) {
+  static normalizeAngle(angle) {
     return Math.atan2(Math.sin(angle), Math.cos(angle))
   }
 
-  static lerpAngle (currentAngle, targetAngle, alpha) {
+  static lerpAngle(currentAngle, targetAngle, alpha) {
     currentAngle = Utils.normalizeAngle(currentAngle)
     targetAngle = Utils.normalizeAngle(targetAngle)
 
@@ -114,14 +114,14 @@ class Utils {
     return Utils.normalizeAngle(newAngle)
   }
 
-  static arrayBufferToBase64 (buffer) {
+  static arrayBufferToBase64(buffer) {
     let binary = ''
     const bytes = new Uint8Array(buffer)
     bytes.forEach(b => (binary += String.fromCharCode(b)))
     return window.btoa(binary)
   }
 
-  static base64ToArrayBuffer (base64) {
+  static base64ToArrayBuffer(base64) {
     const binary = window.atob(base64)
     const bytes = new Uint8Array(binary.length)
     Array.from(binary).forEach((char, i) => {
@@ -130,7 +130,7 @@ class Utils {
     return bytes.buffer
   }
 
-  static calculateDistance (lat1, lon1, lat2, lon2) {
+  static calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3 // Earth radius in meters
     const phi1 = THREE.MathUtils.degToRad(lat1)
     const phi2 = THREE.MathUtils.degToRad(lat2)
@@ -140,24 +140,24 @@ class Utils {
     const a =
       Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
       Math.cos(phi1) *
-        Math.cos(phi2) *
-        Math.sin(deltaLambda / 2) *
-        Math.sin(deltaLambda / 2)
+      Math.cos(phi2) *
+      Math.sin(deltaLambda / 2) *
+      Math.sin(deltaLambda / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
     const distance = R * c
     return distance
   }
 
-  static mapLatitudeToZ (latitude, originLatitude, scale) {
+  static mapLatitudeToZ(latitude, originLatitude, scale) {
     return (latitude - originLatitude) * (111320 * scale)
   }
 
-  static mapLongitudeToX (longitude, originLongitude, scale) {
+  static mapLongitudeToX(longitude, originLongitude, scale) {
     return (longitude - originLongitude) * (110540 * scale)
   }
 
-  static calculateDistanceSq (x1, z1, x2, z2) {
+  static calculateDistanceSq(x1, z1, x2, z2) {
     const dx = x1 - x2
     const dz = z1 - z2
     return dx * dx + dz * dz
@@ -175,7 +175,7 @@ class Encryption {
    * @param {string} password - The password for encryption.
    * @returns {Promise<string>} - A JSON string containing the encrypted data, IV, and salt.
    */
-  static async encryptLatLon (latitude, longitude, password) {
+  static async encryptLatLon(latitude, longitude, password) {
     const data = JSON.stringify({ latitude, longitude })
     const encoder = new TextEncoder()
     const dataBuffer = encoder.encode(data)
@@ -229,7 +229,7 @@ class Encryption {
    * @param {string} password - The password for decryption.
    * @returns {Promise<{latitude: number, longitude: number} | null>} - The decrypted lat/lon data or null if decryption fails.
    */
-  static async decryptLatLon (encryptedPackageStr, password) {
+  static async decryptLatLon(encryptedPackageStr, password) {
     const decoder = new TextDecoder()
 
     const encryptedPackage = JSON.parse(encryptedPackageStr)
@@ -289,7 +289,7 @@ class Storage {
    * @param {string} key - The key under which to store the data.
    * @param {*} value - The data to store.
    */
-  static save (key, value) {
+  static save(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value))
     } catch (e) {
@@ -302,7 +302,7 @@ class Storage {
    * @param {string} key - The key of the data to retrieve.
    * @returns {*} - The retrieved data or null if not found.
    */
-  static load (key) {
+  static load(key) {
     const raw = localStorage.getItem(key)
     if (!raw) return null
     try {
@@ -317,7 +317,7 @@ class Storage {
    * Removes a key-value pair from localStorage.
    * @param {string} key - The key to remove.
    */
-  static remove (key) {
+  static remove(key) {
     try {
       localStorage.removeItem(key)
     } catch (e) {
@@ -342,7 +342,7 @@ class Sensors {
    * Initializes sensor event listeners based on permissions.
    * Requests permissions via user gesture (e.g., tap on #app).
    */
-  static async initialize () {
+  static async initialize() {
     try {
       console.log('Initializing Sensors...')
 
@@ -359,7 +359,7 @@ class Sensors {
         window.addEventListener('deviceorientation', Sensors.handleOrientation)
         Sensors.isOrientationEnabled = true
         console.log('DeviceOrientation event listener added.')
-        alert('Device Orientation enabled.')
+        //alert('Device Orientation enabled.')
       } else {
         console.warn('DeviceOrientation permission not granted.')
         alert('Device Orientation permission denied.')
@@ -369,7 +369,7 @@ class Sensors {
         window.addEventListener('devicemotion', Sensors.handleMotion)
         Sensors.isMotionEnabled = true
         console.log('DeviceMotion event listener added.')
-        alert('Device Motion enabled.')
+        //alert('Device Motion enabled.')
       } else {
         console.warn('DeviceMotion permission not granted.')
         alert('Device Motion permission denied.')
@@ -384,7 +384,7 @@ class Sensors {
    * Requests device orientation permission (required for iOS 13+)
    * @returns {Promise<boolean>} - Resolves to true if permission is granted
    */
-  static requestOrientationPermission () {
+  static requestOrientationPermission() {
     return new Promise((resolve, reject) => {
       // Check if permission is needed (iOS 13+)
       if (
@@ -416,7 +416,7 @@ class Sensors {
    * Requests device motion permission (required for iOS 13+)
    * @returns {Promise<boolean>} - Resolves to true if permission is granted
    */
-  static requestMotionPermission () {
+  static requestMotionPermission() {
     return new Promise((resolve, reject) => {
       // Check if permission is needed (iOS 13+)
       if (
@@ -448,7 +448,7 @@ class Sensors {
    * Handles device orientation events.
    * @param {DeviceOrientationEvent} event
    */
-  static handleOrientation (event) {
+  static handleOrientation(event) {
     try {
       Sensors.orientationData.alpha =
         event.alpha !== null ? event.alpha : Sensors.orientationData.alpha
@@ -478,7 +478,7 @@ class Sensors {
    * Handles device motion events.
    * @param {DeviceMotionEvent} event
    */
-  static handleMotion (event) {
+  static handleMotion(event) {
     try {
       // Implement motion data handling as needed
       console.log('DeviceMotionEvent:', event)
@@ -499,7 +499,7 @@ class UI {
    * @param {string} elementId - The ID of the HTML element to update.
    * @param {string} content - The content to set as innerHTML.
    */
-  static updateField (elementId, content) {
+  static updateField(elementId, content) {
     const element = document.getElementById(elementId)
     //console.log(`Element with ID '${elementId}' Update with '${content}'`);
     if (!element) {
@@ -515,7 +515,7 @@ class UI {
    * @param {number} value - The numerical value to display.
    * @param {number} decimals - Number of decimal places.
    */
-  static updateFieldIfNotNull (elementId, value, decimals) {
+  static updateFieldIfNotNull(elementId, value, decimals) {
     if (value !== null && value !== undefined) {
       const formattedValue = value.toFixed(decimals)
       UI.updateField(elementId, formattedValue)
@@ -525,7 +525,7 @@ class UI {
   /**
    * Increments an event count display for debugging purposes.
    */
-  static incrementEventCount () {
+  static incrementEventCount() {
     const countElement = document.getElementById('eventCount')
     if (!countElement) return
     const currentCount = parseInt(countElement.innerHTML) || 0
@@ -537,7 +537,7 @@ class UI {
 // DayNightCycle Class
 // ------------------------------
 class DayNightCycle {
-  constructor (scene, options = {}) {
+  constructor(scene, options = {}) {
     this.scene = scene
 
     // Default options (can be overridden)
@@ -581,7 +581,7 @@ class DayNightCycle {
     this.initLocation()
   }
 
-  initLocation () {
+  initLocation() {
     if (this.latitude === null || this.longitude === null) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -621,7 +621,7 @@ class DayNightCycle {
     }
   }
 
-  setDefaultSunTimes () {
+  setDefaultSunTimes() {
     // Default sunrise and sunset times (e.g., 6 AM and 6 PM)
     const now = new Date()
     this.sunrise = new Date(
@@ -642,7 +642,7 @@ class DayNightCycle {
     )
   }
 
-  calculateSunTimes () {
+  calculateSunTimes() {
     if (!this.latitude || !this.longitude) {
       console.warn('Latitude and Longitude are not set.')
       this.setDefaultSunTimes()
@@ -660,7 +660,7 @@ class DayNightCycle {
     console.log('Sunset:', this.sunset)
   }
 
-  initDirectionalLight () {
+  initDirectionalLight() {
     // Create Directional Light
     this.dirLight = new THREE.DirectionalLight(
       this.options.directionalLightColor,
@@ -674,7 +674,7 @@ class DayNightCycle {
     this.scene.add(this.dirLight.target) // Ensure the target is added to the scene
   }
 
-  initSky () {
+  initSky() {
     // Initialize Sky
     this.sky = new Sky()
     this.sky.scale.setScalar(this.options.skyScale)
@@ -692,7 +692,7 @@ class DayNightCycle {
     this.skyUniforms['sunPosition'].value.copy(this.sun)
   }
 
-  initAmbientLight () {
+  initAmbientLight() {
     // Add Ambient Light
     this.ambientLight = new THREE.AmbientLight(
       this.options.ambientLightColor,
@@ -701,7 +701,7 @@ class DayNightCycle {
     this.scene.add(this.ambientLight)
   }
 
-  updateSunPosition () {
+  updateSunPosition() {
     if (!this.sunrise || !this.sunset) {
       console.warn('Sunrise and sunset times are not set.')
       return
@@ -793,7 +793,7 @@ class DayNightCycle {
     this.dirLight.target.updateMatrixWorld()
   }
 
-  update () {
+  update() {
     // Update sun position periodically
     this.updateSunPosition()
   }
@@ -803,7 +803,7 @@ class DayNightCycle {
 // Terrain Class
 // ------------------------------
 class Terrain {
-  constructor (scene, options = {}, config = {}) {
+  constructor(scene, options = {}, config = {}) {
     this.scene = scene
     this.config = config
     this.options = {
@@ -864,7 +864,7 @@ class Terrain {
    * @param {number} gridResolution - Number of points per axis.
    * @returns {Array} Array of point objects with latitude and longitude.
    */
-  generateGrid (
+  generateGrid(
     center,
     gridSizeMeters,
     gridResolution,
@@ -904,7 +904,7 @@ class Terrain {
    * Ensures that the total saved points do not exceed totalPoints.
    * @param {Array} pointsBatch - Array of point objects to save.
    */
-  savePointsToLocalStorage (pointsBatch) {
+  savePointsToLocalStorage(pointsBatch) {
     let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
 
     // Calculate available space
@@ -933,7 +933,7 @@ class Terrain {
    * Ensures that no more than totalPoints are loaded.
    * @returns {Array} Array of saved point objects.
    */
-  loadPointsFromLocalStorage () {
+  loadPointsFromLocalStorage() {
     let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
 
     if (savedPoints.length > this.totalPoints) {
@@ -950,7 +950,7 @@ class Terrain {
   /**
    * Fetches elevation data for the terrain grid and renders it.
    */
-  async fetchAndRenderTerrain () {
+  async fetchAndRenderTerrain() {
     const savedPointsCount = this.savedPoints.length
 
     if (savedPointsCount >= this.totalPoints) {
@@ -988,7 +988,7 @@ class Terrain {
    * @param {number} retries - Number of retries for failed fetches.
    * @returns {Promise<void>}
    */
-  async fetchElevationGrid (
+  async fetchElevationGrid(
     points,
     units = 'Meters',
     concurrency = 10,
@@ -1003,8 +1003,7 @@ class Terrain {
         console.warn(
           `Retrying elevation fetch for (${latitude.toFixed(
             5
-          )}, ${longitude.toFixed(5)}) - Attempt ${
-            attempt + 1
+          )}, ${longitude.toFixed(5)}) - Attempt ${attempt + 1
           } after ${delay}ms`
         )
         await new Promise(resolve => setTimeout(resolve, delay))
@@ -1036,8 +1035,7 @@ class Terrain {
           console.log(
             `Lat: ${elevationPoint.latitude.toFixed(
               5
-            )}, Lon: ${elevationPoint.longitude.toFixed(5)}, Elevation: ${
-              elevationPoint.elevation
+            )}, Lon: ${elevationPoint.longitude.toFixed(5)}, Elevation: ${elevationPoint.elevation
             } meters`
           )
 
@@ -1071,7 +1069,7 @@ class Terrain {
    * @param {string} units - 'Meters' or 'Feet'.
    * @returns {number|null} Elevation value or null if failed.
    */
-  async fetchElevation (longitude, latitude, units = 'Meters') {
+  async fetchElevation(longitude, latitude, units = 'Meters') {
     const endpoint = this.elevationAPI
     const url = `${endpoint}?x=${longitude}&y=${latitude}&units=${units}&output=json`
 
@@ -1108,7 +1106,7 @@ class Terrain {
   /**
    * Initializes the Three.js terrain point cloud.
    */
-  initializeTerrainPointCloud () {
+  initializeTerrainPointCloud() {
     const positions = new Float32Array(this.totalPoints * 3)
     const colors = new Float32Array(this.totalPoints * 3)
 
@@ -1141,7 +1139,7 @@ class Terrain {
    * Ensures that only up to totalPoints are processed.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  populateTerrainFromSavedPoints (savedPoints) {
+  populateTerrainFromSavedPoints(savedPoints) {
     const positions = this.terrainPointCloud.geometry.attributes.position.array
     const colors = this.terrainPointCloud.geometry.attributes.color.array
 
@@ -1186,7 +1184,7 @@ class Terrain {
    * Renders new terrain points into the scene.
    * Ensures that no more than totalPoints are rendered.
    */
-  renderTerrainPoints () {
+  renderTerrainPoints() {
     if (!this.terrainPointCloud || this.elevationData.length === 0) return
 
     const positions = this.terrainPointCloud.geometry.attributes.position.array
@@ -1266,7 +1264,7 @@ class Terrain {
    * Draws terrain lines asynchronously to prevent blocking the main thread.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  async drawTerrainLinesAsync (savedPoints) {
+  async drawTerrainLinesAsync(savedPoints) {
     if (!this.lineDrawingGenerator) {
       this.lineDrawingGenerator = this.terrainLineDrawingGenerator(savedPoints)
     }
@@ -1286,7 +1284,7 @@ class Terrain {
    * Processes the grid in chunks to avoid blocking.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  *terrainLineDrawingGenerator (savedPoints) {
+  *terrainLineDrawingGenerator(savedPoints) {
     const linePositions = []
     const metersPerDegLat = 111320 * this.scaleMultiplier
     const metersPerDegLon = 110540 * this.scaleMultiplier
@@ -1453,7 +1451,7 @@ class Terrain {
    * Ensures that the number of points matches the grid's expectation.
    * @param {Array} savedPoints - Array of saved point objects.
    */
-  createTerrainMesh (savedPoints) {
+  createTerrainMesh(savedPoints) {
     // Validate the length of savedPoints
     if (savedPoints.length !== this.totalPoints) {
       console.error(
@@ -1576,8 +1574,7 @@ class Terrain {
             console.log(
               `Generated point at row ${row}, col ${col}: Lat=${generatedPoint.latitude.toFixed(
                 5
-              )}, Lon=${generatedPoint.longitude.toFixed(5)}, Elevation=${
-                generatedPoint.elevation
+              )}, Lon=${generatedPoint.longitude.toFixed(5)}, Elevation=${generatedPoint.elevation
               }`
             )
           } else {
@@ -1587,12 +1584,12 @@ class Terrain {
               origin.longitude +
               ((col - (this.gridResolution - 1) / 2) *
                 (deltaX / this.scaleMultiplier)) /
-                metersPerDegLon
+              metersPerDegLon
             const generatedLatitude =
               origin.latitude +
               ((row - (this.gridResolution - 1) / 2) *
                 (deltaZ / this.scaleMultiplier)) /
-                metersPerDegLat
+              metersPerDegLat
 
             const defaultPoint = {
               longitude: generatedLongitude,
@@ -1753,7 +1750,7 @@ class Terrain {
    * @param {Array} sortedGrid - 2D array of sorted points.
    * @returns {Object|null} Generated point object or null if unable to generate.
    */
-  generateMissingPoint (row, col, sortedGrid) {
+  generateMissingPoint(row, col, sortedGrid) {
     const neighbors = []
 
     // Define neighbor offsets (Left, Right, Below, Above, Top-Left, Top-Right, Bottom-Left, Bottom-Right)
@@ -1816,7 +1813,7 @@ class Terrain {
    * @param {number} z - Z coordinate in meters.
    * @returns {Object|null} Closest point object or null if not found.
    */
-  findClosestGridPoint (x, z) {
+  findClosestGridPoint(x, z) {
     let closestPoint = null
     let minDistanceSq = Infinity
 
@@ -1847,7 +1844,7 @@ class Terrain {
    * @param {number} z - Z coordinate in meters.
    * @returns {number} Elevation in meters.
    */
-  getTerrainHeightAtPoint (x, z) {
+  getTerrainHeightAtPoint(x, z) {
     const closestPoint = this.findClosestGridPoint(x, z)
 
     if (!closestPoint) {
@@ -1874,7 +1871,7 @@ class Terrain {
     return elevation
   }
 
-  getTerrainHeightAt (x, z) {
+  getTerrainHeightAt(x, z) {
     if (!this.terrainMesh) return 0
     if (this.terrainMesh === NaN) return 0
 
@@ -1897,7 +1894,7 @@ class Terrain {
 // VRControllers Class
 // ------------------------------
 class VRControllers {
-  constructor (
+  constructor(
     renderer,
     scene,
     handleTeleportCallback,
@@ -1933,7 +1930,7 @@ class VRControllers {
     this.initControllers()
   }
 
-  initControllers () {
+  initControllers() {
     const modelFactory = new XRControllerModelFactory()
 
     for (let i = 0; i < 2; i++) {
@@ -1959,11 +1956,11 @@ class VRControllers {
     }
   }
 
-  onSelectStart (event, index) {
+  onSelectStart(event, index) {
     this.controllerData[index].isSelecting = true
   }
 
-  onSelectEnd (event, index) {
+  onSelectEnd(event, index) {
     this.controllerData[index].isSelecting = false
     // If we have an intersection and a valid reference space, TELEPORT
     if (this.INTERSECTION && this.baseReferenceSpace) {
@@ -1989,7 +1986,7 @@ class VRControllers {
   /**
    * Call this each frame from your main render loop to perform raycast checks.
    */
-  update () {
+  update() {
     this.INTERSECTION = null
     let foundIntersection = false
 
@@ -2032,7 +2029,7 @@ class VRControllers {
   /**
    * Optionally allow you to set the teleportable objects later if you want.
    */
-  setTeleportableObjects (meshes) {
+  setTeleportableObjects(meshes) {
     this.teleportableObjects = meshes || []
   }
 }
@@ -2041,7 +2038,7 @@ class VRControllers {
 // Multiplayer Class
 // ------------------------------
 class Multiplayer {
-  constructor (socket, scene, terrain) {
+  constructor(socket, scene, terrain) {
     this.initializePlayerID()
     this.socket = socket
     this.scene = scene
@@ -2056,7 +2053,7 @@ class Multiplayer {
    * Initializes the playerID by retrieving it from localStorage.
    * If not found, it remains null and will be set by the server upon 'init' event.
    */
-  initializePlayerID () {
+  initializePlayerID() {
     const storedPlayerID = Storage.load(CONFIG.localStorageKeys.playerID)
     if (storedPlayerID) {
       this.myId = storedPlayerID
@@ -2078,7 +2075,7 @@ class Multiplayer {
   /**
    * Initializes socket event listeners.
    */
-  initSocketEvents () {
+  initSocketEvents() {
     this.socket.on('init', data => {
       console.log('[Socket] init => received init data:', data)
 
@@ -2212,7 +2209,7 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  addOrUpdatePlayer (id, data) {
+  addOrUpdatePlayer(id, data) {
     // Skip if it's the local player's ID
     if (data.id === this.myId) {
       console.warn(`Skipping addOrUpdatePlayer for local ID = ${data.id}`)
@@ -2233,7 +2230,7 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  createRemotePlayer (id, data) {
+  createRemotePlayer(id, data) {
     if (this.players[id] || this.loadingPlayers.has(id)) {
       console.warn(
         `Skipping creation for player ${id}. Already exists or is loading.`
@@ -2300,7 +2297,7 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  updateRemotePlayer (id, data) {
+  updateRemotePlayer(id, data) {
     const player = this.players[id]
     if (!player) return
 
@@ -2372,7 +2369,7 @@ class Multiplayer {
    * Removes a remote player from the scene.
    * @param {string} id - The unique identifier for the player.
    */
-  removeRemotePlayer (id) {
+  removeRemotePlayer(id) {
     if (this.players[id]) {
       this.scene.remove(this.players[id].model)
       delete this.players[id]
@@ -2384,7 +2381,7 @@ class Multiplayer {
    * Updates all players based on incoming data.
    * @param {Object} playersData - Data for all players.
    */
-  updatePlayers (playersData) {
+  updatePlayers(playersData) {
     Object.keys(playersData).forEach(id => {
       if (playersData[id].localId === this.myId) return
       this.addOrUpdatePlayer(id, playersData[id])
@@ -2399,7 +2396,7 @@ class Multiplayer {
   // ------------------------------
   // Audio Streaming
   // ------------------------------
-  addRemoteAudioStream (id) {
+  addRemoteAudioStream(id) {
     if (!this.socket) {
       console.warn('Socket not initialized. Cannot add remote audio stream.')
       return
@@ -2426,7 +2423,7 @@ class Multiplayer {
     this.remoteAudioStreams[id] = { positionalAudio }
   }
 
-  removeRemoteAudioStream (id) {
+  removeRemoteAudioStream(id) {
     const remoteAudio = this.remoteAudioStreams
       ? this.remoteAudioStreams[id]
       : null
@@ -2438,7 +2435,7 @@ class Multiplayer {
     }
   }
 
-  receiveAudioStream (id, audioBuffer) {
+  receiveAudioStream(id, audioBuffer) {
     if (!this.remoteAudioStreams || !this.remoteAudioStreams[id]) {
       console.warn(
         `Received audio data from ${id} before audio stream started.`
@@ -2476,7 +2473,7 @@ class Multiplayer {
 // Movement Class
 // ------------------------------
 class Movement {
-  constructor (app) {
+  constructor(app) {
     this.app = app
     this.moveForward = false
     this.moveBackward = false
@@ -2503,13 +2500,13 @@ class Movement {
     this.initKeyboardEvents()
   }
 
-  initKeyboardEvents () {
+  initKeyboardEvents() {
     console.log('Initializing keyboard events for movement.')
     document.addEventListener('keydown', this.onKeyDown.bind(this))
     document.addEventListener('keyup', this.onKeyUp.bind(this))
   }
 
-  onKeyDown (e) {
+  onKeyDown(e) {
     switch (e.key.toLowerCase()) {
       case 'w':
         this.keyStates.w = true
@@ -2535,7 +2532,7 @@ class Movement {
     this.handleKeyStates()
   }
 
-  onKeyUp (e) {
+  onKeyUp(e) {
     switch (e.key.toLowerCase()) {
       case 'w':
         this.keyStates.w = false
@@ -2561,7 +2558,7 @@ class Movement {
     this.handleKeyStates()
   }
 
-  handleKeyStates () {
+  handleKeyStates() {
     this.moveForward = this.keyStates.w
     this.moveBackward = this.keyStates.s
     this.strafeLeft = this.keyStates.a
@@ -2589,7 +2586,7 @@ class Movement {
    * Handles character movement based on keyboard inputs with acceleration over time.
    * @param {number} delta - Time delta since last frame.
    */
-  moveCharacter (delta) {
+  moveCharacter(delta) {
     if (!this.app.localModel) return
 
     // Initialize acceleration properties if not already present
@@ -2774,7 +2771,7 @@ class Movement {
 // App Class (Main Application)
 // ------------------------------
 class App {
-  constructor () {
+  constructor() {
     this.initPaths()
     this.injectFont()
     this.socket = io(CONFIG.socketURL)
@@ -2812,7 +2809,7 @@ class App {
   /**
    * Initializes paths for models and fonts.
    */
-  initPaths () {
+  initPaths() {
     console.log(`Model Path: ${CONFIG.modelPath}`)
     console.log(`Font Path: ${CONFIG.fontPath}`)
   }
@@ -2820,7 +2817,7 @@ class App {
   /**
    * Injects custom font into the document.
    */
-  injectFont () {
+  injectFont() {
     const styleSheet = new CSSStyleSheet()
     styleSheet.insertRule(`
       @font-face {
@@ -2836,7 +2833,7 @@ class App {
   /**
    * Initializes the Three.js scene, camera, and renderer.
    */
-  initScene () {
+  initScene() {
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x333333)
 
@@ -2899,7 +2896,7 @@ class App {
   /**
    * Initializes post-processing effects.
    */
-  initPostProcessing () {
+  initPostProcessing() {
     this.composer = new EffectComposer(this.renderer)
     this.composer.addPass(new RenderPass(this.scene, this.camera))
 
@@ -2932,7 +2929,7 @@ class App {
   /**
    * Sets up VR controllers.
    */
-  setupVRControllers () {
+  setupVRControllers() {
     this.vrControllers = new VRControllers(
       this.renderer,
       this.scene,
@@ -2944,7 +2941,7 @@ class App {
    * Handles teleportation logic.
    * @param {Object} point - The destination point for teleportation.
    */
-  handleTeleport (point) {
+  handleTeleport(point) {
     if (!this.baseReferenceSpace) return
 
     const offsetPosition = {
@@ -2973,33 +2970,65 @@ class App {
   /**
    * Initializes sensor event listeners.
    */
-  initSensors () {
-    const appElement = document.getElementById('request_orient')
+  initSensors() {
+    const appElement = document.getElementById('request_orient');
     if (!appElement) {
-      console.error("Element with id 'app' not found.")
-      return
+      console.error("Element with id 'request_orient' not found.");
+      return;
     }
-
+  
+    // =========== DEVICE DETECTION UTILITY ===========
+    function isMobileDevice() {
+      return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
+    }
+  
+    // Ensure orientation sensors are only enabled on mobile devices
+    if (!isMobileDevice()) {
+      console.warn('Orientation sensors are not supported on non-mobile devices.');
+      return;
+    }
+  
+    if (typeof Sensors === 'undefined') {
+      console.warn('Orientation sensors are not available on this system. Initialization aborted.');
+      return;
+    }
+  
+    const initializeSensors = () => {
+      console.log('Initializing Sensors.');
+      Sensors.initialize();
+  
+      // Remove the event listeners to prevent repeated initialization
+      appElement.removeEventListener('click', handleUserGesture);
+      appElement.removeEventListener('touchstart', handleUserGesture);
+    };
+  
     const handleUserGesture = () => {
-      console.log('User gesture detected on #request_button. Initializing Sensors.')
-      Sensors.initialize()
-
-      // Remove the event listener after initialization to prevent repeated calls
-      appElement.removeEventListener('click', handleUserGesture)
-      appElement.removeEventListener('touchstart', handleUserGesture)
-    }
-
-    // Add event listeners for click and touchstart
-    appElement.addEventListener('click', handleUserGesture)
-    appElement.addEventListener('touchstart', handleUserGesture)
-
-    console.log("Added event listeners for 'click' and 'touchstart' on #app.")
+      console.log('User gesture detected on #request_orient. Initializing Sensors.');
+      initializeSensors();
+    };
+  
+    // Automatically initialize sensors after a short delay (or immediately)
+    setTimeout(() => {
+      if (!Sensors.isOrientationEnabled) { // Check if Sensors are already initialized
+        console.log('Auto-start: Initializing Sensors.');
+        initializeSensors();
+      }
+    }, 1000); // Adjust delay as needed (1 second here)
+  
+    // Add event listeners for manual triggering via click and touchstart
+    appElement.addEventListener('click', handleUserGesture);
+    appElement.addEventListener('touchstart', handleUserGesture);
+  
+    console.log("Added event listeners for 'click' and 'touchstart' on #request_orient.");
   }
+  
 
   /**
    * Initializes the day-night cycle.
    */
-  initDayNightCycle () {
+  initDayNightCycle() {
     this.dayNightCycle = new DayNightCycle(this.scene, {
       skyScale: 450000,
       directionalLightColor: 0xffffff,
@@ -3024,7 +3053,7 @@ class App {
    * Initializes Terrain and ensures it's ready before initializing dependent classes.
    * @returns {Promise} - Resolves when Terrain is initialized.
    */
-  initTerrain () {
+  initTerrain() {
     return new Promise((resolve, reject) => {
       // Attempt to get user's geolocation
       if (navigator.geolocation) {
@@ -3103,7 +3132,7 @@ class App {
   /**
    * Initializes socket event listeners, now dependent on Terrain being ready.
    */
-  initSocketEvents () {
+  initSocketEvents() {
     console.warn('[Socket] Connected to server.')
     this.multiplayer = new Multiplayer(this.socket, this.scene, this.terrain)
   }
@@ -3111,7 +3140,7 @@ class App {
   /**
    * Binds UI-related events.
    */
-  bindUIEvents () {
+  bindUIEvents() {
     document.addEventListener('click', this.handleUserInteraction.bind(this), {
       once: true
     })
@@ -3184,7 +3213,7 @@ class App {
   /**
    * Handles user interactions to resume AudioContext.
    */
-  handleUserInteraction () {
+  handleUserInteraction() {
     if (this.listener && this.listener.context.state === 'suspended') {
       this.listener.context
         .resume()
@@ -3200,7 +3229,7 @@ class App {
   /**
    * Encrypts and emits latitude and longitude data.
    */
-  async encryptAndEmitLatLon () {
+  async encryptAndEmitLatLon() {
     const latitude = window.latitude
     const longitude = window.longitude
     if (typeof latitude !== 'number' || typeof longitude !== 'number') {
@@ -3232,7 +3261,7 @@ class App {
   /**
    * Saves the camera's position to localStorage.
    */
-  savePositionToLocalStorage () {
+  savePositionToLocalStorage() {
     if (!this.camera) return
 
     const pos = {
@@ -3250,7 +3279,7 @@ class App {
    * Loads the camera's position from localStorage.
    * @returns {Object|null} - The saved position or null if not found.
    */
-  loadPositionFromLocalStorage () {
+  loadPositionFromLocalStorage() {
     return Storage.load(CONFIG.localStorageKeys.lastPosition)
   }
 
@@ -3259,7 +3288,7 @@ class App {
    * @param {number} angle - The angle in radians.
    * @returns {number} - The normalized angle.
    */
-  normalizeAngle (angle) {
+  normalizeAngle(angle) {
     return Utils.normalizeAngle(angle)
   }
 
@@ -3267,7 +3296,7 @@ class App {
    * Retrieves the camera's yaw rotation.
    * @returns {number} - The yaw angle in radians.
    */
-  getCameraYaw () {
+  getCameraYaw() {
     const euler = new THREE.Euler().setFromQuaternion(
       this.camera.quaternion,
       'YXZ'
@@ -3280,7 +3309,7 @@ class App {
    * Emits movement data if there are changes.
    * @param {Object} newState - The new state data.
    */
-  emitMovementIfChanged (newState) {
+  emitMovementIfChanged(newState) {
     const loadedId = this.multiplayer.myId
     newState.id = loadedId
     const newString = JSON.stringify(newState)
@@ -3298,7 +3327,7 @@ class App {
   /**
    * Reports the player's current geographic position.
    */
-  reportPosition () {
+  reportPosition() {
     if (!this.multiplayer.terrain || !this.localModel) return
 
     // Extract the local model's current x and z positions
@@ -3331,28 +3360,31 @@ class App {
    * Updates the camera's orientation based on device sensors.
    */
 
-  updateCameraOrientation () {
+  updateCameraOrientation() {
     // Pull orientation data from window.orientationGlobal if available
     if (
       window.orientationGlobal &&
       typeof window.orientationGlobal === 'object'
     ) {
       Sensors.orientationData.alpha =
-        parseFloat(window.orientationGlobal.alpha) // || 0 // 0..360 degrees
+        parseFloat(window.orientationGlobal.alpha) || 0 // 0..360 degrees
       Sensors.orientationData.beta =
-        parseFloat(window.orientationGlobal.beta)// || 0 // -180..180 degrees
+        parseFloat(window.orientationGlobal.beta) || 0 // -180..180 degrees
       Sensors.orientationData.gamma =
-        parseFloat(window.orientationGlobal.gamma)// || 0 // -90..90 degrees
+        parseFloat(window.orientationGlobal.gamma) || 0 // -90..90 degrees
     }
 
     // Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha// || 0 // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta// || 0 // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma// || 0 // -90..90 degrees
+    const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
+    let alphaConstraint = alphaDeg.toFixed(2)
+    let betaConstraint = betaDeg.toFixed(2)
+    let gammaConstraint = gammaDeg.toFixed(2)
 
-    UI.updateField('Orientation_a', alphaDeg)
-    UI.updateField('Orientation_b', betaDeg)
-    UI.updateField('Orientation_g', gammaDeg)
+    UI.updateField('Orientation_a', alphaConstraint)
+    UI.updateField('Orientation_b', betaConstraint)
+    UI.updateField('Orientation_g', gammaConstraint)
 
     // Optional: Replace alerts with console logs for debugging
     console.log(
@@ -3396,7 +3428,7 @@ class App {
   /**
    * Handles window resize events.
    */
-  onWindowResize () {
+  onWindowResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -3411,7 +3443,7 @@ class App {
    * Sets the local player's action and manages animations.
    * @param {string} action - The action to set ('idle', 'walk', 'run').
    */
-  setLocalAction (action) {
+  setLocalAction(action) {
     //console.warn(`Setting local action: ${action}`);
     if (this.currentAction !== action) {
       if (this.localActions && this.localActions[this.currentAction]) {
@@ -3431,7 +3463,7 @@ class App {
   /**
    * Loads the local player model.
    */
-  loadLocalModel () {
+  loadLocalModel() {
     console.warn('Loading local model...')
     // Check if a VR session is active; if so, do not load the local model
     if (this.renderer.xr.isPresenting) {
@@ -3497,7 +3529,7 @@ class App {
   /**
    * Initializes the render loop.
    */
-  animate () {
+  animate() {
     this.clock = new THREE.Clock()
     this.renderer.setAnimationLoop(() => {
       const delta = this.clock.getDelta()
