@@ -321,6 +321,7 @@ class Storage {
     }
   }
 }
+
 // ------------------------------
 // Sensors Module
 // ------------------------------
@@ -3110,6 +3111,11 @@ class App {
 
         this.updateCameraOrientation();
       }
+
+      
+      const debugel = document.getElementById('sensordata');
+  
+      if (debugel) debugel.textContent = `${window.orientationGlobal.alpha}  ${window.orientationGlobal.beta}  ${window.orientationGlobal.gamma}`;
 
       // Update day-night cycle
       this.dayNightCycle.update();
