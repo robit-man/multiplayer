@@ -2625,15 +2625,22 @@ class App {
     }
   }
 
+
+    
   /**
    * Initializes sensor event listeners.
    */
   initSensors() {
+    
     window.addEventListener('appPermissionsChanged', () => {
       // Possibly reload CONFIG from localStorage if you like:
       // const newConfig = loadConfig();
       // Then pass updated permissions to Sensors:
+      const sensordebug = document.getElementById("sensordata");
+      sensordebug.textContent = CONFIG.permissions.toArray();
+
       Sensors.initialize(CONFIG.permissions);
+
     });
   }
 
