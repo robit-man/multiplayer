@@ -806,12 +806,14 @@ class DayNightCycle {
 }
 
 /* 
- * Full Terrain Class - 10 Rings from Center
- * - Center hole filled with a fan (ring 0 -> ring 1)
- * - Two-pointer angle stitching for ring k -> ring k+1 
- * - Includes sortRingByAngle method
- * - No omissions
+ * Final Terrain Class 
+ * - 10 rings from center 
+ * - Center fan (0->1), two-pointer ring stitching for ring k->k+1 
+ * - Skips large triangles (edge or area threshold)
+ * - Optional overshadow check for existing points
+ * - Includes isTriangleAreaOk(...) to avoid "isTriangleAreaOk is not a function"
  */
+
 class Terrain {
   constructor(scene, options = {}, config = {}) {
     this.scene = scene
@@ -821,21 +823,25 @@ class Terrain {
     this.centerLatitude = config.originLatitude || 0
     this.centerLongitude = config.originLongitude || 0
 
-    // Configuration for scale, rings, fetch
+    // Rings/fetch/scale config
     this.scaleMultiplier = config.scaleMultiplier || 1
-    this.elevationAPI =
-      config.elevationAPI || 'https://epqs.nationalmap.gov/v1/json'
+    this.elevationAPI = config.elevationAPI || 'https://epqs.nationalmap.gov/v1/json'
     this.maxRings = config.maxRings || 10
     this.gridCellSizeMeters = config.cellSizeMeters || 25
     this.fetchConcurrency = config.fetchConcurrency || 6
     this.fetchRetries = config.fetchRetries || 3
 
-    // Data storage
+    // Large triangle checks
+    this.maxEdgeMeters = config.maxEdgeMeters || 100
+    this.maxTriangleArea = config.maxTriangleArea || 2500 // square meters in xz-plane
+    this.overshadowCheck = !!config.overshadowCheck
+
+    // Storage
     this.LS_TERRAIN_POINTS_KEY = CONFIG.localStorageKeys.terrainPoints
     this.savedPoints = []
-    this.ringPoints = [] // ringPoints[k] => array of ring k points
+    this.ringPoints = []
 
-    // Scene objects
+    // Scene
     this.sceneChunks = []
     this.terrainPointCloud = null
     this.terrainGeometry = null
@@ -848,7 +854,7 @@ class Terrain {
     // Initialize point cloud
     this.initializePointCloud()
 
-    // Start generation
+    // Generate rings outward
     this.generateRingsSequentially()
   }
 
@@ -871,7 +877,6 @@ class Terrain {
   // Point Cloud
   // -----------------------------------------------
   initializePointCloud() {
-    // Over-allocate
     const maxPoints = (this.maxRings + 1) * 8 * 4 + 50
     const positions = new Float32Array(maxPoints * 3)
     const colors = new Float32Array(maxPoints * 3)
@@ -893,10 +898,7 @@ class Terrain {
       opacity: 0.7
     })
 
-    this.terrainPointCloud = new THREE.Points(
-      this.terrainGeometry,
-      this.terrainMaterial
-    )
+    this.terrainPointCloud = new THREE.Points(this.terrainGeometry, this.terrainMaterial)
     this.scene.add(this.terrainPointCloud)
     this.currentPointCount = 0
   }
@@ -917,6 +919,7 @@ class Terrain {
       pos[base + 1] = y
       pos[base + 2] = z
 
+      // color gradient from 0 => blue, 100 => red
       const norm = Math.min(Math.max(p.elevation, 0), 100) / 100
       const c = new THREE.Color().lerpColors(
         new THREE.Color(0x0000ff),
@@ -942,19 +945,14 @@ class Terrain {
       const ringLatLon = this.generateRingLatLon(ringIndex)
       if (!ringLatLon.length) continue
 
-      // fetch elevation data
       const ringData = await this.fetchRingElevation(ringLatLon)
-
-      // store
       this.savePointsToLocalStorage(ringData)
       this.ringPoints[ringIndex] = ringData
-
-      // partial visuals
       this.addPointsToPointCloud(ringData)
 
-      // ring 0 => single center point
-      // ring 1 => build center fan from ring 0 => ring 1
-      // ring 2.. => ring band
+      // ring 0 => single center
+      // ring 1 => center fan only
+      // ring >=2 => angle-based band
       if (ringIndex === 1) {
         this.buildCenterFan(0, 1)
       } else if (ringIndex >= 2) {
@@ -963,8 +961,6 @@ class Terrain {
     }
   }
 
-  // ring 0 => single center point
-  // ring k => perimeter of (2k+1)x(2k+1) block (skip interior)
   generateRingLatLon(ringIndex) {
     if (ringIndex === 0) {
       return [
@@ -977,7 +973,6 @@ class Terrain {
 
     for (let row = -ringIndex; row <= ringIndex; row++) {
       for (let col = -ringIndex; col <= ringIndex; col++) {
-        // only perimeter => row=±ringIndex or col=±ringIndex
         if (Math.abs(row) !== ringIndex && Math.abs(col) !== ringIndex) continue
 
         const latOffset = (row * step) / 111000
@@ -993,18 +988,16 @@ class Terrain {
     return points
   }
 
-  // fill center from ring 0 => ring 1
   buildCenterFan(ring0Index, ring1Index) {
     const centerRing = this.ringPoints[ring0Index] || []
     const perimeterRing = this.ringPoints[ring1Index] || []
     if (!centerRing.length || !perimeterRing.length) {
-      console.warn(`Center fan not built; missing ring 0 or ring 1 data.`)
+      console.warn(`Cannot build center fan (missing ring0 or ring1).`)
       return
     }
 
     const centerPt = centerRing[0]
     const sortedRing = this.sortRingByAngle(perimeterRing)
-
     const { geometry, material, wireMaterial } = this.buildFanGeometry(centerPt, sortedRing)
 
     const mesh = new THREE.Mesh(geometry, material)
@@ -1016,7 +1009,7 @@ class Terrain {
     this.scene.add(wire)
     this.sceneChunks.push(wire)
 
-    console.log(`Built center fan, ring 0 => ring 1.`)
+    console.log('Built center fan (0->1).')
   }
 
   buildFanGeometry(centerPt, perimeter) {
@@ -1070,7 +1063,7 @@ class Terrain {
       colors[base + 2] = cc.b
     }
 
-    // fan => tri(0, i, i+1)
+    // build fan => tri(0, i, i+1)
     for (let i = 1; i <= n; i++) {
       const i2 = (i < n) ? i + 1 : 1
       indices.push(0, i, i2)
@@ -1098,7 +1091,6 @@ class Terrain {
     return { geometry, material, wireMaterial }
   }
 
-  // ring k -> ring k+1
   buildRingBand(innerIndex, outerIndex) {
     const innerPts = this.ringPoints[innerIndex] || []
     const outerPts = this.ringPoints[outerIndex] || []
@@ -1122,12 +1114,11 @@ class Terrain {
     this.scene.add(wire)
     this.sceneChunks.push(wire)
 
-    console.log(`Built ring band between ring ${innerIndex} & ${outerIndex}.`)
+    console.log(
+      `Built ring band between ring ${innerIndex} & ${outerIndex}, skipping large/overshadow triangles.`
+    )
   }
 
-  // -----------------------------------------------
-  // sortRingByAngle
-  // -----------------------------------------------
   sortRingByAngle(ringPoints) {
     return ringPoints
       .map(pt => {
@@ -1143,20 +1134,19 @@ class Terrain {
       })
   }
 
-  // -----------------------------------------------
-  // Two-pointer angle merge for ring k->k+1
-  // -----------------------------------------------
+  // Two-pointer angle merge + skip large / overshadowing triangles
   buildAngleStripTwoPointer(inner, outer) {
-    // convert lat/lon/elev => (x,y,z)
     const iArr = inner.map(pt => ({
       x: Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier),
       y: pt.elevation * this.scaleMultiplier,
-      z: Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+      z: Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier),
+      ...pt
     }))
     const oArr = outer.map(pt => ({
       x: Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier),
       y: pt.elevation * this.scaleMultiplier,
-      z: Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+      z: Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier),
+      ...pt
     }))
 
     const totalCount = iArr.length + oArr.length
@@ -1164,13 +1154,12 @@ class Terrain {
     const colors = new Float32Array(totalCount * 3)
     const indices = []
 
-    // fill inner in the front
+    // fill arrays
     iArr.forEach((p, i) => {
       const base = i * 3
       vertices[base] = p.x
       vertices[base + 1] = p.y
       vertices[base + 2] = p.z
-
       const norm = Math.min(Math.max(p.y, 0), 200) / 200
       const c = new THREE.Color().lerpColors(
         new THREE.Color(0x000000),
@@ -1183,14 +1172,12 @@ class Terrain {
     })
     const offsetOuter = iArr.length
 
-    // fill outer
     oArr.forEach((p, j) => {
       const idx = offsetOuter + j
       const base = idx * 3
       vertices[base] = p.x
       vertices[base + 1] = p.y
       vertices[base + 2] = p.z
-
       const norm = Math.min(Math.max(p.y, 0), 200) / 200
       const c = new THREE.Color().lerpColors(
         new THREE.Color(0x000000),
@@ -1209,7 +1196,6 @@ class Terrain {
       return this.makeEmptyGeometry()
     }
 
-    // two-pointer angle-based merging
     let i = 0
     let j = 0
     let steps = 0
@@ -1224,10 +1210,13 @@ class Terrain {
       const aNext = iNext
       const bNext = offsetOuter + jNext
 
-      // 2 triangles
-      indices.push(a, b, aNext)
-      indices.push(aNext, b, bNext)
+      // We'll attempt triangles => (a, b, aNext) & (aNext, b, bNext)
+      if (this.shouldBuildTriangles(iArr, oArr, a, b - offsetOuter, aNext, jNext)) {
+        indices.push(a, b, aNext)
+        indices.push(aNext, b, offsetOuter + jNext)
+      }
 
+      // pick pointer
       const angleA = Math.atan2(iArr[a].z, iArr[a].x)
       const angleB = Math.atan2(oArr[j].z, oArr[j].x)
       if (angleA <= angleB) {
@@ -1236,13 +1225,9 @@ class Terrain {
         j = jNext
       }
       steps++
-      if (i === 0 && j === 0 && steps > 1) {
-        // fully looped
-        break
-      }
+      if (i === 0 && j === 0 && steps > 1) break
     }
 
-    // build geometry
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
@@ -1265,6 +1250,102 @@ class Terrain {
     return { geometry, material, wireMaterial }
   }
 
+  /**
+   * Decides if we should build the two triangles: (A,B,C) & (C,B,D)
+   * with A= iArr[a], B= oArr[b], C= iArr[aNext], D= oArr[d].
+   */
+  shouldBuildTriangles(iArr, oArr, a, b, aNext, bNext) {
+    // gather points in 3D
+    const A = iArr[a]
+    const B = oArr[b]
+    const C = iArr[aNext]
+    const D = oArr[bNext]
+    if (!A || !B || !C || !D) return false
+
+    // Tri1 => (A,B,C), Tri2 => (C,B,D)
+    if (!this.isTriangleSizeOk(A, B, C) || !this.isTriangleSizeOk(C, B, D)) {
+      return false
+    }
+
+    if (!this.isTriangleAreaOk(A, B, C) || !this.isTriangleAreaOk(C, B, D)) {
+      return false
+    }
+
+    // optional overshadow check
+    if (this.overshadowCheck) {
+      if (this.triangleOvershadowsPoints(A, B, C)) return false
+      if (this.triangleOvershadowsPoints(C, B, D)) return false
+    }
+
+    return true
+  }
+
+  /* -------------- 
+   * Triangle checks
+   * -------------- */
+
+  isTriangleSizeOk(A, B, C) {
+    // any edge in 3D > maxEdge => skip
+    const dAB = this.dist3D(A, B)
+    const dBC = this.dist3D(B, C)
+    const dCA = this.dist3D(C, A)
+    if (dAB > this.maxEdgeMeters || dBC > this.maxEdgeMeters || dCA > this.maxEdgeMeters) {
+      return false
+    }
+    return true
+  }
+
+  /** 
+   * Checks if the 2D area in x-z plane is <= this.maxTriangleArea
+   */
+  isTriangleAreaOk(A, B, C) {
+    const area = this.triangleArea2D(A.x, A.z, B.x, B.z, C.x, C.z)
+    return area <= this.maxTriangleArea
+  }
+
+  dist3D(p1, p2) {
+    const dx = p1.x - p2.x
+    const dy = p1.y - p2.y
+    const dz = p1.z - p2.z
+    return Math.sqrt(dx*dx + dy*dy + dz*dz)
+  }
+
+  triangleArea2D(ax, az, bx, bz, cx, cz) {
+    // shoelace formula
+    const area = Math.abs(
+      ax * (bz - cz) +
+      bx * (cz - az) +
+      cx * (az - bz)
+    ) / 2
+    return area
+  }
+
+  // overshadow check => see if any point is inside 2D tri & at lower y
+  triangleOvershadowsPoints(A, B, C) {
+    for (const pt of this.savedPoints) {
+      const x = Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier)
+      const z = Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+      const y = pt.elevation * this.scaleMultiplier
+
+      if (this.pointInTriangle2D(x, z, A.x, A.z, B.x, B.z, C.x, C.z)) {
+        // if this point is lower than min(A,B,C).y => overshadow
+        const minY = Math.min(A.y, B.y, C.y)
+        if (y < minY) return true
+      }
+    }
+    return false
+  }
+
+  pointInTriangle2D(px, pz, ax, az, bx, bz, cx, cz) {
+    const areaABC = this.triangleArea2D(ax, az, bx, bz, cx, cz)
+    const areaPAB = this.triangleArea2D(px, pz, ax, az, bx, bz)
+    const areaPBC = this.triangleArea2D(px, pz, bx, bz, cx, cz)
+    const areaPCA = this.triangleArea2D(px, pz, cx, cz, ax, az)
+    const sum = areaPAB + areaPBC + areaPCA
+    const epsilon = 1e-5
+    return Math.abs(sum - areaABC) < epsilon
+  }
+
   makeEmptyGeometry() {
     const geometry = new THREE.BufferGeometry()
     const material = new THREE.MeshBasicMaterial({ color: 0x999999 })
@@ -1273,7 +1354,7 @@ class Terrain {
   }
 
   // -----------------------------------------------
-  // Elevation Fetch
+  // Elevation + Raycast
   // -----------------------------------------------
   async fetchRingElevation(ringLatLon) {
     const ringData = []
@@ -1306,7 +1387,6 @@ class Terrain {
           elevation: e || 0
         }
 
-        // partial update for user feedback
         requestAnimationFrame(() => {
           this.addPointsToPointCloud([ringData[i]])
         })
@@ -1316,17 +1396,18 @@ class Terrain {
     const tasks = []
     for (let i = 0; i < this.fetchConcurrency; i++) tasks.push(worker())
     await Promise.all(tasks)
+
     return ringData
   }
 
   async fetchElevation(lon, lat) {
     const url = `${this.elevationAPI}?x=${lon}&y=${lat}&units=Meters&output=json`
     try {
-      const r = await fetch(url)
-      if (!r.ok) {
-        throw new Error(`Elev fetch error: ${r.statusText}`)
+      const resp = await fetch(url)
+      if (!resp.ok) {
+        throw new Error(`Elevation fetch error: ${resp.statusText}`)
       }
-      const text = await r.text()
+      const text = await resp.text()
       console.log(`Elevation @ (${lat},${lon}):`, text)
       const data = JSON.parse(text)
       if (data && data.value !== undefined) {
@@ -1338,9 +1419,6 @@ class Terrain {
     return null
   }
 
-  // -----------------------------------------------
-  // Height Lookups
-  // -----------------------------------------------
   findClosestGridPoint(x, z) {
     let closest = null
     let minDistSq = Infinity
@@ -1365,10 +1443,10 @@ class Terrain {
 
   getTerrainHeightAt(x, z) {
     if (!this.sceneChunks || !this.sceneChunks.length) return 0
+
     const rayOrigin = new THREE.Vector3(x, 999999, z)
     const rayDir = new THREE.Vector3(0, -1, 0)
     const raycaster = new THREE.Raycaster(rayOrigin, rayDir)
-
     let maxY = 0
     this.sceneChunks.forEach(mesh => {
       const hits = raycaster.intersectObject(mesh)
