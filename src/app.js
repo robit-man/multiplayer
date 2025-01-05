@@ -37,7 +37,7 @@ const fontPathDir = fileExists('/public/uno.ttf')
  * @param {string} path - The path to the file.
  * @returns {boolean} - Returns true if the file exists, false otherwise.
  */
-function fileExists(path) {
+function fileExists (path) {
   const xhr = new XMLHttpRequest()
   try {
     xhr.open('HEAD', path, false) // false for synchronous request
@@ -96,11 +96,11 @@ const CONFIG = {
 // Utilities Module
 // ------------------------------
 class Utils {
-  static normalizeAngle(angle) {
+  static normalizeAngle (angle) {
     return Math.atan2(Math.sin(angle), Math.cos(angle))
   }
 
-  static lerpAngle(currentAngle, targetAngle, alpha) {
+  static lerpAngle (currentAngle, targetAngle, alpha) {
     currentAngle = Utils.normalizeAngle(currentAngle)
     targetAngle = Utils.normalizeAngle(targetAngle)
 
@@ -114,14 +114,14 @@ class Utils {
     return Utils.normalizeAngle(newAngle)
   }
 
-  static arrayBufferToBase64(buffer) {
+  static arrayBufferToBase64 (buffer) {
     let binary = ''
     const bytes = new Uint8Array(buffer)
     bytes.forEach(b => (binary += String.fromCharCode(b)))
     return window.btoa(binary)
   }
 
-  static base64ToArrayBuffer(base64) {
+  static base64ToArrayBuffer (base64) {
     const binary = window.atob(base64)
     const bytes = new Uint8Array(binary.length)
     Array.from(binary).forEach((char, i) => {
@@ -130,7 +130,7 @@ class Utils {
     return bytes.buffer
   }
 
-  static calculateDistance(lat1, lon1, lat2, lon2) {
+  static calculateDistance (lat1, lon1, lat2, lon2) {
     const R = 6371e3 // Earth radius in meters
     const phi1 = THREE.MathUtils.degToRad(lat1)
     const phi2 = THREE.MathUtils.degToRad(lat2)
@@ -140,24 +140,24 @@ class Utils {
     const a =
       Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
       Math.cos(phi1) *
-      Math.cos(phi2) *
-      Math.sin(deltaLambda / 2) *
-      Math.sin(deltaLambda / 2)
+        Math.cos(phi2) *
+        Math.sin(deltaLambda / 2) *
+        Math.sin(deltaLambda / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
     const distance = R * c
     return distance
   }
 
-  static mapLatitudeToZ(latitude, originLatitude, scale) {
+  static mapLatitudeToZ (latitude, originLatitude, scale) {
     return (latitude - originLatitude) * (111320 * scale)
   }
 
-  static mapLongitudeToX(longitude, originLongitude, scale) {
+  static mapLongitudeToX (longitude, originLongitude, scale) {
     return (longitude - originLongitude) * (110540 * scale)
   }
 
-  static calculateDistanceSq(x1, z1, x2, z2) {
+  static calculateDistanceSq (x1, z1, x2, z2) {
     const dx = x1 - x2
     const dz = z1 - z2
     return dx * dx + dz * dz
@@ -175,7 +175,7 @@ class Encryption {
    * @param {string} password - The password for encryption.
    * @returns {Promise<string>} - A JSON string containing the encrypted data, IV, and salt.
    */
-  static async encryptLatLon(latitude, longitude, password) {
+  static async encryptLatLon (latitude, longitude, password) {
     const data = JSON.stringify({ latitude, longitude })
     const encoder = new TextEncoder()
     const dataBuffer = encoder.encode(data)
@@ -229,7 +229,7 @@ class Encryption {
    * @param {string} password - The password for decryption.
    * @returns {Promise<{latitude: number, longitude: number} | null>} - The decrypted lat/lon data or null if decryption fails.
    */
-  static async decryptLatLon(encryptedPackageStr, password) {
+  static async decryptLatLon (encryptedPackageStr, password) {
     const decoder = new TextDecoder()
 
     const encryptedPackage = JSON.parse(encryptedPackageStr)
@@ -289,7 +289,7 @@ class Storage {
    * @param {string} key - The key under which to store the data.
    * @param {*} value - The data to store.
    */
-  static save(key, value) {
+  static save (key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value))
     } catch (e) {
@@ -302,7 +302,7 @@ class Storage {
    * @param {string} key - The key of the data to retrieve.
    * @returns {*} - The retrieved data or null if not found.
    */
-  static load(key) {
+  static load (key) {
     const raw = localStorage.getItem(key)
     if (!raw) return null
     try {
@@ -317,7 +317,7 @@ class Storage {
    * Removes a key-value pair from localStorage.
    * @param {string} key - The key to remove.
    */
-  static remove(key) {
+  static remove (key) {
     try {
       localStorage.removeItem(key)
     } catch (e) {
@@ -325,6 +325,7 @@ class Storage {
     }
   }
 }
+
 
 class Sensors {
   static orientationData = {
@@ -340,43 +341,39 @@ class Sensors {
 
   /**
    * Initializes sensor event listeners based on permissions.
-   * Requests permissions via user gesture (e.g., tap on #app).
+   * If permissions are not granted, it requests them.
    */
-  static async initialize() {
+  static async initialize () {
     try {
       console.log('Initializing Sensors...')
 
       // Request orientation permission if needed
       const orientationGranted = await Sensors.requestOrientationPermission()
-      console.log(`Orientation permission granted: ${orientationGranted}`)
 
       // Request motion permission if needed (for iOS 13+)
       const motionGranted = await Sensors.requestMotionPermission()
-      console.log(`Motion permission granted: ${motionGranted}`)
 
       // Attach event listeners based on granted permissions
       if (orientationGranted) {
         window.addEventListener('deviceorientation', Sensors.handleOrientation)
         Sensors.isOrientationEnabled = true
         console.log('DeviceOrientation event listener added.')
-        //alert('Device Orientation enabled.')
       } else {
         console.warn('DeviceOrientation permission not granted.')
-        alert('Device Orientation permission denied.')
+        UI.displayError('Device Orientation permission denied.')
       }
 
       if (motionGranted) {
         window.addEventListener('devicemotion', Sensors.handleMotion)
         Sensors.isMotionEnabled = true
         console.log('DeviceMotion event listener added.')
-        //alert('Device Motion enabled.')
       } else {
         console.warn('DeviceMotion permission not granted.')
-        alert('Device Motion permission denied.')
+        // You can choose to notify the user or handle it silently
       }
     } catch (err) {
       console.error('Error initializing Sensors:', err)
-      alert('Error initializing sensors. Please try again.')
+      UI.displayError('Error initializing sensors. Please try again.')
     }
   }
 
@@ -384,29 +381,35 @@ class Sensors {
    * Requests device orientation permission (required for iOS 13+)
    * @returns {Promise<boolean>} - Resolves to true if permission is granted
    */
-  static requestOrientationPermission() {
+  static requestOrientationPermission () {
     return new Promise((resolve, reject) => {
       // Check if permission is needed (iOS 13+)
       if (
         typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function'
       ) {
-        console.log('Requesting Device Orientation permission...')
-        DeviceOrientationEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              resolve(true)
-            } else {
+        // Create a temporary button to request permission
+        UI.showTemporaryPermissionButton(
+          'Request Device Orientation Permission',
+          async () => {
+            try {
+              const response = await DeviceOrientationEvent.requestPermission()
+              if (response === 'granted') {
+                resolve(true)
+              } else {
+                resolve(false)
+              }
+            } catch (error) {
+              console.error(
+                'Error requesting DeviceOrientation permission:',
+                error
+              )
               resolve(false)
             }
-          })
-          .catch(error => {
-            console.error('Error requesting DeviceOrientation permission:', error)
-            resolve(false)
-          })
+          }
+        )
       } else {
         // Permission not required
-        console.log('DeviceOrientation permission not required.')
         resolve(true)
       }
     })
@@ -416,29 +419,32 @@ class Sensors {
    * Requests device motion permission (required for iOS 13+)
    * @returns {Promise<boolean>} - Resolves to true if permission is granted
    */
-  static requestMotionPermission() {
+  static requestMotionPermission () {
     return new Promise((resolve, reject) => {
       // Check if permission is needed (iOS 13+)
       if (
         typeof DeviceMotionEvent !== 'undefined' &&
         typeof DeviceMotionEvent.requestPermission === 'function'
       ) {
-        console.log('Requesting Device Motion permission...')
-        DeviceMotionEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              resolve(true)
-            } else {
+        // Create a temporary button to request permission
+        UI.showTemporaryPermissionButton(
+          'Request Device Motion Permission',
+          async () => {
+            try {
+              const response = await DeviceMotionEvent.requestPermission()
+              if (response === 'granted') {
+                resolve(true)
+              } else {
+                resolve(false)
+              }
+            } catch (error) {
+              console.error('Error requesting DeviceMotion permission:', error)
               resolve(false)
             }
-          })
-          .catch(error => {
-            console.error('Error requesting DeviceMotion permission:', error)
-            resolve(false)
-          })
+          }
+        )
       } else {
         // Permission not required
-        console.log('DeviceMotion permission not required.')
         resolve(true)
       }
     })
@@ -448,7 +454,7 @@ class Sensors {
    * Handles device orientation events.
    * @param {DeviceOrientationEvent} event
    */
-  static handleOrientation(event) {
+  static handleOrientation (event) {
     try {
       Sensors.orientationData.alpha =
         event.alpha !== null ? event.alpha : Sensors.orientationData.alpha
@@ -464,13 +470,11 @@ class Sensors {
           event.webkitCompassAccuracy
       }
 
-      // Log the updated orientation data for debugging
-      console.log(
-        `Orientation Updated - Alpha: ${Sensors.orientationData.alpha}, Beta: ${Sensors.orientationData.beta}, Gamma: ${Sensors.orientationData.gamma}`
-      )
+      // Optionally, update Three.js or other components here
+      // Example: ThreeJSRenderer.updateCubeOrientation(Sensors.orientationData);
     } catch (err) {
       console.error('Error in handleOrientation:', err)
-      alert('Error handling orientation data.')
+      UI.displayError('Error handling orientation data.')
     }
   }
 
@@ -478,17 +482,19 @@ class Sensors {
    * Handles device motion events.
    * @param {DeviceMotionEvent} event
    */
-  static handleMotion(event) {
+  static handleMotion (event) {
     try {
+      // Example: Update UI with motion data
+      // UI.updateMotionDisplay(event.acceleration, event.rotationRate);
+
       // Implement motion data handling as needed
       console.log('DeviceMotionEvent:', event)
     } catch (err) {
       console.error('Error in handleMotion:', err)
-      alert('Error handling motion data.')
+      UI.displayError('Error handling motion data.')
     }
   }
 }
-
 
 // ------------------------------
 // UI Module
@@ -499,7 +505,7 @@ class UI {
    * @param {string} elementId - The ID of the HTML element to update.
    * @param {string} content - The content to set as innerHTML.
    */
-  static updateField(elementId, content) {
+  static updateField (elementId, content) {
     const element = document.getElementById(elementId)
     //console.log(`Element with ID '${elementId}' Update with '${content}'`);
     if (!element) {
@@ -515,7 +521,7 @@ class UI {
    * @param {number} value - The numerical value to display.
    * @param {number} decimals - Number of decimal places.
    */
-  static updateFieldIfNotNull(elementId, value, decimals) {
+  static updateFieldIfNotNull (elementId, value, decimals) {
     if (value !== null && value !== undefined) {
       const formattedValue = value.toFixed(decimals)
       UI.updateField(elementId, formattedValue)
@@ -525,7 +531,7 @@ class UI {
   /**
    * Increments an event count display for debugging purposes.
    */
-  static incrementEventCount() {
+  static incrementEventCount () {
     const countElement = document.getElementById('eventCount')
     if (!countElement) return
     const currentCount = parseInt(countElement.innerHTML) || 0
@@ -537,7 +543,7 @@ class UI {
 // DayNightCycle Class
 // ------------------------------
 class DayNightCycle {
-  constructor(scene, options = {}) {
+  constructor (scene, options = {}) {
     this.scene = scene
 
     // Default options (can be overridden)
@@ -581,7 +587,7 @@ class DayNightCycle {
     this.initLocation()
   }
 
-  initLocation() {
+  initLocation () {
     if (this.latitude === null || this.longitude === null) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -621,7 +627,7 @@ class DayNightCycle {
     }
   }
 
-  setDefaultSunTimes() {
+  setDefaultSunTimes () {
     // Default sunrise and sunset times (e.g., 6 AM and 6 PM)
     const now = new Date()
     this.sunrise = new Date(
@@ -642,7 +648,7 @@ class DayNightCycle {
     )
   }
 
-  calculateSunTimes() {
+  calculateSunTimes () {
     if (!this.latitude || !this.longitude) {
       console.warn('Latitude and Longitude are not set.')
       this.setDefaultSunTimes()
@@ -660,7 +666,7 @@ class DayNightCycle {
     console.log('Sunset:', this.sunset)
   }
 
-  initDirectionalLight() {
+  initDirectionalLight () {
     // Create Directional Light
     this.dirLight = new THREE.DirectionalLight(
       this.options.directionalLightColor,
@@ -674,7 +680,7 @@ class DayNightCycle {
     this.scene.add(this.dirLight.target) // Ensure the target is added to the scene
   }
 
-  initSky() {
+  initSky () {
     // Initialize Sky
     this.sky = new Sky()
     this.sky.scale.setScalar(this.options.skyScale)
@@ -692,7 +698,7 @@ class DayNightCycle {
     this.skyUniforms['sunPosition'].value.copy(this.sun)
   }
 
-  initAmbientLight() {
+  initAmbientLight () {
     // Add Ambient Light
     this.ambientLight = new THREE.AmbientLight(
       this.options.ambientLightColor,
@@ -701,7 +707,7 @@ class DayNightCycle {
     this.scene.add(this.ambientLight)
   }
 
-  updateSunPosition() {
+  updateSunPosition () {
     if (!this.sunrise || !this.sunset) {
       console.warn('Sunrise and sunset times are not set.')
       return
@@ -793,331 +799,82 @@ class DayNightCycle {
     this.dirLight.target.updateMatrixWorld()
   }
 
-  update() {
+  update () {
     // Update sun position periodically
     this.updateSunPosition()
   }
 }
 
-// -// ------------------------------
-// Terrain Class
-// ------------------------------
+/* 
+ * Full Terrain Class - 10 Rings from Center
+ * - Center hole filled with a fan (ring 0 -> ring 1)
+ * - Two-pointer angle stitching for ring k -> ring k+1 
+ * - Includes sortRingByAngle method
+ * - No omissions
+ */
 class Terrain {
   constructor(scene, options = {}, config = {}) {
     this.scene = scene
     this.config = config
-    this.options = {
-      latitude: config.originLatitude || 0,
-      longitude: config.originLongitude || 0
-    }
 
-    // Initialize terrain properties
-    this.terrainSize = this.config.size || 200
-    this.terrainSegments = this.config.segments || 200
-    this.scaleMultiplier = this.config.scaleMultiplier || 1
-    this.gridSizeMeters = this.config.gridSizeMeters || 500
-    this.gridResolution = this.config.gridResolution || 100
+    // Center lat/lon
+    this.centerLatitude = config.originLatitude || 0
+    this.centerLongitude = config.originLongitude || 0
+
+    // Configuration for scale, rings, fetch
+    this.scaleMultiplier = config.scaleMultiplier || 1
     this.elevationAPI =
-      this.config.elevationAPI || 'https://epqs.nationalmap.gov/v1/json'
+      config.elevationAPI || 'https://epqs.nationalmap.gov/v1/json'
+    this.maxRings = config.maxRings || 10
+    this.gridCellSizeMeters = config.cellSizeMeters || 25
+    this.fetchConcurrency = config.fetchConcurrency || 6
+    this.fetchRetries = config.fetchRetries || 3
 
-    // Initialize terrain data
-    this.elevationData = []
-    this.terrainInitialized = false
-    this.originLatitude = this.options.latitude
-    this.originLongitude = this.options.longitude
-    this.terrainPointCloud = null
-    this.terrainLineSegments = null
-    this.terrainMesh = null
-    this.terrainMeshWire = null
-
-    // Initialize storage
+    // Data storage
     this.LS_TERRAIN_POINTS_KEY = CONFIG.localStorageKeys.terrainPoints
-    this.totalPoints = this.gridResolution * this.gridResolution
-    this.nextPointIndex = 0
-    this.POINTS_BATCH_SIZE = 100
+    this.savedPoints = []
+    this.ringPoints = [] // ringPoints[k] => array of ring k points
 
-    // Generate grid points
-    this.gridPoints = this.generateGrid(
-      { latitude: this.originLatitude, longitude: this.originLongitude },
-      this.gridSizeMeters,
-      this.gridResolution
-    )
+    // Scene objects
+    this.sceneChunks = []
+    this.terrainPointCloud = null
+    this.terrainGeometry = null
+    this.terrainMaterial = null
+    this.currentPointCount = 0
 
-    // Load saved points from localStorage
+    // Load from local storage
     this.savedPoints = this.loadPointsFromLocalStorage()
-    if (this.savedPoints.length > 0) {
-      console.log(`Loaded ${this.savedPoints.length} points from localStorage.`)
-    }
 
-    // Set nextPointIndex based on saved points
-    this.nextPointIndex = this.savedPoints.length
+    // Initialize point cloud
+    this.initializePointCloud()
 
-    // Initialize terrain point cloud
-    this.initializeTerrainPointCloud()
-
-    // Start fetching elevation data if needed
-    this.fetchAndRenderTerrain()
+    // Start generation
+    this.generateRingsSequentially()
   }
 
-  /**
-   * Generates a grid of geographic points around a center location.
-   * Ensures exactly gridResolution^2 points are generated.
-   * @param {Object} center - Object with latitude and longitude.
-   * @param {number} gridSizeMeters - Size of the grid in meters.
-   * @param {number} gridResolution - Number of points per axis.
-   * @param {number} startIndex - Starting index for point generation.
-   * @param {number|null} count - Number of points to generate.
-   * @returns {Array} Array of point objects with latitude and longitude.
-   */
-  generateGrid(
-    center,
-    gridSizeMeters,
-    gridResolution,
-    startIndex = 0,
-    count = null
-  ) {
-    const points = []
-    const stepMeters = (2 * gridSizeMeters) / (gridResolution - 1)
-
-    const deltaLat = stepMeters / 111000
-    const deltaLon =
-      stepMeters /
-      (111000 * Math.cos(THREE.MathUtils.degToRad(center.latitude)))
-
-    const endIndex = count
-      ? Math.min(startIndex + count, gridResolution * gridResolution)
-      : gridResolution * gridResolution
-
-    for (let i = startIndex; i < endIndex; i++) {
-      const row = Math.floor(i / gridResolution)
-      const col = i % gridResolution
-
-      const latOffset = (row - (gridResolution - 1) / 2) * deltaLat
-      const lonOffset = (col - (gridResolution - 1) / 2) * deltaLon
-
-      points.push({
-        latitude: center.latitude + latOffset,
-        longitude: center.longitude + lonOffset
-      })
-    }
-
-    return points
-  }
-
-  /**
-   * Saves a batch of points to localStorage.
-   * Ensures that the total saved points do not exceed totalPoints.
-   * @param {Array} pointsBatch - Array of point objects to save.
-   */
-  savePointsToLocalStorage(pointsBatch) {
-    let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
-
-    // Calculate available space
-    const availableSpace = this.totalPoints - savedPoints.length
-    if (availableSpace <= 0) {
-      console.warn('LocalStorage is full. Cannot save more terrain points.')
-      return
-    }
-
-    // Limit pointsBatch to availableSpace
-    const pointsToSave = pointsBatch.slice(0, availableSpace)
-    if (pointsBatch.length > pointsToSave.length) {
-      console.warn(
-        `Only ${pointsToSave.length} out of ${pointsBatch.length} points were saved to localStorage to prevent overflow.`
-      )
-    }
-
-    savedPoints = savedPoints.concat(pointsToSave)
-
-    Storage.save(this.LS_TERRAIN_POINTS_KEY, savedPoints)
-    console.log(`Saved ${pointsToSave.length} points to localStorage.`)
-
-    // Update the in-memory savedPoints array
-    this.savedPoints = savedPoints
-  }
-
-  /**
-   * Loads saved points from localStorage.
-   * Ensures that no more than totalPoints are loaded.
-   * @returns {Array} Array of saved point objects.
-   */
+  // -----------------------------------------------
+  // Local Storage
+  // -----------------------------------------------
   loadPointsFromLocalStorage() {
-    let savedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
-
-    if (savedPoints.length > this.totalPoints) {
-      console.warn(
-        `LocalStorage has ${savedPoints.length} points, which exceeds the expected ${this.totalPoints}. Truncating excess points.`
-      )
-      savedPoints = savedPoints.slice(0, this.totalPoints)
-      Storage.save(this.LS_TERRAIN_POINTS_KEY, savedPoints)
-    }
-
-    return savedPoints
+    const existing = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
+    return existing
   }
 
-  /**
-   * Fetches elevation data for the terrain grid and renders it.
-   */
-  async fetchAndRenderTerrain() {
-    const savedPointsCount = this.savedPoints.length
-
-    if (savedPointsCount >= this.totalPoints) {
-      console.log('All terrain points loaded from localStorage.')
-      this.populateTerrainFromSavedPoints(this.savedPoints)
-      this.createTerrainMesh(this.savedPoints)
-      return
-    }
-
-    const remainingPointsCount = this.totalPoints - savedPointsCount
-    console.log(`Fetching elevation data for ${remainingPointsCount} points.`)
-    const remainingPoints = this.generateGrid(
-      { latitude: this.originLatitude, longitude: this.originLongitude },
-      this.gridSizeMeters,
-      this.gridResolution,
-      savedPointsCount,
-      remainingPointsCount
-    )
-
-    if (remainingPoints.length > 0) {
-      await this.fetchElevationGrid(remainingPoints, 'Meters', 10, 3)
-      this.savePointsToLocalStorage(this.elevationData)
-      this.populateTerrainFromSavedPoints(this.savedPoints) // Use updated savedPoints
-      this.elevationData = [] // Clear buffer
-      this.createTerrainMesh(this.savedPoints) // Use updated savedPoints
-    }
+  savePointsToLocalStorage(pointsBatch) {
+    const existing = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
+    const merged = existing.concat(pointsBatch)
+    Storage.save(this.LS_TERRAIN_POINTS_KEY, merged)
+    this.savedPoints = merged
   }
 
-  /**
-   * Fetches elevation data for a grid of geographic points.
-   * Limits the number of points fetched to prevent exceeding totalPoints.
-   * @param {Array} points - Array of points with latitude and longitude.
-   * @param {string} units - 'Meters' or 'Feet'.
-   * @param {number} concurrency - Number of concurrent fetches.
-   * @param {number} retries - Number of retries for failed fetches.
-   * @returns {Promise<void>}
-   */
-  async fetchElevationGrid(
-    points,
-    units = 'Meters',
-    concurrency = 10,
-    retries = 3
-  ) {
-    let index = 0
-
-    const fetchWithRetry = async (longitude, latitude, attempt = 1) => {
-      const elevation = await this.fetchElevation(longitude, latitude, units)
-      if ((elevation === null || isNaN(elevation)) && attempt <= retries) {
-        const delay = Math.pow(2, attempt) * 100 // Exponential backoff
-        console.warn(
-          `Retrying elevation fetch for (${latitude.toFixed(
-            5
-          )}, ${longitude.toFixed(5)}) - Attempt ${attempt + 1
-          } after ${delay}ms`
-        )
-        await new Promise(resolve => setTimeout(resolve, delay))
-        return await fetchWithRetry(longitude, latitude, attempt + 1)
-      }
-      return elevation
-    }
-
-    const worker = async () => {
-      while (true) {
-        let currentIndex
-        if (index >= points.length) {
-          break
-        }
-        currentIndex = index++
-        const point = points[currentIndex]
-        const elevation = await fetchWithRetry(
-          point.longitude,
-          point.latitude,
-          1
-        )
-        if (elevation !== null) {
-          const elevationPoint = {
-            latitude: point.latitude,
-            longitude: point.longitude,
-            elevation: elevation
-          }
-          this.elevationData.push(elevationPoint)
-          console.log(
-            `Lat: ${elevationPoint.latitude.toFixed(
-              5
-            )}, Lon: ${elevationPoint.longitude.toFixed(5)}, Elevation: ${elevationPoint.elevation
-            } meters`
-
-          )
-
-          const progress = `Rendered ${this.nextPointIndex} / ${this.totalPoints} points.`
-          UI.updateField('progress', progress)
-          requestAnimationFrame(() => this.renderTerrainPoints())
-        } else {
-          console.log(
-            `Lat: ${point.latitude.toFixed(5)}, Lon: ${point.longitude.toFixed(
-              5
-            )}, Elevation: Fetch Failed`
-          )
-        }
-      }
-    }
-
-    const workersArray = []
-    for (let i = 0; i < concurrency; i++) {
-      workersArray.push(worker())
-    }
-
-    await Promise.all(workersArray)
-
-    console.log('All elevation data fetched.')
-  }
-
-  /**
-   * Fetches elevation data for a single geographic point from the USGS EPQS API.
-   * @param {number} longitude
-   * @param {number} latitude
-   * @param {string} units - 'Meters' or 'Feet'.
-   * @returns {number|null} Elevation value or null if failed.
-   */
-  async fetchElevation(longitude, latitude, units = 'Meters') {
-    const endpoint = this.elevationAPI
-    const url = `${endpoint}?x=${longitude}&y=${latitude}&units=${units}&output=json`
-
-    try {
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`Elevation API error: ${response.statusText}`)
-      }
-
-      // Log the raw response for debugging
-      const text = await response.text()
-      console.log(
-        `Elevation API response for (${latitude}, ${longitude}):`,
-        text
-      )
-
-      const data = JSON.parse(text)
-      if (data && data.value !== undefined) {
-        return data.value // Elevation in the specified units
-      } else {
-        throw new Error('Invalid elevation data received.')
-      }
-    } catch (error) {
-      console.error(
-        `Failed to fetch elevation for (${latitude.toFixed(
-          5
-        )}, ${longitude.toFixed(5)}):`,
-        error
-      )
-      return null // Indicate failure
-    }
-  }
-
-  /**
-   * Initializes the Three.js terrain point cloud.
-   */
-  initializeTerrainPointCloud() {
-    const positions = new Float32Array(this.totalPoints * 3)
-    const colors = new Float32Array(this.totalPoints * 3)
+  // -----------------------------------------------
+  // Point Cloud
+  // -----------------------------------------------
+  initializePointCloud() {
+    // Over-allocate
+    const maxPoints = (this.maxRings + 1) * 8 * 4 + 50
+    const positions = new Float32Array(maxPoints * 3)
+    const colors = new Float32Array(maxPoints * 3)
 
     this.terrainGeometry = new THREE.BufferGeometry()
     this.terrainGeometry.setAttribute(
@@ -1130,10 +887,10 @@ class Terrain {
     )
 
     this.terrainMaterial = new THREE.PointsMaterial({
-      size: 0.1,
+      size: 0.4,
       vertexColors: true,
       transparent: true,
-      opacity: 0.5
+      opacity: 0.7
     })
 
     this.terrainPointCloud = new THREE.Points(
@@ -1141,770 +898,498 @@ class Terrain {
       this.terrainMaterial
     )
     this.scene.add(this.terrainPointCloud)
+    this.currentPointCount = 0
   }
 
-  /**
-   * Populates the terrain point cloud from saved points.
-   * Ensures that only up to totalPoints are processed.
-   * @param {Array} savedPoints - Array of saved point objects.
-   */
-  populateTerrainFromSavedPoints(savedPoints) {
-    const positions = this.terrainPointCloud.geometry.attributes.position.array
-    const colors = this.terrainPointCloud.geometry.attributes.color.array
+  addPointsToPointCloud(newPoints) {
+    if (!this.terrainPointCloud) return
 
-    const pointsToPopulate = savedPoints.slice(0, this.totalPoints) // Ensure no excess points
+    const pos = this.terrainPointCloud.geometry.attributes.position.array
+    const col = this.terrainPointCloud.geometry.attributes.color.array
 
-    pointsToPopulate.forEach((point, index) => {
-      const baseIndex = index * 3
-      positions[baseIndex] = Utils.mapLongitudeToX(
-        point.longitude,
-        this.originLongitude,
-        this.scaleMultiplier
+    newPoints.forEach(p => {
+      const x = Utils.mapLongitudeToX(p.longitude, this.centerLongitude, this.scaleMultiplier)
+      const y = p.elevation * this.scaleMultiplier
+      const z = Utils.mapLatitudeToZ(p.latitude, this.centerLatitude, this.scaleMultiplier)
+
+      const base = this.currentPointCount * 3
+      pos[base] = x
+      pos[base + 1] = y
+      pos[base + 2] = z
+
+      const norm = Math.min(Math.max(p.elevation, 0), 100) / 100
+      const c = new THREE.Color().lerpColors(
+        new THREE.Color(0x0000ff),
+        new THREE.Color(0xff0000),
+        norm
       )
-      positions[baseIndex + 1] = (point.elevation - 0) * this.scaleMultiplier
-      positions[baseIndex + 2] = Utils.mapLatitudeToZ(
-        point.latitude,
-        this.originLatitude,
-        this.scaleMultiplier
-      )
+      col[base] = c.r
+      col[base + 1] = c.g
+      col[base + 2] = c.b
 
-      const normalizedElevation =
-        Math.min(Math.max(point.elevation - 0, 0), 80) / 80
-      const color = new THREE.Color().lerpColors(
-        new THREE.Color(0x0000ff), // Blue for low elevation
-        new THREE.Color(0xff0000), // Red for high elevation
-        normalizedElevation
-      )
-
-      colors[baseIndex] = color.r
-      colors[baseIndex + 1] = color.g
-      colors[baseIndex + 2] = color.b
+      this.currentPointCount++
     })
 
     this.terrainPointCloud.geometry.attributes.position.needsUpdate = true
     this.terrainPointCloud.geometry.attributes.color.needsUpdate = true
-
-    console.log(
-      `Populated terrain with ${pointsToPopulate.length} saved points.`
-    )
   }
 
-  /**
-   * Renders new terrain points into the scene.
-   * Ensures that no more than totalPoints are rendered.
-   */
-  renderTerrainPoints() {
-    if (!this.terrainPointCloud || this.elevationData.length === 0) return
+  // -----------------------------------------------
+  // Ring Generation
+  // -----------------------------------------------
+  async generateRingsSequentially() {
+    for (let ringIndex = 0; ringIndex <= this.maxRings; ringIndex++) {
+      const ringLatLon = this.generateRingLatLon(ringIndex)
+      if (!ringLatLon.length) continue
 
-    const positions = this.terrainPointCloud.geometry.attributes.position.array
-    const colors = this.terrainPointCloud.geometry.attributes.color.array
+      // fetch elevation data
+      const ringData = await this.fetchRingElevation(ringLatLon)
 
-    const pointsToAdd = Math.min(
-      this.POINTS_BATCH_SIZE,
-      this.elevationData.length,
-      this.totalPoints - this.nextPointIndex
-    )
+      // store
+      this.savePointsToLocalStorage(ringData)
+      this.ringPoints[ringIndex] = ringData
 
-    if (pointsToAdd <= 0) {
-      // Once all points are rendered, draw lines and create mesh
-      const allSavedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
-      this.createTerrainMesh(allSavedPoints) // Synchronous line drawing
+      // partial visuals
+      this.addPointsToPointCloud(ringData)
+
+      // ring 0 => single center point
+      // ring 1 => build center fan from ring 0 => ring 1
+      // ring 2.. => ring band
+      if (ringIndex === 1) {
+        this.buildCenterFan(0, 1)
+      } else if (ringIndex >= 2) {
+        this.buildRingBand(ringIndex - 1, ringIndex)
+      }
+    }
+  }
+
+  // ring 0 => single center point
+  // ring k => perimeter of (2k+1)x(2k+1) block (skip interior)
+  generateRingLatLon(ringIndex) {
+    if (ringIndex === 0) {
+      return [
+        { latitude: this.centerLatitude, longitude: this.centerLongitude }
+      ]
+    }
+
+    const points = []
+    const step = this.gridCellSizeMeters
+
+    for (let row = -ringIndex; row <= ringIndex; row++) {
+      for (let col = -ringIndex; col <= ringIndex; col++) {
+        // only perimeter => row=±ringIndex or col=±ringIndex
+        if (Math.abs(row) !== ringIndex && Math.abs(col) !== ringIndex) continue
+
+        const latOffset = (row * step) / 111000
+        const lonOffset =
+          (col * step) /
+          (111000 * Math.cos(THREE.MathUtils.degToRad(this.centerLatitude)))
+
+        const lat = this.centerLatitude + latOffset
+        const lon = this.centerLongitude + lonOffset
+        points.push({ latitude: lat, longitude: lon })
+      }
+    }
+    return points
+  }
+
+  // fill center from ring 0 => ring 1
+  buildCenterFan(ring0Index, ring1Index) {
+    const centerRing = this.ringPoints[ring0Index] || []
+    const perimeterRing = this.ringPoints[ring1Index] || []
+    if (!centerRing.length || !perimeterRing.length) {
+      console.warn(`Center fan not built; missing ring 0 or ring 1 data.`)
       return
     }
 
-    const pointsBatch = []
-    for (let i = 0; i < pointsToAdd; i++) {
-      const point = this.elevationData.shift()
-      if (!point) continue
+    const centerPt = centerRing[0]
+    const sortedRing = this.sortRingByAngle(perimeterRing)
 
-      const baseIndex = this.nextPointIndex * 3
+    const { geometry, material, wireMaterial } = this.buildFanGeometry(centerPt, sortedRing)
 
-      positions[baseIndex] = Utils.mapLongitudeToX(
-        point.longitude,
-        this.originLongitude,
-        this.scaleMultiplier
-      )
-      positions[baseIndex + 1] = (point.elevation - 0) * this.scaleMultiplier
-      positions[baseIndex + 2] = Utils.mapLatitudeToZ(
-        point.latitude,
-        this.originLatitude,
-        this.scaleMultiplier
-      )
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.receiveShadow = true
+    this.scene.add(mesh)
+    this.sceneChunks.push(mesh)
 
-      const normalizedElevation =
-        Math.min(Math.max(point.elevation - 0, 0), 80) / 80
-      const color = new THREE.Color().lerpColors(
-        new THREE.Color(0x0000ff), // Blue for low elevation
-        new THREE.Color(0xff0000), // Red for high elevation
-        normalizedElevation
-      )
+    const wire = new THREE.Mesh(geometry, wireMaterial)
+    this.scene.add(wire)
+    this.sceneChunks.push(wire)
 
-      colors[baseIndex] = color.r
-      colors[baseIndex + 1] = color.g
-      colors[baseIndex + 2] = color.b
-
-      pointsBatch.push(point)
-      this.nextPointIndex++
-
-      // Prevent exceeding totalPoints
-      if (this.nextPointIndex >= this.totalPoints) {
-        break
-      }
-    }
-
-    this.terrainPointCloud.geometry.attributes.position.needsUpdate = true
-    this.terrainPointCloud.geometry.attributes.color.needsUpdate = true
-
-    this.savePointsToLocalStorage(pointsBatch)
-
-    console.log(`Rendered ${this.nextPointIndex} / ${this.totalPoints} points.`)
-
-    if (this.nextPointIndex >= this.totalPoints) {
-      // All points rendered, draw lines and create mesh
-      const allSavedPoints = Storage.load(this.LS_TERRAIN_POINTS_KEY) || []
-      this.createTerrainMesh(allSavedPoints) // Synchronous line drawing
-    } else {
-      // Continue rendering in the next frame
-      requestAnimationFrame(() => this.renderTerrainPoints())
-    }
+    console.log(`Built center fan, ring 0 => ring 1.`)
   }
 
-  /**
-   * Draws terrain lines asynchronously to prevent blocking the main thread.
-   * @param {Array} savedPoints - Array of saved point objects.
-   */
-  async drawTerrainLinesAsync(savedPoints) {
-    if (!this.lineDrawingGenerator) {
-      this.lineDrawingGenerator = this.terrainLineDrawingGenerator(savedPoints)
-    }
+  buildFanGeometry(centerPt, perimeter) {
+    const cx = Utils.mapLongitudeToX(centerPt.longitude, this.centerLongitude, this.scaleMultiplier)
+    const cy = centerPt.elevation * this.scaleMultiplier || 0
+    const cz = Utils.mapLatitudeToZ(centerPt.latitude, this.centerLatitude, this.scaleMultiplier)
 
-    const result = this.lineDrawingGenerator.next()
-    if (result.done) {
-      this.lineDrawingGenerator = null // Reset generator when done
-      console.log('Asynchronous terrain lines drawing completed.')
-    } else {
-      // Continue drawing in the next frame
-      requestAnimationFrame(() => this.drawTerrainLinesAsync(savedPoints))
-    }
-  }
-
-  /**
-   * Generator function for drawing terrain lines.
-   * Processes the grid in chunks to avoid blocking.
-   * @param {Array} savedPoints - Array of saved point objects.
-   */
-  *terrainLineDrawingGenerator(savedPoints) {
-    const linePositions = []
-    const metersPerDegLat = 111320 * this.scaleMultiplier
-    const metersPerDegLon = 110540 * this.scaleMultiplier
-
-    const gridSize = this.gridResolution // Number of rows and columns
-    if (!Number.isInteger(gridSize)) {
-      console.error(
-        'Grid size is not an integer. Cannot draw lines accurately.'
-      )
-      return
-    }
-
-    // Define the maximum allowed distance between connected points (in meters)
-    const maxLineDistance = 15 // Adjust this value based on your grid density
-    const maxLineDistanceSq = maxLineDistance * maxLineDistance // Squared distance for efficiency
-
-    // Function to calculate squared distance between two points (X and Z axes only)
-    const calculateDistanceSq = (x1, z1, x2, z2) => {
-      const dx = x1 - x2
-      const dz = z1 - z2
-      return dx * dx + dz * dz
-    }
-
-    // Set to track connected pairs and prevent duplicates
-    const connectedPairs = new Set()
-
-    for (let i = 0; i < gridSize; i++) {
-      for (let j = 0; j < gridSize; j++) {
-        const currentIndex = i * gridSize + j
-        const currentPoint = savedPoints[currentIndex]
-        if (!currentPoint) continue
-
-        const currentX = Utils.mapLongitudeToX(
-          currentPoint.longitude,
-          this.originLongitude,
-          this.scaleMultiplier
-        )
-        const currentZ = Utils.mapLatitudeToZ(
-          currentPoint.latitude,
-          this.originLatitude,
-          this.scaleMultiplier
-        )
-        const currentY = (currentPoint.elevation - 0) * this.scaleMultiplier
-
-        // Right neighbor (only if not on the last column)
-        if (j < gridSize - 1) {
-          const rightNeighborIndex = currentIndex + 1
-          const rightNeighbor = savedPoints[rightNeighborIndex]
-          if (rightNeighbor) {
-            const rightX = Utils.mapLongitudeToX(
-              rightNeighbor.longitude,
-              this.originLongitude,
-              this.scaleMultiplier
-            )
-            const rightZ = Utils.mapLatitudeToZ(
-              rightNeighbor.latitude,
-              this.originLatitude,
-              this.scaleMultiplier
-            )
-            const rightY = (rightNeighbor.elevation - 0) * this.scaleMultiplier
-
-            const distanceSq = calculateDistanceSq(
-              currentX,
-              currentZ,
-              rightX,
-              rightZ
-            )
-            if (distanceSq <= maxLineDistanceSq) {
-              const key =
-                currentIndex < rightNeighborIndex
-                  ? `${currentIndex}-${rightNeighborIndex}`
-                  : `${rightNeighborIndex}-${currentIndex}`
-
-              if (!connectedPairs.has(key)) {
-                connectedPairs.add(key)
-                linePositions.push(
-                  currentX,
-                  currentY,
-                  currentZ,
-                  rightX,
-                  rightY,
-                  rightZ
-                )
-              }
-            }
-          }
-        }
-
-        // Bottom neighbor (only if not on the last row)
-        if (i < gridSize - 1) {
-          const bottomNeighborIndex = currentIndex + gridSize
-          const bottomNeighbor = savedPoints[bottomNeighborIndex]
-          if (bottomNeighbor) {
-            const bottomX = Utils.mapLongitudeToX(
-              bottomNeighbor.longitude,
-              this.originLongitude,
-              this.scaleMultiplier
-            )
-            const bottomZ = Utils.mapLatitudeToZ(
-              bottomNeighbor.latitude,
-              this.originLatitude,
-              this.scaleMultiplier
-            )
-            const bottomY =
-              (bottomNeighbor.elevation - 0) * this.scaleMultiplier
-
-            const distanceSq = calculateDistanceSq(
-              currentX,
-              currentZ,
-              bottomX,
-              bottomZ
-            )
-            if (distanceSq <= maxLineDistanceSq) {
-              const key =
-                currentIndex < bottomNeighborIndex
-                  ? `${currentIndex}-${bottomNeighborIndex}`
-                  : `${bottomNeighborIndex}-${currentIndex}`
-
-              if (!connectedPairs.has(key)) {
-                connectedPairs.add(key)
-                linePositions.push(
-                  currentX,
-                  currentY,
-                  currentZ,
-                  bottomX,
-                  bottomY,
-                  bottomZ
-                )
-              }
-            }
-          }
-        }
-
-        // Yield after processing a set number of points to allow the main thread to breathe
-        if ((i * gridSize + j) % 1000 === 0) {
-          yield
-        }
-      }
-    }
-
-    // After all lines are collected, create the line segments
-    const lineGeometry = new THREE.BufferGeometry()
-    lineGeometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(linePositions, 3)
-    )
-
-    const lineMaterial = new THREE.LineBasicMaterial({
-      color: 0xffffff,
-      opacity: 0.5,
-      transparent: true
-    })
-    this.terrainLineSegments = new THREE.LineSegments(
-      lineGeometry,
-      lineMaterial
-    )
-    //this.scene.add(this.terrainLineSegments);
-
-    yield // Final yield to indicate completion
-  }
-
-  /**
-   * Creates the terrain mesh from saved points.
-   * Ensures that the number of points matches the grid's expectation.
-   * @param {Array} savedPoints - Array of saved point objects.
-   */
-  createTerrainMesh(savedPoints) {
-    // Validate the length of savedPoints
-    if (savedPoints.length !== this.totalPoints) {
-      console.error(
-        `Expected ${this.totalPoints} points, but got ${savedPoints.length}. Aborting mesh creation.`
-      )
-      return
-    }
-
-    // Define meters per degree based on a fixed latitude for simplicity
-    const metersPerDegLat = 111320 * this.scaleMultiplier
-    const metersPerDegLon = 110540 * this.scaleMultiplier // Adjust based on average latitude if necessary
-
-    // Define origin for global positioning based on actual location
-    const origin = {
-      longitude: this.originLongitude,
-      latitude: this.originLatitude
-    }
-
-    // Step 1: Determine global min and max for X (longitude) and Z (latitude)
-    const xCoords = savedPoints.map(point =>
-      Utils.mapLongitudeToX(
-        point.longitude,
-        origin.longitude,
-        this.scaleMultiplier
-      )
-    )
-    const zCoords = savedPoints.map(point =>
-      Utils.mapLatitudeToZ(
-        point.latitude,
-        origin.latitude,
-        this.scaleMultiplier
-      )
-    )
-
-    const minX = Math.min(...xCoords)
-    const maxX = Math.max(...xCoords)
-    const minZ = Math.min(...zCoords)
-    const maxZ = Math.max(...zCoords)
-
-    // Calculate expected grid spacing
-    const deltaX = (maxX - minX) / (this.gridResolution - 1)
-    const deltaZ = (maxZ - minZ) / (this.gridResolution - 1)
-
-    // Initialize a 2D array to hold sorted points
-    const sortedGrid = Array.from({ length: this.gridResolution }, () =>
-      Array(this.gridResolution).fill(null)
-    )
-
-    // Step 2: Assign each saved point to the appropriate grid cell
-    savedPoints.forEach(point => {
-      const x = Utils.mapLongitudeToX(
-        point.longitude,
-        origin.longitude,
-        this.scaleMultiplier
-      )
-      const z = Utils.mapLatitudeToZ(
-        point.latitude,
-        origin.latitude,
-        this.scaleMultiplier
-      )
-
-      let col = Math.round((x - minX) / deltaX)
-      let row = Math.round((z - minZ) / deltaZ)
-
-      col = Math.max(0, Math.min(this.gridResolution - 1, col))
-      row = Math.max(0, Math.min(this.gridResolution - 1, row))
-
-      if (sortedGrid[row][col] === null) {
-        sortedGrid[row][col] = point
-      } else {
-        // Handle duplicate assignments by choosing the closest point
-        const existingPoint = sortedGrid[row][col]
-        const existingX = Utils.mapLongitudeToX(
-          existingPoint.longitude,
-          origin.longitude,
-          this.scaleMultiplier
-        )
-        const existingZ = Utils.mapLatitudeToZ(
-          existingPoint.latitude,
-          origin.latitude,
-          this.scaleMultiplier
-        )
-        const existingDistanceSq = Utils.calculateDistanceSq(
-          existingX,
-          existingZ,
-          x,
-          z
-        )
-
-        const newDistanceSq = Utils.calculateDistanceSq(
-          existingX,
-          existingZ,
-          x,
-          z
-        )
-
-        if (newDistanceSq < existingDistanceSq) {
-          sortedGrid[row][col] = point
-        } else {
-          console.warn(
-            `Duplicate point assignment at row ${row}, col ${col}. Keeping the existing point.`
-          )
-        }
-      }
+    const ringXYZ = perimeter.map(pt => {
+      const x = Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier)
+      const y = pt.elevation * this.scaleMultiplier
+      const z = Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+      return { x, y, z }
     })
 
-    // Step 3: Handle Missing Points by Generating Them
-    for (let row = 0; row < this.gridResolution; row++) {
-      for (let col = 0; col < this.gridResolution; col++) {
-        if (sortedGrid[row][col] === null) {
-          console.warn(
-            `Missing point at row ${row}, col ${col}. Generating a new point.`
-          )
-
-          // Generate a new point by interpolating from existing neighbors
-          const generatedPoint = this.generateMissingPoint(row, col, sortedGrid)
-
-          if (generatedPoint) {
-            sortedGrid[row][col] = generatedPoint
-            console.log(
-              `Generated point at row ${row}, col ${col}: Lat=${generatedPoint.latitude.toFixed(
-                5
-              )}, Lon=${generatedPoint.longitude.toFixed(5)}, Elevation=${generatedPoint.elevation
-              }`
-            )
-          } else {
-            // If unable to generate, assign a default elevation
-            const defaultElevation = 0
-            const generatedLongitude =
-              origin.longitude +
-              ((col - (this.gridResolution - 1) / 2) *
-                (deltaX / this.scaleMultiplier)) /
-              metersPerDegLon
-            const generatedLatitude =
-              origin.latitude +
-              ((row - (this.gridResolution - 1) / 2) *
-                (deltaZ / this.scaleMultiplier)) /
-              metersPerDegLat
-
-            const defaultPoint = {
-              longitude: generatedLongitude,
-              latitude: generatedLatitude,
-              elevation: defaultElevation
-            }
-
-            sortedGrid[row][col] = defaultPoint
-            console.warn(
-              `Assigned default elevation for missing point at row ${row}, col ${col}.`
-            )
-          }
-        }
-      }
-    }
-
-    // Step 4: Populate Vertices and Colors
-    const vertices = new Float32Array(this.totalPoints * 3) // x, y, z for each point
-    const colors = new Float32Array(this.totalPoints * 3) // r, g, b for each point
-
-    for (let row = 0; row < this.gridResolution; row++) {
-      for (let col = 0; col < this.gridResolution; col++) {
-        const index = row * this.gridResolution + col
-        const point = sortedGrid[row][col]
-        const vertexIndex = index * 3
-
-        const x = Utils.mapLongitudeToX(
-          point.longitude,
-          origin.longitude,
-          this.scaleMultiplier
-        )
-        const y = (point.elevation - 0) * this.scaleMultiplier
-        const z = Utils.mapLatitudeToZ(
-          point.latitude,
-          origin.latitude,
-          this.scaleMultiplier
-        )
-
-        vertices[vertexIndex] = x
-        vertices[vertexIndex + 1] = y
-        vertices[vertexIndex + 2] = z
-
-        // Calculate color based on elevation
-        const normalizedElevation =
-          Math.min(Math.max(point.elevation - 0, 0), 40) / 40
-        const color = new THREE.Color().lerpColors(
-          new THREE.Color(0x000000), // Blue for low elevation
-          new THREE.Color(0xffffff), // White for high elevation
-          normalizedElevation
-        )
-        colors[vertexIndex] = color.r
-        colors[vertexIndex + 1] = color.g
-        colors[vertexIndex + 2] = color.b
-      }
-    }
-
-    // Step 5: Generate Indices for Triangles Based on Physical Neighbors
+    const n = ringXYZ.length
+    const totalCount = n + 1
+    const vertices = new Float32Array(totalCount * 3)
+    const colors = new Float32Array(totalCount * 3)
     const indices = []
-    const maxTriangleSize = 400 // Adjust based on grid density
-    const maxTriangleSizeSq = maxTriangleSize * maxTriangleSize // Squared distance for efficiency
 
-    for (let row = 0; row < this.gridResolution - 1; row++) {
-      for (let col = 0; col < this.gridResolution - 1; col++) {
-        const a = row * this.gridResolution + col
-        const b = a + 1
-        const c = a + this.gridResolution
-        const d = c + 1
+    // index 0 => center
+    vertices[0] = cx
+    vertices[1] = cy
+    vertices[2] = cz
+    const cNorm = Math.min(Math.max(cy, 0), 200) / 200
+    const cColor = new THREE.Color().lerpColors(
+      new THREE.Color(0x000000),
+      new THREE.Color(0xffffff),
+      cNorm
+    )
+    colors[0] = cColor.r
+    colors[1] = cColor.g
+    colors[2] = cColor.b
 
-        // Retrieve vertex positions (X and Z axes only)
-        const ax = vertices[a * 3]
-        const az = vertices[a * 3 + 2]
-        const bx = vertices[b * 3]
-        const bz = vertices[b * 3 + 2]
-        const cx = vertices[c * 3]
-        const cz = vertices[c * 3 + 2]
-        const dxPos = vertices[d * 3]
-        const dz = vertices[d * 3 + 2]
+    // perimeter => 1..n
+    for (let i = 0; i < n; i++) {
+      const base = (i + 1) * 3
+      const { x, y, z } = ringXYZ[i]
+      vertices[base] = x
+      vertices[base + 1] = y
+      vertices[base + 2] = z
 
-        // Calculate squared distances to ensure physical proximity
-        const distanceACSq = Utils.calculateDistanceSq(ax, az, cx, cz)
-        const distanceCBSq = Utils.calculateDistanceSq(cx, cz, bx, bz)
-        const distanceABSq = Utils.calculateDistanceSq(ax, az, bx, bz)
-
-        const distanceBCSq = Utils.calculateDistanceSq(bx, bz, cx, cz)
-        const distanceCDSq = Utils.calculateDistanceSq(cx, cz, dxPos, dz)
-        const distanceBDSq = Utils.calculateDistanceSq(bx, bz, dxPos, dz)
-
-        // Validate distances for the first triangle (a, c, b)
-        const isTriangle1Valid =
-          distanceACSq <= maxTriangleSizeSq &&
-          distanceCBSq <= maxTriangleSizeSq &&
-          distanceABSq <= maxTriangleSizeSq
-
-        // Validate distances for the second triangle (b, c, d)
-        const isTriangle2Valid =
-          distanceBCSq <= maxTriangleSizeSq &&
-          distanceCDSq <= maxTriangleSizeSq &&
-          distanceBDSq <= maxTriangleSizeSq
-
-        // Only add triangles if they pass the distance validation
-        if (isTriangle1Valid && isTriangle2Valid) {
-          // First triangle (a, c, b)
-          indices.push(a, c, b)
-
-          // Second triangle (b, c, d)
-          indices.push(b, c, d)
-        } else {
-          console.warn(
-            `Skipped grid square at row ${row}, col ${col} due to excessive triangle size.`
-          )
-        }
-      }
+      const norm = Math.min(Math.max(y, 0), 200) / 200
+      const cc = new THREE.Color().lerpColors(
+        new THREE.Color(0x000000),
+        new THREE.Color(0xffffff),
+        norm
+      )
+      colors[base] = cc.r
+      colors[base + 1] = cc.g
+      colors[base + 2] = cc.b
     }
 
-    // Step 6: Assign Attributes to Geometry
+    // fan => tri(0, i, i+1)
+    for (let i = 1; i <= n; i++) {
+      const i2 = (i < n) ? i + 1 : 1
+      indices.push(0, i, i2)
+    }
+
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
     geometry.setIndex(indices)
     geometry.computeVertexNormals()
 
-    // Step 7: Create Material with Vertex Colors, Shading, and Reflectivity
-    const materialWire = new THREE.MeshStandardMaterial({
-      vertexColors: true, // Enable vertex colors
-      wireframe: true, // Wireframe for visual clarity
-      transparent: true, // Enable transparency
-      opacity: 0.5, // Set opacity level
-      metalness: 0.7, // Slight reflectivity (range: 0.0 - 1.0)
-      roughness: 0.2 // Moderate roughness for shading (range: 0.0 - 1.0)
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      side: THREE.DoubleSide,
+      metalness: 0.2,
+      roughness: 0.7
     })
+    const wireMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.4
+    })
+
+    return { geometry, material, wireMaterial }
+  }
+
+  // ring k -> ring k+1
+  buildRingBand(innerIndex, outerIndex) {
+    const innerPts = this.ringPoints[innerIndex] || []
+    const outerPts = this.ringPoints[outerIndex] || []
+    if (!innerPts.length || !outerPts.length) {
+      console.warn(`Cannot build ring band from ${innerIndex} to ${outerIndex}. Missing data.`)
+      return
+    }
+
+    const sortedInner = this.sortRingByAngle(innerPts)
+    const sortedOuter = this.sortRingByAngle(outerPts)
+
+    const { geometry, material, wireMaterial } = 
+      this.buildAngleStripTwoPointer(sortedInner, sortedOuter)
+
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.receiveShadow = true
+    this.scene.add(mesh)
+    this.sceneChunks.push(mesh)
+
+    const wire = new THREE.Mesh(geometry, wireMaterial)
+    this.scene.add(wire)
+    this.sceneChunks.push(wire)
+
+    console.log(`Built ring band between ring ${innerIndex} & ${outerIndex}.`)
+  }
+
+  // -----------------------------------------------
+  // sortRingByAngle
+  // -----------------------------------------------
+  sortRingByAngle(ringPoints) {
+    return ringPoints
+      .map(pt => {
+        const x = Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier)
+        const z = Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+        const angle = Math.atan2(z, x)
+        return { ...pt, _angle: angle }
+      })
+      .sort((a, b) => a._angle - b._angle)
+      .map(pt => {
+        delete pt._angle
+        return pt
+      })
+  }
+
+  // -----------------------------------------------
+  // Two-pointer angle merge for ring k->k+1
+  // -----------------------------------------------
+  buildAngleStripTwoPointer(inner, outer) {
+    // convert lat/lon/elev => (x,y,z)
+    const iArr = inner.map(pt => ({
+      x: Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier),
+      y: pt.elevation * this.scaleMultiplier,
+      z: Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+    }))
+    const oArr = outer.map(pt => ({
+      x: Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier),
+      y: pt.elevation * this.scaleMultiplier,
+      z: Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+    }))
+
+    const totalCount = iArr.length + oArr.length
+    const vertices = new Float32Array(totalCount * 3)
+    const colors = new Float32Array(totalCount * 3)
+    const indices = []
+
+    // fill inner in the front
+    iArr.forEach((p, i) => {
+      const base = i * 3
+      vertices[base] = p.x
+      vertices[base + 1] = p.y
+      vertices[base + 2] = p.z
+
+      const norm = Math.min(Math.max(p.y, 0), 200) / 200
+      const c = new THREE.Color().lerpColors(
+        new THREE.Color(0x000000),
+        new THREE.Color(0xffffff),
+        norm
+      )
+      colors[base] = c.r
+      colors[base + 1] = c.g
+      colors[base + 2] = c.b
+    })
+    const offsetOuter = iArr.length
+
+    // fill outer
+    oArr.forEach((p, j) => {
+      const idx = offsetOuter + j
+      const base = idx * 3
+      vertices[base] = p.x
+      vertices[base + 1] = p.y
+      vertices[base + 2] = p.z
+
+      const norm = Math.min(Math.max(p.y, 0), 200) / 200
+      const c = new THREE.Color().lerpColors(
+        new THREE.Color(0x000000),
+        new THREE.Color(0xffffff),
+        norm
+      )
+      colors[base] = c.r
+      colors[base + 1] = c.g
+      colors[base + 2] = c.b
+    })
+
+    const lenA = iArr.length
+    const lenB = oArr.length
+    if (lenA < 2 || lenB < 2) {
+      console.warn('One ring has <2 points; skipping band creation.')
+      return this.makeEmptyGeometry()
+    }
+
+    // two-pointer angle-based merging
+    let i = 0
+    let j = 0
+    let steps = 0
+    const maxSteps = lenA + lenB + 20
+
+    while (steps < maxSteps) {
+      const iNext = (i + 1) % lenA
+      const jNext = (j + 1) % lenB
+
+      const a = i
+      const b = offsetOuter + j
+      const aNext = iNext
+      const bNext = offsetOuter + jNext
+
+      // 2 triangles
+      indices.push(a, b, aNext)
+      indices.push(aNext, b, bNext)
+
+      const angleA = Math.atan2(iArr[a].z, iArr[a].x)
+      const angleB = Math.atan2(oArr[j].z, oArr[j].x)
+      if (angleA <= angleB) {
+        i = iNext
+      } else {
+        j = jNext
+      }
+      steps++
+      if (i === 0 && j === 0 && steps > 1) {
+        // fully looped
+        break
+      }
+    }
+
+    // build geometry
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    geometry.setIndex(indices)
+    geometry.computeVertexNormals()
 
     const material = new THREE.MeshStandardMaterial({
-      vertexColors: true, // Enable vertex colors
-      wireframe: false, // Solid mesh
-      transparent: true, // Enable transparency
+      vertexColors: true,
       side: THREE.DoubleSide,
-      opacity: 1, // Full opacity
-      metalness: 0.2, // Higher reflectivity
-      roughness: 0.7 // Moderate roughness
+      metalness: 0.2,
+      roughness: 0.7
+    })
+    const wireMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.4
     })
 
-    // Step 8: Create and Add the Terrain Mesh to the Scene
-    this.terrainMesh = new THREE.Mesh(geometry, material)
-    this.terrainMesh.receiveShadow = true
-    this.scene.add(this.terrainMesh)
-
-    // Step 9: Create and Add the Terrain Mesh Wireframe to the Scene
-    this.terrainMeshWire = new THREE.Mesh(geometry, materialWire)
-    this.scene.add(this.terrainMeshWire)
-
-    console.log('Terrain mesh created and added to the scene.')
+    return { geometry, material, wireMaterial }
   }
 
-  /**
-   * Generates a missing point by interpolating elevation from neighboring points.
-   * @param {number} row - Row index in the grid.
-   * @param {number} col - Column index in the grid.
-   * @param {Array} sortedGrid - 2D array of sorted points.
-   * @returns {Object|null} Generated point object or null if unable to generate.
-   */
-  generateMissingPoint(row, col, sortedGrid) {
-    const neighbors = []
+  makeEmptyGeometry() {
+    const geometry = new THREE.BufferGeometry()
+    const material = new THREE.MeshBasicMaterial({ color: 0x999999 })
+    const wireMaterial = new THREE.MeshBasicMaterial({ wireframe: true })
+    return { geometry, material, wireMaterial }
+  }
 
-    // Define neighbor offsets (Left, Right, Below, Above, Top-Left, Top-Right, Bottom-Left, Bottom-Right)
-    const neighborOffsets = [
-      [row, col - 1], // Left
-      [row, col + 1], // Right
-      [row - 1, col], // Below
-      [row + 1, col], // Above
-      [row - 1, col - 1], // Top-Left
-      [row - 1, col + 1], // Top-Right
-      [row + 1, col - 1], // Bottom-Left
-      [row + 1, col + 1] // Bottom-Right
-    ]
+  // -----------------------------------------------
+  // Elevation Fetch
+  // -----------------------------------------------
+  async fetchRingElevation(ringLatLon) {
+    const ringData = []
+    let index = 0
 
-    neighborOffsets.forEach(offset => {
-      const [nRow, nCol] = offset
-      if (
-        nRow >= 0 &&
-        nRow < this.gridResolution &&
-        nCol >= 0 &&
-        nCol < this.gridResolution
-      ) {
-        const neighborPoint = sortedGrid[nRow][nCol]
-        if (neighborPoint !== null) {
-          neighbors.push(neighborPoint.elevation)
+    const fetchWithRetry = async (longitude, latitude, attempt = 1) => {
+      const elev = await this.fetchElevation(longitude, latitude)
+      if ((elev === null || isNaN(elev)) && attempt <= this.fetchRetries) {
+        const delay = Math.pow(2, attempt) * 100
+        console.warn(
+          `Retry ring fetch for (${latitude.toFixed(5)},${longitude.toFixed(5)}) - Attempt ${
+            attempt + 1
+          } after ${delay}ms`
+        )
+        await new Promise(r => setTimeout(r, delay))
+        return fetchWithRetry(longitude, latitude, attempt + 1)
+      }
+      return elev
+    }
+
+    const worker = async () => {
+      while (true) {
+        const i = index++
+        if (i >= ringLatLon.length) break
+        const p = ringLatLon[i]
+        const e = await fetchWithRetry(p.longitude, p.latitude)
+        ringData[i] = {
+          latitude: p.latitude,
+          longitude: p.longitude,
+          elevation: e || 0
         }
+
+        // partial update for user feedback
+        requestAnimationFrame(() => {
+          this.addPointsToPointCloud([ringData[i]])
+        })
       }
-    })
-
-    if (neighbors.length === 0) {
-      return null // Unable to generate without neighbors
     }
 
-    // Calculate average elevation from neighbors
-    const sum = neighbors.reduce((acc, val) => acc + val, 0)
-    const averageElevation = sum / neighbors.length
-
-    // Calculate longitude and latitude based on grid indices
-    const stepMeters = (2 * this.gridSizeMeters) / (this.gridResolution - 1)
-    const deltaLat = stepMeters / 111000
-    const deltaLon =
-      stepMeters /
-      (111000 * Math.cos(THREE.MathUtils.degToRad(this.options.latitude)))
-
-    const generatedLongitude =
-      this.originLongitude + (col - (this.gridResolution - 1) / 2) * deltaLon
-    const generatedLatitude =
-      this.originLatitude + (row - (this.gridResolution - 1) / 2) * deltaLat
-
-    return {
-      longitude: generatedLongitude,
-      latitude: generatedLatitude,
-      elevation: averageElevation
-    }
+    const tasks = []
+    for (let i = 0; i < this.fetchConcurrency; i++) tasks.push(worker())
+    await Promise.all(tasks)
+    return ringData
   }
 
-  /**
-   * Finds the closest grid point to a given (x, z) coordinate.
-   * @param {number} x - X coordinate in meters.
-   * @param {number} z - Z coordinate in meters.
-   * @returns {Object|null} Closest point object or null if not found.
-   */
+  async fetchElevation(lon, lat) {
+    const url = `${this.elevationAPI}?x=${lon}&y=${lat}&units=Meters&output=json`
+    try {
+      const r = await fetch(url)
+      if (!r.ok) {
+        throw new Error(`Elev fetch error: ${r.statusText}`)
+      }
+      const text = await r.text()
+      console.log(`Elevation @ (${lat},${lon}):`, text)
+      const data = JSON.parse(text)
+      if (data && data.value !== undefined) {
+        return data.value
+      }
+    } catch (err) {
+      console.error(`Fail elev fetch for (${lat},${lon}):`, err)
+    }
+    return null
+  }
+
+  // -----------------------------------------------
+  // Height Lookups
+  // -----------------------------------------------
   findClosestGridPoint(x, z) {
-    let closestPoint = null
-    let minDistanceSq = Infinity
-
-    this.savedPoints.forEach(point => {
-      const px = Utils.mapLongitudeToX(
-        point.longitude,
-        this.originLongitude,
-        this.scaleMultiplier
-      )
-      const pz = Utils.mapLatitudeToZ(
-        point.latitude,
-        this.originLatitude,
-        this.scaleMultiplier
-      )
-      const distanceSq = Utils.calculateDistanceSq(x, z, px, pz)
-      if (distanceSq < minDistanceSq) {
-        minDistanceSq = distanceSq
-        closestPoint = point
+    let closest = null
+    let minDistSq = Infinity
+    for (const pt of this.savedPoints) {
+      const px = Utils.mapLongitudeToX(pt.longitude, this.centerLongitude, this.scaleMultiplier)
+      const pz = Utils.mapLatitudeToZ(pt.latitude, this.centerLatitude, this.scaleMultiplier)
+      const dSq = Utils.calculateDistanceSq(x, z, px, pz)
+      if (dSq < minDistSq) {
+        minDistSq = dSq
+        closest = pt
       }
-    })
-
-    return closestPoint
+    }
+    return closest
   }
 
-  /**
-   * Gets the terrain height at a given (x, z) coordinate.
-   * @param {number} x - X coordinate in meters.
-   * @param {number} z - Z coordinate in meters.
-   * @returns {number} Elevation in meters.
-   */
   getTerrainHeightAtPoint(x, z) {
-    const closestPoint = this.findClosestGridPoint(x, z)
-
-    if (!closestPoint) {
-      console.warn(
-        `No terrain data found for coordinates (${x}, ${z}). Returning default elevation 0.`
-      )
-      return 0
-    }
-
-    const elevationRaw = closestPoint.elevation
-    const elevation = parseFloat(elevationRaw)
-
-    // Log the raw and converted elevation values for debugging
-    console.log(`Raw Elevation: ${elevationRaw} (Type: ${typeof elevationRaw})`)
-    console.log(`Converted Elevation: ${elevation} (Type: ${typeof elevation})`)
-
-    if (isNaN(elevation)) {
-      console.error(
-        `Invalid elevation value: "${elevationRaw}". Returning default elevation 0.`
-      )
-      return 0
-    }
-
-    return elevation
+    const p = this.findClosestGridPoint(x, z)
+    if (!p) return 0
+    const e = parseFloat(p.elevation)
+    return isNaN(e) ? 0 : e
   }
 
   getTerrainHeightAt(x, z) {
-    if (!this.terrainMesh) return 0
-    if (this.terrainMesh === NaN) return 0
+    if (!this.sceneChunks || !this.sceneChunks.length) return 0
+    const rayOrigin = new THREE.Vector3(x, 999999, z)
+    const rayDir = new THREE.Vector3(0, -1, 0)
+    const raycaster = new THREE.Raycaster(rayOrigin, rayDir)
 
-    // Create a raycaster pointing downwards from a high y value
-    const rayOrigin = new THREE.Vector3(x, 1000, z)
-    const rayDirection = new THREE.Vector3(0, -1, 0)
-    const raycaster = new THREE.Raycaster(rayOrigin, rayDirection)
-
-    const intersects = raycaster.intersectObject(this.terrainMesh)
-    if (intersects.length > 0) {
-      return intersects[0].point.y
-    }
-
-    // Default to 0 if no intersection
-    return 0
+    let maxY = 0
+    this.sceneChunks.forEach(mesh => {
+      const hits = raycaster.intersectObject(mesh)
+      if (hits && hits.length > 0) {
+        const yHit = hits[0].point.y
+        if (yHit > maxY) {
+          maxY = yHit
+        }
+      }
+    })
+    return maxY
   }
 }
+
 
 
 // ------------------------------
 // VRControllers Class
 // ------------------------------
 class VRControllers {
-  constructor(
+  constructor (
     renderer,
     scene,
     handleTeleportCallback,
@@ -1940,7 +1425,7 @@ class VRControllers {
     this.initControllers()
   }
 
-  initControllers() {
+  initControllers () {
     const modelFactory = new XRControllerModelFactory()
 
     for (let i = 0; i < 2; i++) {
@@ -1966,11 +1451,11 @@ class VRControllers {
     }
   }
 
-  onSelectStart(event, index) {
+  onSelectStart (event, index) {
     this.controllerData[index].isSelecting = true
   }
 
-  onSelectEnd(event, index) {
+  onSelectEnd (event, index) {
     this.controllerData[index].isSelecting = false
     // If we have an intersection and a valid reference space, TELEPORT
     if (this.INTERSECTION && this.baseReferenceSpace) {
@@ -1996,7 +1481,7 @@ class VRControllers {
   /**
    * Call this each frame from your main render loop to perform raycast checks.
    */
-  update() {
+  update () {
     this.INTERSECTION = null
     let foundIntersection = false
 
@@ -2039,7 +1524,7 @@ class VRControllers {
   /**
    * Optionally allow you to set the teleportable objects later if you want.
    */
-  setTeleportableObjects(meshes) {
+  setTeleportableObjects (meshes) {
     this.teleportableObjects = meshes || []
   }
 }
@@ -2048,7 +1533,7 @@ class VRControllers {
 // Multiplayer Class
 // ------------------------------
 class Multiplayer {
-  constructor(socket, scene, terrain) {
+  constructor (socket, scene, terrain) {
     this.initializePlayerID()
     this.socket = socket
     this.scene = scene
@@ -2063,7 +1548,7 @@ class Multiplayer {
    * Initializes the playerID by retrieving it from localStorage.
    * If not found, it remains null and will be set by the server upon 'init' event.
    */
-  initializePlayerID() {
+  initializePlayerID () {
     const storedPlayerID = Storage.load(CONFIG.localStorageKeys.playerID)
     if (storedPlayerID) {
       this.myId = storedPlayerID
@@ -2085,7 +1570,7 @@ class Multiplayer {
   /**
    * Initializes socket event listeners.
    */
-  initSocketEvents() {
+  initSocketEvents () {
     this.socket.on('init', data => {
       console.log('[Socket] init => received init data:', data)
 
@@ -2219,7 +1704,7 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  addOrUpdatePlayer(id, data) {
+  addOrUpdatePlayer (id, data) {
     // Skip if it's the local player's ID
     if (data.id === this.myId) {
       console.warn(`Skipping addOrUpdatePlayer for local ID = ${data.id}`)
@@ -2240,7 +1725,7 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  createRemotePlayer(id, data) {
+  createRemotePlayer (id, data) {
     if (this.players[id] || this.loadingPlayers.has(id)) {
       console.warn(
         `Skipping creation for player ${id}. Already exists or is loading.`
@@ -2307,7 +1792,7 @@ class Multiplayer {
    * @param {string} id - The unique identifier for the player.
    * @param {Object} data - The data associated with the player.
    */
-  updateRemotePlayer(id, data) {
+  updateRemotePlayer (id, data) {
     const player = this.players[id]
     if (!player) return
 
@@ -2379,7 +1864,7 @@ class Multiplayer {
    * Removes a remote player from the scene.
    * @param {string} id - The unique identifier for the player.
    */
-  removeRemotePlayer(id) {
+  removeRemotePlayer (id) {
     if (this.players[id]) {
       this.scene.remove(this.players[id].model)
       delete this.players[id]
@@ -2391,7 +1876,7 @@ class Multiplayer {
    * Updates all players based on incoming data.
    * @param {Object} playersData - Data for all players.
    */
-  updatePlayers(playersData) {
+  updatePlayers (playersData) {
     Object.keys(playersData).forEach(id => {
       if (playersData[id].localId === this.myId) return
       this.addOrUpdatePlayer(id, playersData[id])
@@ -2406,7 +1891,7 @@ class Multiplayer {
   // ------------------------------
   // Audio Streaming
   // ------------------------------
-  addRemoteAudioStream(id) {
+  addRemoteAudioStream (id) {
     if (!this.socket) {
       console.warn('Socket not initialized. Cannot add remote audio stream.')
       return
@@ -2433,7 +1918,7 @@ class Multiplayer {
     this.remoteAudioStreams[id] = { positionalAudio }
   }
 
-  removeRemoteAudioStream(id) {
+  removeRemoteAudioStream (id) {
     const remoteAudio = this.remoteAudioStreams
       ? this.remoteAudioStreams[id]
       : null
@@ -2445,7 +1930,7 @@ class Multiplayer {
     }
   }
 
-  receiveAudioStream(id, audioBuffer) {
+  receiveAudioStream (id, audioBuffer) {
     if (!this.remoteAudioStreams || !this.remoteAudioStreams[id]) {
       console.warn(
         `Received audio data from ${id} before audio stream started.`
@@ -2483,7 +1968,7 @@ class Multiplayer {
 // Movement Class
 // ------------------------------
 class Movement {
-  constructor(app) {
+  constructor (app) {
     this.app = app
     this.moveForward = false
     this.moveBackward = false
@@ -2510,13 +1995,13 @@ class Movement {
     this.initKeyboardEvents()
   }
 
-  initKeyboardEvents() {
+  initKeyboardEvents () {
     console.log('Initializing keyboard events for movement.')
     document.addEventListener('keydown', this.onKeyDown.bind(this))
     document.addEventListener('keyup', this.onKeyUp.bind(this))
   }
 
-  onKeyDown(e) {
+  onKeyDown (e) {
     switch (e.key.toLowerCase()) {
       case 'w':
         this.keyStates.w = true
@@ -2542,7 +2027,7 @@ class Movement {
     this.handleKeyStates()
   }
 
-  onKeyUp(e) {
+  onKeyUp (e) {
     switch (e.key.toLowerCase()) {
       case 'w':
         this.keyStates.w = false
@@ -2568,7 +2053,7 @@ class Movement {
     this.handleKeyStates()
   }
 
-  handleKeyStates() {
+  handleKeyStates () {
     this.moveForward = this.keyStates.w
     this.moveBackward = this.keyStates.s
     this.strafeLeft = this.keyStates.a
@@ -2596,7 +2081,7 @@ class Movement {
    * Handles character movement based on keyboard inputs with acceleration over time.
    * @param {number} delta - Time delta since last frame.
    */
-  moveCharacter(delta) {
+  moveCharacter (delta) {
     if (!this.app.localModel) return
 
     // Initialize acceleration properties if not already present
@@ -2781,7 +2266,7 @@ class Movement {
 // App Class (Main Application)
 // ------------------------------
 class App {
-  constructor() {
+  constructor () {
     this.initPaths()
     this.injectFont()
     this.socket = io(CONFIG.socketURL)
@@ -2819,7 +2304,7 @@ class App {
   /**
    * Initializes paths for models and fonts.
    */
-  initPaths() {
+  initPaths () {
     console.log(`Model Path: ${CONFIG.modelPath}`)
     console.log(`Font Path: ${CONFIG.fontPath}`)
   }
@@ -2827,7 +2312,7 @@ class App {
   /**
    * Injects custom font into the document.
    */
-  injectFont() {
+  injectFont () {
     const styleSheet = new CSSStyleSheet()
     styleSheet.insertRule(`
       @font-face {
@@ -2843,7 +2328,7 @@ class App {
   /**
    * Initializes the Three.js scene, camera, and renderer.
    */
-  initScene() {
+  initScene () {
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x333333)
 
@@ -2906,7 +2391,7 @@ class App {
   /**
    * Initializes post-processing effects.
    */
-  initPostProcessing() {
+  initPostProcessing () {
     this.composer = new EffectComposer(this.renderer)
     this.composer.addPass(new RenderPass(this.scene, this.camera))
 
@@ -2939,7 +2424,7 @@ class App {
   /**
    * Sets up VR controllers.
    */
-  setupVRControllers() {
+  setupVRControllers () {
     this.vrControllers = new VRControllers(
       this.renderer,
       this.scene,
@@ -2951,7 +2436,7 @@ class App {
    * Handles teleportation logic.
    * @param {Object} point - The destination point for teleportation.
    */
-  handleTeleport(point) {
+  handleTeleport (point) {
     if (!this.baseReferenceSpace) return
 
     const offsetPosition = {
@@ -2980,65 +2465,19 @@ class App {
   /**
    * Initializes sensor event listeners.
    */
-  initSensors() {
-    const appElement = document.getElementById('request_orient');
-    if (!appElement) {
-      console.error("Element with id 'request_orient' not found.");
-      return;
-    }
-  
-    // =========== DEVICE DETECTION UTILITY ===========
-    function isMobileDevice() {
-      return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      );
-    }
-  
-    // Ensure orientation sensors are only enabled on mobile devices
-    if (!isMobileDevice()) {
-      console.warn('Orientation sensors are not supported on non-mobile devices.');
-      return;
-    }
-  
-    if (typeof Sensors === 'undefined') {
-      console.warn('Orientation sensors are not available on this system. Initialization aborted.');
-      return;
-    }
-  
-    const initializeSensors = () => {
-      console.log('Initializing Sensors.');
-      Sensors.initialize();
-  
-      // Remove the event listeners to prevent repeated initialization
-      appElement.removeEventListener('click', handleUserGesture);
-      appElement.removeEventListener('touchstart', handleUserGesture);
-    };
-  
-    const handleUserGesture = () => {
-      console.log('User gesture detected on #request_orient. Initializing Sensors.');
-      initializeSensors();
-    };
-  
-    // Automatically initialize sensors after a short delay (or immediately)
-    setTimeout(() => {
-      if (!Sensors.isOrientationEnabled) { // Check if Sensors are already initialized
-        console.log('Auto-start: Initializing Sensors.');
-        initializeSensors();
-      }
-    }, 1000); // Adjust delay as needed (1 second here)
-  
-    // Add event listeners for manual triggering via click and touchstart
-    appElement.addEventListener('click', handleUserGesture);
-    appElement.addEventListener('touchstart', handleUserGesture);
-  
-    console.log("Added event listeners for 'click' and 'touchstart' on #request_orient.");
+  initSensors () {
+    window.addEventListener('appPermissionsChanged', () => {
+      // Possibly reload CONFIG from localStorage if you like:
+      // const newConfig = loadConfig();
+      // Then pass updated permissions to Sensors:
+      Sensors.initialize(CONFIG.permissions)
+    })
   }
-  
 
   /**
    * Initializes the day-night cycle.
    */
-  initDayNightCycle() {
+  initDayNightCycle () {
     this.dayNightCycle = new DayNightCycle(this.scene, {
       skyScale: 450000,
       directionalLightColor: 0xffffff,
@@ -3063,7 +2502,7 @@ class App {
    * Initializes Terrain and ensures it's ready before initializing dependent classes.
    * @returns {Promise} - Resolves when Terrain is initialized.
    */
-  initTerrain() {
+  initTerrain () {
     return new Promise((resolve, reject) => {
       // Attempt to get user's geolocation
       if (navigator.geolocation) {
@@ -3142,7 +2581,7 @@ class App {
   /**
    * Initializes socket event listeners, now dependent on Terrain being ready.
    */
-  initSocketEvents() {
+  initSocketEvents () {
     console.warn('[Socket] Connected to server.')
     this.multiplayer = new Multiplayer(this.socket, this.scene, this.terrain)
   }
@@ -3150,7 +2589,7 @@ class App {
   /**
    * Binds UI-related events.
    */
-  bindUIEvents() {
+  bindUIEvents () {
     document.addEventListener('click', this.handleUserInteraction.bind(this), {
       once: true
     })
@@ -3223,7 +2662,7 @@ class App {
   /**
    * Handles user interactions to resume AudioContext.
    */
-  handleUserInteraction() {
+  handleUserInteraction () {
     if (this.listener && this.listener.context.state === 'suspended') {
       this.listener.context
         .resume()
@@ -3239,7 +2678,7 @@ class App {
   /**
    * Encrypts and emits latitude and longitude data.
    */
-  async encryptAndEmitLatLon() {
+  async encryptAndEmitLatLon () {
     const latitude = window.latitude
     const longitude = window.longitude
     if (typeof latitude !== 'number' || typeof longitude !== 'number') {
@@ -3271,7 +2710,7 @@ class App {
   /**
    * Saves the camera's position to localStorage.
    */
-  savePositionToLocalStorage() {
+  savePositionToLocalStorage () {
     if (!this.camera) return
 
     const pos = {
@@ -3289,7 +2728,7 @@ class App {
    * Loads the camera's position from localStorage.
    * @returns {Object|null} - The saved position or null if not found.
    */
-  loadPositionFromLocalStorage() {
+  loadPositionFromLocalStorage () {
     return Storage.load(CONFIG.localStorageKeys.lastPosition)
   }
 
@@ -3298,7 +2737,7 @@ class App {
    * @param {number} angle - The angle in radians.
    * @returns {number} - The normalized angle.
    */
-  normalizeAngle(angle) {
+  normalizeAngle (angle) {
     return Utils.normalizeAngle(angle)
   }
 
@@ -3306,7 +2745,7 @@ class App {
    * Retrieves the camera's yaw rotation.
    * @returns {number} - The yaw angle in radians.
    */
-  getCameraYaw() {
+  getCameraYaw () {
     const euler = new THREE.Euler().setFromQuaternion(
       this.camera.quaternion,
       'YXZ'
@@ -3319,7 +2758,7 @@ class App {
    * Emits movement data if there are changes.
    * @param {Object} newState - The new state data.
    */
-  emitMovementIfChanged(newState) {
+  emitMovementIfChanged (newState) {
     const loadedId = this.multiplayer.myId
     newState.id = loadedId
     const newString = JSON.stringify(newState)
@@ -3337,7 +2776,7 @@ class App {
   /**
    * Reports the player's current geographic position.
    */
-  reportPosition() {
+  reportPosition () {
     if (!this.multiplayer.terrain || !this.localModel) return
 
     // Extract the local model's current x and z positions
@@ -3369,112 +2808,73 @@ class App {
   /**
    * Updates the camera's orientation based on device sensors.
    */
-  updateCameraOrientation() {
-    // 1. Pull orientation data from window.orientationGlobal if available
+
+  updateCameraOrientation () {
+    // Pull orientation data from window.orientationGlobal if available
     if (
       window.orientationGlobal &&
       typeof window.orientationGlobal === 'object'
     ) {
       Sensors.orientationData.alpha =
-        parseFloat(window.orientationGlobal.alpha) || 0; // 0..360 degrees
+        parseFloat(window.orientationGlobal.alpha) // || 0 // 0..360 degrees
       Sensors.orientationData.beta =
-        parseFloat(window.orientationGlobal.beta) || 0; // -180..180 degrees
+        parseFloat(window.orientationGlobal.beta)// || 0 // -180..180 degrees
       Sensors.orientationData.gamma =
-        parseFloat(window.orientationGlobal.gamma) || 0; // -90..90 degrees
+        parseFloat(window.orientationGlobal.gamma)// || 0 // -90..90 degrees
     }
-  
-    // 2. Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha || 0; // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
-  
-    // 3. Fix decimal places for UI display
-    const alphaConstraint = alphaDeg.toFixed(2);
-    const betaConstraint = betaDeg.toFixed(2);
-    const gammaConstraint = gammaDeg.toFixed(2);
-  
-    // 4. Update UI fields with orientation data
-    UI.updateField('Orientation_a', alphaConstraint);
-    UI.updateField('Orientation_b', betaConstraint);
-    UI.updateField('Orientation_g', gammaConstraint);
-  
-    // 5. Optional: Replace alerts with console logs for debugging
+
+    // Access orientation data directly from Sensors.orientationData
+    const alphaDeg = Sensors.orientationData.alpha// || 0 // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta// || 0 // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma// || 0 // -90..90 degrees
+
+    UI.updateField('Orientation_a', alphaDeg)
+    UI.updateField('Orientation_b', betaDeg)
+    UI.updateField('Orientation_g', gammaDeg)
+
+    // Optional: Replace alerts with console logs for debugging
     console.log(
       `Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`
-    );
-  
-    // 6. Check if compass data is available and accurate
+    )
+
+    // Check if compass data is available and accurate
     const hasCompass =
       Sensors.orientationData.webkitCompassHeading !== undefined &&
       Sensors.orientationData.webkitCompassAccuracy !== undefined &&
-      Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10; // Adjust threshold as needed
-  
-    let yawDeg;
-  
+      Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
+
+    let yawDeg
+
     if (hasCompass) {
-      // 6.a. Use compass heading as yaw
-      yawDeg = Sensors.orientationData.webkitCompassHeading;
-      console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
+      // Use compass heading as yaw
+      yawDeg = Sensors.orientationData.webkitCompassHeading
     } else {
-      // 6.b. Fallback: Calculate yaw using alpha
-      yawDeg = alphaDeg;
-      console.log(`Using alpha for yaw: ${yawDeg} degrees`);
+      // Fallback: Calculate yaw using alpha
+      yawDeg = alphaDeg
     }
-  
-    // 7. Convert degrees to radians
-    const yawRad = THREE.MathUtils.degToRad(yawDeg);
-    const pitchRad = THREE.MathUtils.degToRad(betaDeg);
-    const rollRad = THREE.MathUtils.degToRad(gammaDeg);
-  
-    // 8. Determine the screen orientation (0, 90, 180, 270 degrees)
-    const screenOrientationDeg = window.orientation || 0;
-    const screenOrientationRad = THREE.MathUtils.degToRad(screenOrientationDeg);
-  
-    // 9. Adjust yaw based on screen orientation
-    const adjustedYawRad = yawRad - screenOrientationRad;
-  
-    // 10. Create quaternions for each rotation
-    const quaternionYaw = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 1, 0), // Y-axis
-      adjustedYawRad
-    );
-    const quaternionPitch = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(1, 0, 0), // X-axis
-      pitchRad
-    );
-    const quaternionRoll = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 0, 1), // Z-axis
-      -rollRad
-    );
-  
-    // 11. Combine the quaternions: Yaw * Pitch * Roll
-    const deviceQuaternion = new THREE.Quaternion()
-      .multiply(quaternionYaw)
-      .multiply(quaternionPitch)
-      .multiply(quaternionRoll);
-  
-    // 12. Reference Quaternion: Rotate -90 degrees around X-axis to align device frame with Three.js frame
-    const referenceQuaternion = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(-Math.PI / 2, 0, 0, 'YXZ') // -90 degrees around X-axis
-    );
-  
-    // 13. Combine Device Quaternion with Reference Quaternion
-    const finalQuaternion = deviceQuaternion.multiply(referenceQuaternion);
-  
-    // 14. Apply the final quaternion to the camera
-    this.camera.quaternion.copy(finalQuaternion);
-  
-    // 15. Optional: Log final quaternion for debugging
-    console.log(`Final Quaternion: ${finalQuaternion.x}, ${finalQuaternion.y}, ${finalQuaternion.z}, ${finalQuaternion.w}`);
+
+    // Convert degrees to radians
+    const yawRad = THREE.MathUtils.degToRad(yawDeg)
+    const betaRad = THREE.MathUtils.degToRad(betaDeg)
+    const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
+
+    // Calculate pitch based on beta
+    const pitchAngle = THREE.MathUtils.clamp(
+      betaRad - Math.PI / 2,
+      this.movement.pitchMin,
+      this.movement.pitchMax
+    )
+
+    // Update camera rotation using quaternions for smoothness
+    const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
+    const quaternion = new THREE.Quaternion().setFromEuler(euler)
+    this.camera.quaternion.copy(quaternion)
   }
-  
-  
-  
-  
+
   /**
    * Handles window resize events.
    */
-  onWindowResize() {
+  onWindowResize () {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -3489,7 +2889,7 @@ class App {
    * Sets the local player's action and manages animations.
    * @param {string} action - The action to set ('idle', 'walk', 'run').
    */
-  setLocalAction(action) {
+  setLocalAction (action) {
     //console.warn(`Setting local action: ${action}`);
     if (this.currentAction !== action) {
       if (this.localActions && this.localActions[this.currentAction]) {
@@ -3509,7 +2909,7 @@ class App {
   /**
    * Loads the local player model.
    */
-  loadLocalModel() {
+  loadLocalModel () {
     console.warn('Loading local model...')
     // Check if a VR session is active; if so, do not load the local model
     if (this.renderer.xr.isPresenting) {
@@ -3575,7 +2975,7 @@ class App {
   /**
    * Initializes the render loop.
    */
-  animate() {
+  animate () {
     this.clock = new THREE.Clock()
     this.renderer.setAnimationLoop(() => {
       const delta = this.clock.getDelta()
