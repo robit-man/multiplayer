@@ -2952,92 +2952,92 @@ class App {
    * Updates the camera's orientation based on device sensors.
    */
 
-  updateCameraOrientation() {
-    // Step 1: Retrieve orientation and motion data
-    const { alpha, beta, gamma, webkitCompassHeading, webkitCompassAccuracy } = Sensors.orientationData;
-    const { accelerationIncludingGravity } = Sensors.motionData;
-  
-    // Step 2: Update UI for debugging (optional)
-    UI.updateField('Orientation_a', alpha);
-    UI.updateField('Orientation_b', beta);
-    UI.updateField('Orientation_g', gamma);
-    console.log(`Orientation Data - Alpha: ${alpha}, Beta: ${beta}, Gamma: ${gamma}`);
-  
-    // Step 3: Determine yaw using compass if available and accurate
-    let yawDeg;
-    if (
-      webkitCompassHeading !== undefined &&
-      webkitCompassAccuracy !== undefined &&
-      Math.abs(webkitCompassAccuracy) <= 10 // Adjust threshold as needed
-    ) {
-      yawDeg = webkitCompassHeading;
-      console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
-    } else {
-      // Fallback: Use alpha for yaw instead of gamma
-      yawDeg = alpha;
-      console.log(`Using alpha for yaw: ${yawDeg} degrees`);
-    }
-  
-    // Step 4: Convert degrees to radians
-    const yawRad = THREE.MathUtils.degToRad(yawDeg);     // Yaw: rotation around Y-axis
-    const pitchRad = THREE.MathUtils.degToRad(beta);    // Pitch: rotation around X-axis
-    const rollRad = THREE.MathUtils.degToRad(gamma);    // Roll: rotation around Z-axis
-  
-    // Step 5: Determine screen orientation (0, 90, 180, 270 degrees)
-    const screenOrientationDeg = window.orientation || 0;
-    const screenOrientationRad = THREE.MathUtils.degToRad(screenOrientationDeg);
-  
-    // Step 6: Create quaternions for screen orientation
-    const screenOrientationQuaternion = new THREE.Quaternion();
-    screenOrientationQuaternion.setFromEuler(new THREE.Euler(0, 0, screenOrientationRad, 'XYZ'));
-  
-    // Step 7: Create quaternions from device orientation angles
-    const deviceEuler = new THREE.Euler(pitchRad, yawRad, rollRad, 'YXZ'); // 'YXZ' order
-    const deviceQuaternion = new THREE.Quaternion().setFromEuler(deviceEuler);
-  
-    // Step 8: Create reference quaternion to align device frame with Three.js frame
-    // Rotate +90 degrees around X-axis to align device Z-axis with Three.js Y-axis
-    const referenceEuler = new THREE.Euler(Math.PI / 2, 0, 0, 'XYZ'); // +90 degrees around X-axis
-    const referenceQuaternion = new THREE.Quaternion().setFromEuler(referenceEuler);
-  
-    // Step 9: Combine quaternions: Reference * Device * Screen
-    const finalQuaternion = new THREE.Quaternion()
-      .copy(referenceQuaternion)
-      .multiply(deviceQuaternion)
-      .multiply(screenOrientationQuaternion);
-  
-    // Step 10: Incorporate gravity to stabilize orientation
-    const gravity = new THREE.Vector3(
-      accelerationIncludingGravity.x,
-      accelerationIncludingGravity.y,
-      accelerationIncludingGravity.z
-    ).normalize();
-  
-    // Desired up vector in Three.js is (0, 1, 0)
-    const desiredUp = new THREE.Vector3(0, 1, 0);
-    const currentUp = gravity.clone();
-  
-    // Compute the rotation needed to align currentUp with desiredUp
-    const rotationAxis = new THREE.Vector3().crossVectors(currentUp, desiredUp).normalize();
-    const rotationAngle = Math.acos(currentUp.dot(desiredUp));
-  
-    if (rotationAxis.length() > 0 && !isNaN(rotationAngle)) {
-      const gravityCorrectionQuaternion = new THREE.Quaternion().setFromAxisAngle(rotationAxis, rotationAngle);
-      finalQuaternion.multiply(gravityCorrectionQuaternion);
-    }
-  
-    // Step 11: Normalize the final quaternion to prevent errors over time
-    finalQuaternion.normalize();
-  
-    // Step 12: Apply the final quaternion to the camera
-    this.camera.quaternion.copy(finalQuaternion);
-  
-    // Step 13: Log final quaternion for debugging
-    console.log(
-      `Final Quaternion: x=${finalQuaternion.x.toFixed(4)}, y=${finalQuaternion.y.toFixed(4)}, z=${finalQuaternion.z.toFixed(4)}, w=${finalQuaternion.w.toFixed(4)}`
-    );
+ updateCameraOrientation() {
+  // Step 1: Retrieve orientation and motion data
+  const { alpha, beta, gamma, webkitCompassHeading, webkitCompassAccuracy } = Sensors.orientationData;
+  const { accelerationIncludingGravity } = Sensors.motionData;
+
+  // Step 2: Update UI for debugging (optional)
+  UI.updateField('Orientation_a', alpha);
+  UI.updateField('Orientation_b', beta);
+  UI.updateField('Orientation_g', gamma);
+  console.log(`Orientation Data - Alpha: ${alpha}, Beta: ${beta}, Gamma: ${gamma}`);
+
+  // Step 3: Determine yaw using compass if available and accurate
+  let yawDeg;
+  if (
+    webkitCompassHeading !== undefined &&
+    webkitCompassAccuracy !== undefined &&
+    Math.abs(webkitCompassAccuracy) <= 10 // Adjust threshold as needed
+  ) {
+    yawDeg = webkitCompassHeading;
+    console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
+  } else {
+    // Fallback: Use alpha for yaw instead of gamma
+    yawDeg = alpha;
+    console.log(`Using alpha for yaw: ${yawDeg} degrees`);
   }
-  
+
+  // Step 4: Convert degrees to radians
+  const yawRad = THREE.MathUtils.degToRad(yawDeg);     // Yaw: rotation around Y-axis
+  const pitchRad = THREE.MathUtils.degToRad(beta);    // Pitch: rotation around X-axis
+  const rollRad = THREE.MathUtils.degToRad(gamma);    // Roll: rotation around Z-axis
+
+  // Step 5: Determine screen orientation (0, 90, 180, 270 degrees)
+  const screenOrientationDeg = window.orientation || 0;
+  const screenOrientationRad = THREE.MathUtils.degToRad(screenOrientationDeg);
+
+  // Step 6: Create quaternions for screen orientation
+  const screenOrientationQuaternion = new THREE.Quaternion();
+  screenOrientationQuaternion.setFromEuler(new THREE.Euler(0, 0, screenOrientationRad, 'XYZ'));
+
+  // Step 7: Create quaternions from device orientation angles
+  const deviceEuler = new THREE.Euler(pitchRad, yawRad, rollRad, 'YXZ'); // 'YXZ' order
+  const deviceQuaternion = new THREE.Quaternion().setFromEuler(deviceEuler);
+
+  // Step 8: Create reference quaternion to align device frame with Three.js frame
+  const referenceEuler = new THREE.Euler(Math.PI / 2, 0, 0, 'XYZ'); // +90 degrees around X-axis
+  const referenceQuaternion = new THREE.Quaternion().setFromEuler(referenceEuler);
+
+  // Step 9: Combine quaternions: Reference * Device * Screen
+  const finalQuaternion = new THREE.Quaternion()
+    .copy(referenceQuaternion)
+    .multiply(deviceQuaternion)
+    .multiply(screenOrientationQuaternion);
+
+  // Step 10: Incorporate gravity to stabilize orientation
+  // Create a quaternion from the gravity vector
+  const gravity = new THREE.Vector3(
+    accelerationIncludingGravity.x,
+    accelerationIncludingGravity.y,
+    accelerationIncludingGravity.z
+  ).normalize();
+
+  // Calculate the desired up vector based on gravity
+  const desiredUp = new THREE.Vector3(0, 1, 0); // Y-up in Three.js
+  const currentUp = gravity.clone();
+
+  // Compute the rotation required to align currentUp with desiredUp
+  const rotationAxis = new THREE.Vector3().crossVectors(currentUp, desiredUp).normalize();
+  const rotationAngle = Math.acos(currentUp.dot(desiredUp));
+
+  if (rotationAxis.length() > 0) {
+    const gravityCorrectionQuaternion = new THREE.Quaternion().setFromAxisAngle(rotationAxis, rotationAngle);
+    finalQuaternion.multiply(gravityCorrectionQuaternion);
+  }
+
+  // Step 11: Normalize the final quaternion
+  finalQuaternion.normalize();
+
+  // Step 12: Apply the final quaternion to the camera
+  this.camera.quaternion.copy(finalQuaternion);
+
+  // Step 13: Log final quaternion for debugging
+  console.log(
+    `Final Quaternion: x=${finalQuaternion.x.toFixed(4)}, y=${finalQuaternion.y.toFixed(4)}, z=${finalQuaternion.z.toFixed(4)}, w=${finalQuaternion.w.toFixed(4)}`
+  );
+}
+
   
   
   
