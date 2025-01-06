@@ -1802,10 +1802,12 @@ class Multiplayer {
         )
         if (decryptedData) {
           const { latitude, longitude } = decryptedData
+          const latitudeTruncated = latitude.toFixed(5)
+          const longitudeTruncated = longitude.toFixed(5)
           console.log(
             `[Socket] position => Decrypted Position from ID: ${id}: Lat=${latitude}, Lon=${longitude}`
           )
-          UI.updateField('remotePlayerLoc', `ID: ${id}, Lat: ${latitude}, Lon: ${longitude}`)
+          UI.updateField('remotePlayerLoc', `ID: ${id}, Lat: ${latitudeTruncated}, Lon: ${longitudeTruncated}`)
 
           // Map latitude and longitude to your game's coordinate system
           const x = Utils.mapLongitudeToX(

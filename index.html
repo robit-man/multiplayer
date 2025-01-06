@@ -939,333 +939,288 @@
         removeVRXRDisclaimers()
 
         // =========== Touch-based movement logic ===========
-        function initializeTouchControls() {
-          const isMobile = isMobileDevice()
-          const touchControls = document.getElementById('touchControls')
-          let visibilityTimeout
+    function initializeTouchControls() {
+      const isMobile = isMobileDevice();
+      const touchControls = document.getElementById('touchControls');
+      let visibilityTimeout;
 
-          if (isMobile) {
-            document.body.addEventListener('touchstart', () => {
-              showControls()
-              resetVisibilityTimeout()
-            })
+      if (isMobile) {
+        document.body.addEventListener('touchstart', () => {
+          showControls();
+          resetVisibilityTimeout();
+        });
 
-            touchControls.addEventListener(
-              'touchstart',
-              handleTouchStart,
-              false
-            )
-            touchControls.addEventListener('touchend', handleTouchEnd, false)
-            touchControls.addEventListener('touchmove', handleTouchMove, false)
-            touchControls.addEventListener(
-              'touchcancel',
-              handleTouchCancel,
-              false
-            )
-          }
-
-          // Prevent default gesture behaviors
-          ;['gesturestart', 'gesturechange', 'gestureend'].forEach(
-            eventName => {
-              document.addEventListener(eventName, event => {
-                event.preventDefault()
-              })
-            }
-          )
-
-          const keyMap = {
-            forward: 'w',
-            backward: 's',
-            left: 'a',
-            right: 'd',
-            mic: 'r',
-            egg: 'e',
-            'forward-left': ['w', 'a'],
-            'forward-right': ['w', 'd']
-          }
-
-          const activeKeys = new Set()
-
-          function showControls() {
-            touchControls.classList.add('active')
-          }
-
-          function hideControls() {
-            touchControls.classList.remove('active')
-          }
-
-          function resetVisibilityTimeout() {
-            if (visibilityTimeout) {
-              clearTimeout(visibilityTimeout)
-            }
-            visibilityTimeout = setTimeout(hideControls, 10000)
-          }
-
-          function triggerKeyEvent(key, eventType) {
-            const event = new KeyboardEvent(eventType, { key })
-            document.dispatchEvent(event)
-          }
-
-          const controlCenters = {}
-
-          const controls = document.querySelectorAll('.touch-control')
-          controls.forEach(control => {
-            const rect = control.getBoundingClientRect()
-            const centerX = rect.left + rect.width / 2
-            const centerY = rect.top + rect.height / 2
-            controlCenters[control.classList[1]] = { x: centerX, y: centerY }
-          })
-
-          function calculateDistance(x1, y1, x2, y2) {
-            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-          }
-
-          // Map to keep track of active touches and their associated keys
-          const touchIdMap = new Map()
-
-          // Variables to store initial touch positions for swipe direction
-          const swipeThreshold = 50 // Minimum distance for a swipe to be recognized
-
-          function handleTouchStart(event) {
-            resetVisibilityTimeout()
-            const touches = event.changedTouches
-            for (const touch of touches) {
-              const touchX = touch.clientX
-              const touchY = touch.clientY
-
-              // Initialize swipe direction state for this touch
-              touchIdMap.set(touch.identifier, {
-                initialX: touchX,
-                initialY: touchY,
-                currentKey: null // No key pressed initially
-              })
-            }
-          }
-
-          function handleTouchMove(event) {
-            resetVisibilityTimeout()
-            const touches = event.changedTouches
-            for (const touch of touches) {
-              const touchState = touchIdMap.get(touch.identifier)
-              if (!touchState) continue
-
-              const deltaX = touch.clientX - touchState.initialX
-              const deltaY = touch.clientY - touchState.initialY
-
-              let direction = null
-              let keyToActivate = null
-
-              if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Horizontal swipe
-                if (Math.abs(deltaX) > swipeThreshold) {
-                  direction = deltaX > 0 ? 'right' : 'left'
-                  keyToActivate = keyMap[direction]
-                }
-              } else {
-                // Vertical swipe
-                if (Math.abs(deltaY) > swipeThreshold) {
-                  direction = deltaY > 0 ? 'backward' : 'forward'
-                  keyToActivate = keyMap[direction]
-                }
-              }
-
-              if (keyToActivate) {
-                if (touchState.currentKey !== keyToActivate) {
-                  // Release previous key if any
-                  if (touchState.currentKey) {
-                    releaseKey(touchState.currentKey)
-                  }
-                  // Activate new key
-                  activateKey(keyToActivate)
-                  touchState.currentKey = keyToActivate
-                }
-              } else {
-                // If swipe returns to neutral, release the key
-                if (touchState.currentKey) {
-                  releaseKey(touchState.currentKey)
-                  touchState.currentKey = null
-                }
-              }
-
-              // Update the touch state
-              touchIdMap.set(touch.identifier, touchState)
-            }
-          }
-
-          function handleTouchEnd(event) {
-            const touches = event.changedTouches
-            for (const touch of touches) {
-              const touchState = touchIdMap.get(touch.identifier)
-              if (touchState && touchState.currentKey) {
-                releaseKey(touchState.currentKey)
-              }
-              touchIdMap.delete(touch.identifier)
-            }
-          }
-
-          function handleTouchCancel(event) {
-            handleTouchEnd(event)
-          }
-
-          function activateKey(key) {
-            if (!activeKeys.has(key)) {
-              activeKeys.add(key)
-              triggerKeyEvent(key, 'keydown')
-            }
-          }
-
-          function releaseKey(key) {
-            if (activeKeys.has(key)) {
-              activeKeys.delete(key)
-              triggerKeyEvent(key, 'keyup')
-            }
-          }
-
-          // Optional: If you still want to handle keyMap based on touch target classes
-          // Uncomment and adjust the following if necessary
-          /*
-  function handleTouchStart(event) {
-    resetVisibilityTimeout();
-    const touches = event.changedTouches;
-    for (const touch of touches) {
-      const target = touch.target;
-      const keysToActivate = new Set();
-
-      for (const className in keyMap) {
-        if (target.classList.contains(className)) {
-          const mappedKeys = Array.isArray(keyMap[className])
-            ? keyMap[className]
-            : [keyMap[className]];
-          mappedKeys.forEach(k => keysToActivate.add(k));
-        }
+        touchControls.addEventListener(
+          'touchstart',
+          handleTouchStart,
+          false
+        );
+        touchControls.addEventListener('touchend', handleTouchEnd, false);
+        touchControls.addEventListener('touchmove', handleTouchMove, false);
+        touchControls.addEventListener(
+          'touchcancel',
+          handleTouchCancel,
+          false
+        );
       }
 
-      if (keysToActivate.size === 0) {
-        updateActiveKeys(touch.clientX, touch.clientY, keysToActivate);
-      }
-
-      keysToActivate.forEach(key => {
-        activateKey(key);
+      document.addEventListener('gesturestart', function (event) {
+        event.preventDefault();
+      });
+      document.addEventListener('gesturechange', function (event) {
+        event.preventDefault();
+      });
+      document.addEventListener('gestureend', function (event) {
+        event.preventDefault();
       });
 
-      touchIdMap.set(touch.identifier, { keys: keysToActivate });
-    }
-  }
+      const keyMap = {
+        forward: 'w',
+        backward: 's',
+        left: 'a',
+        right: 'd',
+        mic: 'r',
+        egg: 'e',
+        'forward-left': ['w', 'a'],
+        'forward-right': ['w', 'd']
+      };
 
-  function handleTouchMove(event) {
-    resetVisibilityTimeout();
-    const touches = event.changedTouches;
-    for (const touch of touches) {
-      const touchState = touchIdMap.get(touch.identifier) || { keys: new Set() };
-      const newKeys = new Set();
+      const activeKeys = new Set();
 
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      if (target && target.classList) {
-        for (const className in keyMap) {
-          if (target.classList.contains(className)) {
-            const mappedKeys = Array.isArray(keyMap[className])
-              ? keyMap[className]
-              : [keyMap[className]];
-            mappedKeys.forEach(k => newKeys.add(k));
+      function showControls() {
+        touchControls.classList.add('active');
+      }
+
+      function hideControls() {
+        touchControls.classList.remove('active');
+      }
+
+      function resetVisibilityTimeout() {
+        if (visibilityTimeout) {
+          clearTimeout(visibilityTimeout);
+        }
+        visibilityTimeout = setTimeout(hideControls, 10000);
+      }
+
+      function triggerKeyEvent(key, eventType) {
+        const event = new KeyboardEvent(eventType, { key });
+        document.dispatchEvent(event);
+      }
+
+      const controlCenters = {};
+
+      const controls = document.querySelectorAll('.touch-control');
+      controls.forEach(control => {
+        const rect = control.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        controlCenters[control.classList[1]] = { x: centerX, y: centerY };
+      });
+
+      function calculateDistance(x1, y1, x2, y2) {
+        return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+      }
+
+      const touchIdMap = new Map();
+
+      function handleTouchStart(event) {
+        resetVisibilityTimeout();
+        const touches = event.changedTouches;
+        for (const touch of touches) {
+          const target = touch.target;
+          const keysToActivate = new Set();
+
+          for (const className in keyMap) {
+            if (target.classList.contains(className)) {
+              const mappedKeys = Array.isArray(keyMap[className])
+                ? keyMap[className]
+                : [keyMap[className]];
+              mappedKeys.forEach(k => keysToActivate.add(k));
+            }
+          }
+
+          if (keysToActivate.size === 0) {
+            updateActiveKeys(touch.clientX, touch.clientY, keysToActivate);
+          }
+
+          keysToActivate.forEach(key => {
+            if (!activeKeys.has(key)) {
+              activeKeys.add(key);
+              triggerKeyEvent(key, 'keydown');
+            }
+          });
+
+          touchIdMap.set(touch.identifier, keysToActivate);
+        }
+      }
+
+      function handleTouchMove(event) {
+        resetVisibilityTimeout();
+        const touches = event.changedTouches;
+        for (const touch of touches) {
+          const previousKeys = touchIdMap.get(touch.identifier) || new Set();
+          const newKeys = new Set();
+
+          const target = document.elementFromPoint(
+            touch.clientX,
+            touch.clientY
+          );
+          if (target && target.classList) {
+            for (const className in keyMap) {
+              if (target.classList.contains(className)) {
+                const mappedKeys = Array.isArray(keyMap[className])
+                  ? keyMap[className]
+                  : [keyMap[className]];
+                mappedKeys.forEach(k => newKeys.add(k));
+              }
+            }
+          }
+
+          if (newKeys.size === 0) {
+            updateActiveKeys(touch.clientX, touch.clientY, newKeys);
+          }
+
+          const keysToAdd = new Set(
+            [...newKeys].filter(x => !previousKeys.has(x))
+          );
+          const keysToRemove = new Set(
+            [...previousKeys].filter(x => !newKeys.has(x))
+          );
+
+          keysToAdd.forEach(k => {
+            if (!activeKeys.has(k)) {
+              activeKeys.add(k);
+              triggerKeyEvent(k, 'keydown');
+            }
+          });
+
+          keysToRemove.forEach(k => {
+            if (activeKeys.has(k)) {
+              activeKeys.delete(k);
+              triggerKeyEvent(k, 'keyup');
+            }
+          });
+
+          touchIdMap.set(touch.identifier, newKeys);
+        }
+      }
+
+      function handleTouchEnd(event) {
+        const touches = event.changedTouches;
+        for (const touch of touches) {
+          const keys = touchIdMap.get(touch.identifier);
+          if (keys) {
+            keys.forEach(k => {
+              if (activeKeys.has(k)) {
+                activeKeys.delete(k);
+                triggerKeyEvent(k, 'keyup');
+              }
+            });
+            touchIdMap.delete(touch.identifier);
           }
         }
       }
 
-      // Determine keys to add and remove
-      const keysToAdd = new Set([...newKeys].filter(x => !touchState.keys.has(x)));
-      const keysToRemove = new Set([...touchState.keys].filter(x => !newKeys.has(x)));
-
-      keysToAdd.forEach(k => activateKey(k));
-      keysToRemove.forEach(k => releaseKey(k));
-
-      // Update the touch state
-      touchIdMap.set(touch.identifier, { keys: newKeys });
-    }
-  }
-
-  function handleTouchEnd(event) {
-    const touches = event.changedTouches;
-    for (const touch of touches) {
-      const touchState = touchIdMap.get(touch.identifier);
-      if (touchState && touchState.keys) {
-        touchState.keys.forEach(k => releaseKey(k));
+      function handleTouchCancel(event) {
+        handleTouchEnd(event);
       }
-      touchIdMap.delete(touch.identifier);
-    }
-  }
-  */
 
-          if (touchControls) {
-            touchControls.addEventListener(
-              'touchstart',
-              handleTouchStart,
-              false
-            )
-            touchControls.addEventListener('touchmove', handleTouchMove, false)
-            touchControls.addEventListener('touchend', handleTouchEnd, false)
-            touchControls.addEventListener(
-              'touchcancel',
-              handleTouchCancel,
-              false
-            )
+      function updateActiveKeys(touchX, touchY, keysToActivate) {
+        const proximityThreshold = 50;
+        for (const [control, center] of Object.entries(controlCenters)) {
+          const distance = calculateDistance(
+            touchX,
+            touchY,
+            center.x,
+            center.y
+          );
+          if (distance <= proximityThreshold) {
+            const keyOrKeys = keyMap[control];
+            if (keyOrKeys) {
+              if (Array.isArray(keyOrKeys)) {
+                keyOrKeys.forEach(k => keysToActivate.add(k));
+              } else {
+                keysToActivate.add(keyOrKeys);
+              }
+            }
+          }
+        }
+      }
+
+      if (touchControls) {
+        touchControls.addEventListener(
+          'touchstart',
+          handleTouchStart,
+          false
+        );
+        touchControls.addEventListener('touchmove', handleTouchMove, false);
+        touchControls.addEventListener('touchend', handleTouchEnd, false);
+        touchControls.addEventListener(
+          'touchcancel',
+          handleTouchCancel,
+          false
+        );
+      }
+
+      // Swipe Gesture Detection
+      let touchStartX = null;
+      let touchStartY = null;
+      const swipeThreshold = 50;
+
+      document.addEventListener(
+        'touchstart',
+        function (e) {
+          const touch = e.changedTouches[0];
+          touchStartX = touch.screenX;
+          touchStartY = touch.screenY;
+        },
+        false
+      );
+
+      document.addEventListener(
+        'touchend',
+        function (e) {
+          if (touchStartX === null || touchStartY === null) {
+            return;
           }
 
-          // Remove the existing swipe gesture detection since it's no longer needed
-          // This prevents conflicts between the old swipe logic and the new press-and-swipe logic
-          /*
-  let touchStartX = null;
-  let touchStartY = null;
+          const touch = e.changedTouches[0];
+          const touchEndX = touch.screenX;
+          const touchEndY = touch.screenY;
 
-  document.removeEventListener('touchstart', swipeTouchStart, false);
-  document.removeEventListener('touchend', swipeTouchEnd, false);
+          const deltaX = touchEndX - touchStartX;
+          const deltaY = touchEndY - touchStartY;
 
-  function swipeTouchStart(e) {
-    const touch = e.changedTouches[0];
-    touchStartX = touch.screenX;
-    touchStartY = touch.screenY;
-  }
+          if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            if (Math.abs(deltaX) > swipeThreshold) {
+              if (deltaX > 0) {
+                triggerKeyEvent('d', 'keydown');
+                setTimeout(() => triggerKeyEvent('d', 'keyup'), 300);
+              } else {
+                triggerKeyEvent('a', 'keydown');
+                setTimeout(() => triggerKeyEvent('a', 'keyup'), 300);
+              }
+            }
+          } else {
+            if (Math.abs(deltaY) > swipeThreshold) {
+              if (deltaY > 0) {
+                triggerKeyEvent('s', 'keydown');
+                setTimeout(() => triggerKeyEvent('s', 'keyup'), 300);
+              } else {
+                triggerKeyEvent('w', 'keydown');
+                setTimeout(() => triggerKeyEvent('w', 'keyup'), 300);
+              }
+            }
+          }
 
-  function swipeTouchEnd(e) {
-    if (touchStartX === null || touchStartY === null) {
-      return;
+          touchStartX = null;
+          touchStartY = null;
+        },
+        false
+      );
     }
 
-    const touch = e.changedTouches[0];
-    const touchEndX = touch.screenX;
-    const touchEndY = touch.screenY;
-
-    const deltaX = touchEndX - touchStartX;
-    const deltaY = touchEndY - touchStartY;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (Math.abs(deltaX) > swipeThreshold) {
-        if (deltaX > 0) {
-          triggerKeyEvent('d', 'keydown');
-          setTimeout(() => triggerKeyEvent('d', 'keyup'), 300);
-        } else {
-          triggerKeyEvent('a', 'keydown');
-          setTimeout(() => triggerKeyEvent('a', 'keyup'), 300);
-        }
-      }
-    } else {
-      if (Math.abs(deltaY) > swipeThreshold) {
-        if (deltaY > 0) {
-          triggerKeyEvent('s', 'keydown');
-          setTimeout(() => triggerKeyEvent('s', 'keyup'), 300);
-        } else {
-          triggerKeyEvent('w', 'keydown');
-          setTimeout(() => triggerKeyEvent('w', 'keyup'), 300);
-        }
-      }
-    }
-
-    touchStartX = null;
-    touchStartY = null;
-  }
-  */
-        }
-
-        initializeTouchControls()
+    initializeTouchControls();
 
         // =========== Update Position Div ===========
         function updatePositionDiv() {
