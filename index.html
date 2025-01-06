@@ -595,16 +595,28 @@
 
         // =========== DEMO PERMISSION-BUTTON LOGIC ===========
         function initializePermissionDemo() {
-          const requestButton = document.getElementById('request_location')
-          if (!requestButton) {
+          const requestLoc = document.getElementById('request_location')
+          if (!requestLoc) {
             console.warn('No #request_button found in DOM.')
             return
           }
 
-          requestButton.addEventListener('click', async () => {
-            const result = await requestAllPermissions()
+          requestLoc.addEventListener('click', async () => {
+            const result = await requestLocationPermissions()
             console.log('Permissions result:', result)
           })
+
+        const requestOrient = document.getElementById('request_location')
+          if (!requestOrient) {
+            console.warn('No #request_button found in DOM.')
+            return
+          }
+
+          requestOrient.addEventListener('click', async () => {
+            const result = await requestSensorPermissions()
+            console.log('Permissions result:', result)
+          })
+
         }
 
         // =========== MINIMAP LOGIC ===========
