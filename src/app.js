@@ -2991,7 +2991,7 @@ class App {
     // 6. Convert degrees to radians
     const yawRad = THREE.MathUtils.degToRad(yawDeg);     // Yaw: rotation around Y-axis
     const pitchRad = THREE.MathUtils.degToRad(betaDeg); // Pitch: rotation around X-axis
-    const rollRad = THREE.MathUtils.degToRad(gammaDeg); // Roll: rotation around Z-axis
+    const rollRad = THREE.MathUtils.degToRad(alphaDeg); // Roll: rotation around Z-axis
   
     // 7. Determine the screen orientation (0, 90, 180, 270 degrees)
     const screenOrientationDeg = window.orientation || 0;
@@ -3001,14 +3001,14 @@ class App {
     const screenOrientationQuaternion = new THREE.Quaternion();
     screenOrientationQuaternion.setFromEuler(new THREE.Euler(0, 0, screenOrientationRad, 'XYZ'));
   
-    // 9. Create Euler angles for device orientation with 'YXZ' order
+    // 9. Create Euler angles for device orientation with proper order
     const deviceEuler = new THREE.Euler(pitchRad, yawRad, rollRad, 'YXZ'); // 'YXZ' order: Yaw (Y), Pitch (X), Roll (Z)
   
     // 10. Convert device Euler angles to quaternion
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(deviceEuler);
   
-    // 11. Reference Quaternion: Rotate +90 degrees around X-axis to align device Z-axis with Three.js Y-axis
-    const referenceEuler = new THREE.Euler(Math.PI / 2, 0, 0, 'XYZ'); // +90 degrees around X-axis
+    // 11. Reference Quaternion: Rotate -90 degrees around X-axis to align device frame with Three.js frame
+    const referenceEuler = new THREE.Euler(-Math.PI / 2, 0, 0, 'XYZ'); // 'XYZ' order
     const referenceQuaternion = new THREE.Quaternion().setFromEuler(referenceEuler);
   
     // 12. Combine Reference Quaternion with Device Quaternion and Screen Orientation
@@ -3029,7 +3029,6 @@ class App {
       `Final Quaternion: x=${finalQuaternion.x.toFixed(4)}, y=${finalQuaternion.y.toFixed(4)}, z=${finalQuaternion.z.toFixed(4)}, w=${finalQuaternion.w.toFixed(4)}`
     );
   }
-  
   
   
   
