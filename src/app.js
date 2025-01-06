@@ -2952,7 +2952,7 @@ class App {
    * Updates the camera's orientation based on device sensors.
    */
 
-  function updateCameraOrientation() {
+  updateCameraOrientation() {
     // Step 1: Retrieve orientation and motion data
     const { alpha, beta, gamma, webkitCompassHeading, webkitCompassAccuracy } = Sensors.orientationData;
     const { accelerationIncludingGravity } = Sensors.motionData;
@@ -2996,6 +2996,7 @@ class App {
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(deviceEuler);
   
     // Step 8: Create reference quaternion to align device frame with Three.js frame
+    // Rotate +90 degrees around X-axis to align device Z-axis with Three.js Y-axis
     const referenceEuler = new THREE.Euler(Math.PI / 2, 0, 0, 'XYZ'); // +90 degrees around X-axis
     const referenceQuaternion = new THREE.Quaternion().setFromEuler(referenceEuler);
   
@@ -3006,27 +3007,26 @@ class App {
       .multiply(screenOrientationQuaternion);
   
     // Step 10: Incorporate gravity to stabilize orientation
-    // Create a quaternion from the gravity vector
     const gravity = new THREE.Vector3(
       accelerationIncludingGravity.x,
       accelerationIncludingGravity.y,
       accelerationIncludingGravity.z
     ).normalize();
   
-    // Calculate the desired up vector based on gravity
-    const desiredUp = new THREE.Vector3(0, 1, 0); // Y-up in Three.js
+    // Desired up vector in Three.js is (0, 1, 0)
+    const desiredUp = new THREE.Vector3(0, 1, 0);
     const currentUp = gravity.clone();
   
-    // Compute the rotation required to align currentUp with desiredUp
+    // Compute the rotation needed to align currentUp with desiredUp
     const rotationAxis = new THREE.Vector3().crossVectors(currentUp, desiredUp).normalize();
     const rotationAngle = Math.acos(currentUp.dot(desiredUp));
   
-    if (rotationAxis.length() > 0) {
+    if (rotationAxis.length() > 0 && !isNaN(rotationAngle)) {
       const gravityCorrectionQuaternion = new THREE.Quaternion().setFromAxisAngle(rotationAxis, rotationAngle);
       finalQuaternion.multiply(gravityCorrectionQuaternion);
     }
   
-    // Step 11: Normalize the final quaternion
+    // Step 11: Normalize the final quaternion to prevent errors over time
     finalQuaternion.normalize();
   
     // Step 12: Apply the final quaternion to the camera
