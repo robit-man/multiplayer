@@ -2971,22 +2971,13 @@ class App {
     const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
     const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
   
-    // 3. Fix decimal places for UI display
-    const alphaConstraint = alphaDeg.toFixed(2);
-    const betaConstraint = betaDeg.toFixed(2);
-    const gammaConstraint = gammaDeg.toFixed(2);
   
-    // 4. Update UI fields with orientation data
-    UI.updateField('Orientation_a', alphaConstraint);
-    UI.updateField('Orientation_b', betaConstraint);
-    UI.updateField('Orientation_g', gammaConstraint);
-  
-    // 5. Optional: Replace alerts with console logs for debugging
+    // 4. Optional: Replace alerts with console logs for debugging
     console.log(
       `Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`
     );
   
-    // 6. Check if compass data is available and accurate
+    // 5. Check if compass data is available and accurate
     const hasCompass =
       Sensors.orientationData.webkitCompassHeading !== undefined &&
       Sensors.orientationData.webkitCompassAccuracy !== undefined &&
@@ -3006,8 +2997,8 @@ class App {
   
     // 7. Convert degrees to radians
     const yawRad = THREE.MathUtils.degToRad(yawDeg);
-    const pitchRad = THREE.MathUtils.degToRad(betaDeg);
-    const rollRad = THREE.MathUtils.degToRad(gammaDeg);
+    const betaRad = THREE.MathUtils.degToRad(betaDeg);
+    const gammaRad = THREE.MathUtils.degToRad(gammaDeg);
   
     // 8. Determine the screen orientation (0, 90, 180, 270 degrees)
     const screenOrientationDeg = window.orientation || 0;
@@ -3016,20 +3007,20 @@ class App {
     // 9. Adjust yaw based on screen orientation
     const adjustedYawRad = yawRad - screenOrientationRad;
   
-    // 10. Create Euler angles with the order 'YXZ' to handle rotations properly
-    const euler = new THREE.Euler(pitchRad, adjustedYawRad, rollRad, 'YXZ');
+    // 10. Create Euler angles with the order 'YXZ' to handle rotations properly, including roll
+    const euler = new THREE.Euler(betaRad, adjustedYawRad, gammaRad, 'YXZ');
   
     // 11. Create device quaternion from Euler angles
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(euler);
   
-    // 12. Reference Quaternion: Rotate -90 degrees around Z-axis to align device frame with Three.js frame
+    // 12. Reference Quaternion: Rotate -90 degrees around X-axis to align device frame with Three.js frame
     const referenceQuaternion = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(0, 0, -Math.PI / 2, 'YXZ') // -90 degrees around Z-axis
+      new THREE.Euler(-Math.PI / 2, 0, 0, 'YXZ') // -90 degrees around X-axis
     );
   
     // 13. Combine Reference Quaternion with Device Quaternion
     // Quaternion multiplication order is important: reference * device
-    const finalQuaternion = referenceQuaternion.clone().multiply(deviceQuaternion);
+    const finalQuaternion = referenceQuaternion.multiply(deviceQuaternion);
   
     // 14. Normalize the final quaternion to prevent errors over time
     finalQuaternion.normalize();
