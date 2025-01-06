@@ -469,7 +469,7 @@ class Sensors {
       }
 
       // Example: Update UI elements with orientation data
-      Sensors.updateOrientationUI();
+      //Sensors.updateOrientationUI();
     } catch (err) {
       console.error('Error in handleOrientation:', err);
       alert('Error handling orientation data.');
