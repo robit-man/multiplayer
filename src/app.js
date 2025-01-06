@@ -3020,7 +3020,7 @@ class App {
     const cameraRollRad = alphaRad;
   
     // 11. Create Euler angles with the order 'YXZ' to handle rotations properly, including swapped yaw and roll
-    const euler = new THREE.Euler(cameraYawRad, betaRad, -cameraRollRad, 'YXZ');
+    const euler = new THREE.Euler(betaRad, -cameraRollRad, cameraYawRad,  'YXZ');
   
     // 12. Create device quaternion from Euler angles
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(euler);
