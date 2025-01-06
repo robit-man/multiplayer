@@ -334,147 +334,244 @@ class Sensors {
     gamma: null,
     webkitCompassHeading: undefined,
     webkitCompassAccuracy: undefined
-  }
+  };
 
-  static isOrientationEnabled = false
-  static isMotionEnabled = false
+  static isOrientationEnabled = false;
+  static isMotionEnabled = false;
 
   /**
-   * Initializes sensor event listeners based on permissions.
+   * Initializes sensor event listeners based on device type and permissions.
    * If permissions are not granted, it requests them.
    */
-  static async initialize () {
+  static async initialize() {
     try {
-      console.log('Initializing Sensors...')
+      console.log('Initializing Sensors...');
 
-      // Request orientation permission if needed
-      const orientationGranted = await Sensors.requestOrientationPermission()
+      if (!Sensors.isMobileDevice()) {
+        console.log('Non-mobile device detected. Device Orientation and Motion not enabled.');
+        alert('Device Orientation and Motion features are disabled on non-mobile devices.');
+        return;
+      }
 
-      // Request motion permission if needed (for iOS 13+)
-      const motionGranted = await Sensors.requestMotionPermission()
+      // Request orientation and motion permissions if needed
+      const orientationGranted = await Sensors.requestOrientationPermission();
+      const motionGranted = await Sensors.requestMotionPermission();
 
       // Attach event listeners based on granted permissions
       if (orientationGranted) {
-        window.addEventListener('deviceorientation', Sensors.handleOrientation)
-        Sensors.isOrientationEnabled = true
-        console.log('DeviceOrientation event listener added.')
+        window.addEventListener('deviceorientation', Sensors.handleOrientation);
+        Sensors.isOrientationEnabled = true;
+        console.log('DeviceOrientation event listener added.');
+        alert('Device Orientation permission granted and enabled.');
       } else {
-        console.warn('DeviceOrientation permission not granted.')
-        UI.displayError('Device Orientation permission denied.')
+        console.warn('DeviceOrientation permission not granted.');
+        alert('Device Orientation permission denied.');
       }
 
       if (motionGranted) {
-        window.addEventListener('devicemotion', Sensors.handleMotion)
-        Sensors.isMotionEnabled = true
-        console.log('DeviceMotion event listener added.')
+        window.addEventListener('devicemotion', Sensors.handleMotion);
+        Sensors.isMotionEnabled = true;
+        console.log('DeviceMotion event listener added.');
+        alert('Device Motion permission granted and enabled.');
       } else {
-        console.warn('DeviceMotion permission not granted.')
-        // You can choose to notify the user or handle it silently
+        console.warn('DeviceMotion permission not granted.');
+        alert('Device Motion permission denied.');
       }
     } catch (err) {
-      console.error('Error initializing Sensors:', err)
-      UI.displayError('Error initializing sensors. Please try again.')
+      console.error('Error initializing Sensors:', err);
+      alert('Error initializing sensors. Please try again.');
     }
   }
 
   /**
-   * Requests device orientation permission (required for iOS 13+)
-   * @returns {Promise<boolean>} - Resolves to true if permission is granted
+   * Enhanced device detection to determine if the device is mobile.
+   * Combines User-Agent sniffing with touch support detection.
+   * @returns {boolean} - True if the device is mobile, false otherwise.
    */
-  static requestOrientationPermission () {
-    return new Promise((resolve, reject) => {
+  static isMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isMobileUA = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+    return isMobileUA && hasTouch;
+  }
+
+  /**
+   * Requests device orientation permission (required for iOS 13+).
+   * Displays a temporary button for user interaction if permission is required.
+   * @returns {Promise<boolean>} - Resolves to true if permission is granted, false otherwise.
+   */
+  static requestOrientationPermission() {
+    return new Promise((resolve) => {
       // Check if permission is needed (iOS 13+)
       if (
         typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function'
       ) {
         // Create a temporary button to request permission
-        UI.showTemporaryPermissionButton(
+        Sensors.createPermissionButton(
           'Request Device Orientation Permission',
           async () => {
             try {
-              const response = await DeviceOrientationEvent.requestPermission()
+              const response = await DeviceOrientationEvent.requestPermission();
               if (response === 'granted') {
-                resolve(true)
+                resolve(true);
               } else {
-                resolve(false)
+                resolve(false);
               }
             } catch (error) {
-              console.error(
-                'Error requesting DeviceOrientation permission:',
-                error
-              )
-              resolve(false)
+              console.error('Error requesting DeviceOrientation permission:', error);
+              resolve(false);
             }
+          },
+          () => {
+            // User dismissed the permission request
+            resolve(false);
           }
-        )
+        );
       } else {
         // Permission not required
-        resolve(true)
+        resolve(true);
       }
-    })
+    });
   }
 
   /**
-   * Requests device motion permission (required for iOS 13+)
-   * @returns {Promise<boolean>} - Resolves to true if permission is granted
+   * Requests device motion permission (required for iOS 13+).
+   * Displays a temporary button for user interaction if permission is required.
+   * @returns {Promise<boolean>} - Resolves to true if permission is granted, false otherwise.
    */
-  static requestMotionPermission () {
-    return new Promise((resolve, reject) => {
+  static requestMotionPermission() {
+    return new Promise((resolve) => {
       // Check if permission is needed (iOS 13+)
       if (
         typeof DeviceMotionEvent !== 'undefined' &&
         typeof DeviceMotionEvent.requestPermission === 'function'
       ) {
         // Create a temporary button to request permission
-        UI.showTemporaryPermissionButton(
+        Sensors.createPermissionButton(
           'Request Device Motion Permission',
           async () => {
             try {
-              const response = await DeviceMotionEvent.requestPermission()
+              const response = await DeviceMotionEvent.requestPermission();
               if (response === 'granted') {
-                resolve(true)
+                resolve(true);
               } else {
-                resolve(false)
+                resolve(false);
               }
             } catch (error) {
-              console.error('Error requesting DeviceMotion permission:', error)
-              resolve(false)
+              console.error('Error requesting DeviceMotion permission:', error);
+              resolve(false);
             }
+          },
+          () => {
+            // User dismissed the permission request
+            resolve(false);
           }
-        )
+        );
       } else {
         // Permission not required
-        resolve(true)
+        resolve(true);
       }
-    })
+    });
+  }
+
+  /**
+   * Creates and displays a temporary permission request button.
+   * @param {string} buttonText - The text to display on the button.
+   * @param {Function} onClick - The callback function to execute on button click.
+   * @param {Function} onDismiss - The callback function to execute if the user dismisses the permission.
+   */
+  static createPermissionButton(buttonText, onClick, onDismiss) {
+    // Create a modal overlay
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '1000';
+
+    // Create the button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.backgroundColor = '#fff';
+    buttonContainer.style.padding = '20px';
+    buttonContainer.style.borderRadius = '8px';
+    buttonContainer.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+    buttonContainer.style.textAlign = 'center';
+
+    // Create the button
+    const button = document.createElement('button');
+    button.textContent = buttonText;
+    button.style.padding = '10px 20px';
+    button.style.fontSize = '16px';
+    button.style.cursor = 'pointer';
+    button.style.border = 'none';
+    button.style.borderRadius = '4px';
+    button.style.backgroundColor = '#007BFF';
+    button.style.color = '#fff';
+
+    // Create the cancel button
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Cancel';
+    cancelButton.style.padding = '10px 20px';
+    cancelButton.style.fontSize = '16px';
+    cancelButton.style.cursor = 'pointer';
+    cancelButton.style.border = 'none';
+    cancelButton.style.borderRadius = '4px';
+    cancelButton.style.backgroundColor = '#6c757d';
+    cancelButton.style.color = '#fff';
+    cancelButton.style.marginLeft = '10px';
+
+    // Append buttons to container
+    buttonContainer.appendChild(button);
+    buttonContainer.appendChild(cancelButton);
+
+    // Append container to modal
+    modal.appendChild(buttonContainer);
+
+    // Append modal to body
+    document.body.appendChild(modal);
+
+    // Button click handler
+    button.addEventListener('click', () => {
+      onClick();
+      document.body.removeChild(modal);
+    });
+
+    // Cancel button handler
+    cancelButton.addEventListener('click', () => {
+      if (onDismiss) onDismiss();
+      document.body.removeChild(modal);
+    });
   }
 
   /**
    * Handles device orientation events.
    * @param {DeviceOrientationEvent} event
    */
-  static handleOrientation (event) {
+  static handleOrientation(event) {
     try {
       Sensors.orientationData.alpha =
-        event.alpha !== null ? event.alpha : Sensors.orientationData.alpha
+        event.alpha !== null ? event.alpha : Sensors.orientationData.alpha;
       Sensors.orientationData.beta =
-        event.beta !== null ? event.beta : Sensors.orientationData.beta
+        event.beta !== null ? event.beta : Sensors.orientationData.beta;
       Sensors.orientationData.gamma =
-        event.gamma !== null ? event.gamma : Sensors.orientationData.gamma
+        event.gamma !== null ? event.gamma : Sensors.orientationData.gamma;
 
       if (event.webkitCompassHeading !== undefined) {
-        Sensors.orientationData.webkitCompassHeading =
-          event.webkitCompassHeading
-        Sensors.orientationData.webkitCompassAccuracy =
-          event.webkitCompassAccuracy
+        Sensors.orientationData.webkitCompassHeading = event.webkitCompassHeading;
+        Sensors.orientationData.webkitCompassAccuracy = event.webkitCompassAccuracy;
       }
 
-      // Optionally, update Three.js or other components here
-      // Example: ThreeJSRenderer.updateCubeOrientation(Sensors.orientationData);
+      // Example: Update UI elements with orientation data
+      Sensors.updateOrientationUI();
     } catch (err) {
-      console.error('Error in handleOrientation:', err)
-      UI.displayError('Error handling orientation data.')
+      console.error('Error in handleOrientation:', err);
+      alert('Error handling orientation data.');
     }
   }
 
@@ -482,19 +579,63 @@ class Sensors {
    * Handles device motion events.
    * @param {DeviceMotionEvent} event
    */
-  static handleMotion (event) {
+  static handleMotion(event) {
     try {
       // Example: Update UI with motion data
-      // UI.updateMotionDisplay(event.acceleration, event.rotationRate);
-
-      // Implement motion data handling as needed
-      console.log('DeviceMotionEvent:', event)
+      Sensors.updateMotionUI(event.acceleration, event.rotationRate);
+      console.log('DeviceMotionEvent:', event);
     } catch (err) {
-      console.error('Error in handleMotion:', err)
-      UI.displayError('Error handling motion data.')
+      console.error('Error in handleMotion:', err);
+      alert('Error handling motion data.');
     }
   }
+
+  /**
+   * Updates the UI with the latest orientation data.
+   * Replace the implementation with your actual UI update logic.
+   */
+  static updateOrientationUI() {
+    // Example implementation:
+    const alphaEl = document.getElementById('Orientation_a');
+    const betaEl = document.getElementById('Orientation_b');
+    const gammaEl = document.getElementById('Orientation_g');
+
+    if (alphaEl) alphaEl.textContent = `Alpha: ${Sensors.orientationData.alpha}`;
+    if (betaEl) betaEl.textContent = `Beta: ${Sensors.orientationData.beta}`;
+    if (gammaEl) gammaEl.textContent = `Gamma: ${Sensors.orientationData.gamma}`;
+  }
+
+  /**
+   * Updates the UI with the latest motion data.
+   * Replace the implementation with your actual UI update logic.
+   * @param {Object} acceleration - The acceleration data from the device.
+   * @param {Object} rotationRate - The rotation rate data from the device.
+   */
+  static updateMotionUI(acceleration, rotationRate) {
+    // Example implementation:
+    const accXEl = document.getElementById('Motion_accX');
+    const accYEl = document.getElementById('Motion_accY');
+    const accZEl = document.getElementById('Motion_accZ');
+
+    const rotXEl = document.getElementById('Motion_rotX');
+    const rotYEl = document.getElementById('Motion_rotY');
+    const rotZEl = document.getElementById('Motion_rotZ');
+
+    if (accXEl) accXEl.textContent = `Acceleration X: ${acceleration.x}`;
+    if (accYEl) accYEl.textContent = `Acceleration Y: ${acceleration.y}`;
+    if (accZEl) accZEl.textContent = `Acceleration Z: ${acceleration.z}`;
+
+    if (rotXEl) rotXEl.textContent = `Rotation Rate X: ${rotationRate.alpha}`;
+    if (rotYEl) rotYEl.textContent = `Rotation Rate Y: ${rotationRate.beta}`;
+    if (rotZEl) rotZEl.textContent = `Rotation Rate Z: ${rotationRate.gamma}`;
+  }
 }
+
+// Initialize Sensors when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+  Sensors.initialize();
+});
+
 
 // ------------------------------
 // UI Module
