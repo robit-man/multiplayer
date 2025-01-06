@@ -2970,6 +2970,11 @@ class App {
     const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
     const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
   
+    // 3. Update UI fields with orientation data
+    UI.updateField('Orientation_a', alphaDeg);
+    UI.updateField('Orientation_b', betaDeg);
+    UI.updateField('Orientation_g', gammaDeg);
+  
     // 4. Optional: Replace alerts with console logs for debugging
     console.log(
       `Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`
@@ -3016,9 +3021,9 @@ class App {
       new THREE.Euler(-Math.PI / 2, 0, 0, 'YXZ') // -90 degrees around X-axis
     );
   
-    // 13. Combine Reference Quaternion with Device Quaternion
-    // Quaternion multiplication order is important: reference * device
-    const finalQuaternion = referenceQuaternion.multiply(deviceQuaternion);
+    // 13. Combine Device Quaternion with Reference Quaternion
+    // Quaternion multiplication order is important: device * reference
+    const finalQuaternion = deviceQuaternion.clone().multiply(referenceQuaternion);
   
     // 14. Normalize the final quaternion to prevent errors over time
     finalQuaternion.normalize();
@@ -3031,6 +3036,7 @@ class App {
       `Final Quaternion: x=${finalQuaternion.x.toFixed(4)}, y=${finalQuaternion.y.toFixed(4)}, z=${finalQuaternion.z.toFixed(4)}, w=${finalQuaternion.w.toFixed(4)}`
     );
   }
+  
   
 
   /**
@@ -3157,10 +3163,6 @@ class App {
       if (this.localMixer) {
         this.localMixer.update(delta)
       }
-
-      UI.updateField('Orientation_a', Sensors.orientationData.alpha);
-      UI.updateField('Orientation_b', Sensors.orientationData.beta);
-      UI.updateField('Orientation_g', Sensors.orientationData.gamma);
 
       // Update camera orientation based on device orientation data, if enabled
       if (Sensors.isOrientationEnabled) {
