@@ -2951,6 +2951,7 @@ class App {
   /**
    * Updates the camera's orientation based on device sensors.
    */
+
   updateCameraOrientation() {
     // 1. Pull orientation data from window.orientationGlobal if available
     if (
@@ -2994,7 +2995,7 @@ class App {
       console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
     } else {
       // 6.b. Fallback: Calculate yaw using alpha
-      yawDeg = alphaDeg;
+      yawDeg = gammaDeg;
       console.log(`Using alpha for yaw: ${yawDeg} degrees`);
     }
   
