@@ -3010,9 +3010,9 @@ class App {
     // 9. Adjust yaw based on screen orientation
     const adjustedYawRad = yawRad - screenOrientationRad;
   
-    // 10. Create Euler angles with the order 'YXZ' to handle rotations properly, including roll
-    //    Invert the roll angle to correct the roll direction
-    const euler = new THREE.Euler(betaRad, adjustedYawRad, -gammaRad, 'YXZ');
+    // 10. Swap yaw and roll: device's gammaRad (roll) becomes camera's yaw, and adjustedYawRad becomes camera's roll
+    //    Invert the roll angle to correct the direction
+    const euler = new THREE.Euler(betaRad, -gammaRad, adjustedYawRad, 'YXZ');
   
     // 11. Create device quaternion from Euler angles
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(euler);
@@ -3037,6 +3037,7 @@ class App {
       `Final Quaternion: x=${finalQuaternion.x.toFixed(4)}, y=${finalQuaternion.y.toFixed(4)}, z=${finalQuaternion.z.toFixed(4)}, w=${finalQuaternion.w.toFixed(4)}`
     );
   }
+  
   
   
 
