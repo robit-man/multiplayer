@@ -1154,6 +1154,8 @@ class Terrain {
     const material = new THREE.MeshStandardMaterial({
       vertexColors: true,
       side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9,
       metalness: 0.2,
       roughness: 0.7
     })
@@ -1161,7 +1163,9 @@ class Terrain {
       vertexColors: true,
       wireframe: true,
       transparent: true,
-      opacity: 0.4
+      opacity: 0.8,
+      metalness: 0.8,
+      roughness: 0.2
     })
 
     return { geometry, material, wireMaterial }
@@ -1801,6 +1805,7 @@ class Multiplayer {
           console.log(
             `[Socket] position => Decrypted Position from ID: ${id}: Lat=${latitude}, Lon=${longitude}`
           )
+          UI.updateField('remotePlayerLoc', `ID: ${id}, Lat: ${latitude}, Lon: ${longitude}`)
 
           // Map latitude and longitude to your game's coordinate system
           const x = Utils.mapLongitudeToX(
@@ -2319,7 +2324,7 @@ class Movement {
       )
 
       // Log the closest point to the console for debugging
-      console.warn(closestPoint)
+      //console.warn(closestPoint)
 
       // Expose the closest point to the global window object
       window.terrainPointClosest = {

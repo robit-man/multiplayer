@@ -38,6 +38,21 @@ body {
   font-style: normal;
 }
 
+#remotePlayerLoc {
+  margin: unset;
+  padding: 0rem;
+  font-weight: 100;
+  color: white;
+  line-height: unset;
+  font-size: 0.6rem;
+  font-family: 'tan', serif;
+  transform: rotate(90deg);  
+  transform-origin: 100% 0%;
+  top: calc(50vh + 25%);
+  right:0px;
+  position: fixed;
+}
+
 .commit-info {
   padding: 20px;
   border-radius: 10px;
@@ -236,7 +251,7 @@ body {
   color: white;
   line-height: unset;
   font-size: 0.6rem;
-  font-family: "tan", serif;
+  font-family: 'tan', serif;
   transform: rotate(-90deg);
   transform-origin: 10% 100%;
   top: calc(50vh + 60px);
@@ -291,9 +306,9 @@ body {
   color: white;
   opacity: 1;
   font-size: 0.6rem;
-  font-family: "tan", serif;
+  font-family: 'tan', serif;
   cursor: default;
-  mix-blend-mode: plus-lighter;
+  mix-blend-mode: screen;
   text-shadow: 0px 0px 10px #000;
   overflow: visible;
   z-index: 10;
@@ -306,9 +321,9 @@ body {
   color: white;
   opacity: 1;
   font-size: 0.6rem;
-  font-family: "tan", serif;
+  font-family: 'tan', serif;
   cursor: default;
-  mix-blend-mode: plus-lighter;
+  mix-blend-mode: screen;
   text-shadow: 0px 0px 10px #000;
   overflow: visible;
   z-index: 10;
@@ -323,9 +338,9 @@ body {
   color: white;
   opacity: 0.8;
   font-size: 0.6rem;
-  font-family: "tan", serif;
+  font-family: 'tan', serif;
   cursor: default;
-  mix-blend-mode: plus-lighter;
+  mix-blend-mode: screen;
   text-shadow: 0px 0px 5px #000000;
   overflow: visible;
   z-index: 10;
@@ -371,8 +386,9 @@ body {
 }
 #Orientation_a,
 #Orientation_b,
-#Orientation_g
-{font-family:tan;}
+#Orientation_g {
+  font-family: tan;
+}
 
 #request_location,
 #request_orient,
@@ -409,7 +425,6 @@ body {
   font-size: 0.6rem;
   background: transparent;
   border: 1px solid white;
-
   border-bottom: unset;
   border-top: unset;
   text-shadow: 0px 0px 5px #000000;
