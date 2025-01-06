@@ -2984,7 +2984,7 @@ class App {
       console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
     } else {
       // Fallback: Use alpha for yaw instead of gamma
-      yawDeg = alphaDeg;
+      yawDeg = gammaDeg;
       console.log(`Using alpha for yaw: ${yawDeg} degrees`);
     }
   
