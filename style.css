@@ -1,5 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=tan&display=swap');
+@font-face {
+  font-family: 'tan';
+  src: url('/public/TRANA___.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
 /* General Styles */
 * {
   -webkit-user-select: none;
@@ -28,7 +33,7 @@ body {
   margin: 0;
   overflow: hidden;
   position: relative;
-  font-family: 'Rajdhani', serif;
+  font-family: 'tan', serif;
   font-weight: 700;
   font-style: normal;
 }
@@ -209,7 +214,6 @@ body {
 
 .nc {
   font-family: 'Uno', sans-serif;
-
   margin: unset;
   margin-top: -0.5rem;
   font-size: 1rem;
@@ -226,12 +230,17 @@ body {
 }
 
 #commit-timestamp {
-  background: white;
   margin: unset;
-  padding: 0.25rem;
-  color: black;
+  padding: 0rem;
+  font-weight: 100;
+  color: white;
+  line-height: unset;
   font-size: 0.6rem;
-  font-family: 'Rajdhani', sans-serif !important;
+  font-family: "tan", serif;
+  transform: rotate(-90deg);
+  transform-origin: 10% 100%;
+  top: calc(50vh + 60px);
+  position: fixed;
 }
 
 /* Instructional Overlay */
@@ -282,7 +291,7 @@ body {
   color: white;
   opacity: 1;
   font-size: 0.6rem;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: "tan", serif;
   cursor: default;
   mix-blend-mode: plus-lighter;
   text-shadow: 0px 0px 10px #000;
@@ -297,7 +306,7 @@ body {
   color: white;
   opacity: 1;
   font-size: 0.6rem;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: "tan", serif;
   cursor: default;
   mix-blend-mode: plus-lighter;
   text-shadow: 0px 0px 10px #000;
@@ -309,12 +318,12 @@ body {
 /* Data Overlay */
 .data {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 0px;
+  left: 0px;
   color: white;
   opacity: 0.8;
   font-size: 0.6rem;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: "tan", serif;
   cursor: default;
   mix-blend-mode: plus-lighter;
   text-shadow: 0px 0px 5px #000000;
@@ -352,10 +361,7 @@ body {
   overflow: visible;
   font-size: 0.6rem;
   padding: 0rem 0.25rem;
-  border-left: 1px solid white;
-  border-right: 1px solid white;
   text-shadow: 0px 0px 5px #000000;
-
 }
 
 .sensor-label {
@@ -363,12 +369,16 @@ body {
   margin-right: 0.5rem;
   overflow: visible;
 }
+#Orientation_a,
+#Orientation_b,
+#Orientation_g
+{font-family:tan;}
 
 #request_location,
 #request_orient,
 #clear,
 #cache {
-  font-family: 'Rajdhani', serif;
+  font-family: 'tan', serif;
   font-weight: 700;
   font-style: normal;
   border: unset;
@@ -379,19 +389,18 @@ body {
   transition: all 0.2s ease;
   width: calc(25% - 0.5px);
   text-shadow: 0px 0px 5px #000000;
-
 }
 
 #request_location {
-  border-top-left-radius: 0.25rem;
+  border-top-left-radius: 0rem;
 }
 
 #cache {
-  border-top-right-radius: 0.25rem;
+  border-top-right-radius: 0rem;
 }
 
 #password {
-  font-family: 'Rajdhani', serif;
+  font-family: 'tan', serif;
   font-weight: 700;
   font-style: normal;
   padding: 0.25rem 0.25rem;
@@ -400,27 +409,44 @@ body {
   font-size: 0.6rem;
   background: transparent;
   border: 1px solid white;
-  border-bottom: unset;  text-shadow: 0px 0px 5px #000000;
 
+  border-bottom: unset;
+  border-top: unset;
+  text-shadow: 0px 0px 5px #000000;
 }
 
 #encryptDecryptBtn {
-  font-family: 'Rajdhani', serif;
+  font-family: 'tan', serif;
   font-weight: 700;
   font-style: normal;
-  border: unset;
   padding: 0.25rem 0.25rem;
   border-radius: 0rem;
-  border-bottom-left-radius: 0.25rem;
-  border-bottom-right-radius: 0.25rem;
   color: white;
   font-size: 0.6rem;
   background: transparent;
+  position: relative;
   border: 1px solid white;
+  clip-path: polygon(
+    100% 0,
+    100% calc(100% - 1rem),
+    calc(100% - 1rem) 100%,
+    0 100%,
+    0 0
+  );
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
+#encryptDecryptBtn::after {
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  background: white;
+  width: 1px;
+  height: 1.5rem;
+  transform: translateY(0.515rem) translateX(0.1rem) rotate(45deg);
+  transform-origin: 0% 0%;
+}
 #encryptDecryptBtn:hover {
   color: black;
   background: white;
@@ -498,7 +524,7 @@ select:focus {
   border-top: unset;
   border-right: unset;
   border-bottom-left-radius: 100%;
-  filter: saturate(0) contrast(1.2) invert(1);
+  filter: saturate(0) invert(1);
 }
 
 .minimapwrapper::after {
@@ -531,7 +557,7 @@ select:focus {
   border-right: unset;
   width: 202px;
   height: 202px;
-  mix-blend-mode: plus-lighter;
+  mix-blend-mode: screen;
 }
 
 .row {

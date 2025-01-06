@@ -902,14 +902,14 @@ class Terrain {
     )
 
     this.terrainMaterial = new THREE.PointsMaterial({
-      size: 0.4,
+      size: 0,
       vertexColors: true,
       transparent: true,
-      opacity: 0.7
+      opacity: 0
     })
 
     this.terrainPointCloud = new THREE.Points(this.terrainGeometry, this.terrainMaterial)
-    this.scene.add(this.terrainPointCloud)
+    //this.scene.add(this.terrainPointCloud)
     this.currentPointCount = 0
   }
 
@@ -2914,9 +2914,9 @@ class App {
     }
 
     // Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha// || 0 // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta// || 0 // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma// || 0 // -90..90 degrees
+    const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
 
     UI.updateField('Orientation_a', alphaDeg)
     UI.updateField('Orientation_b', betaDeg)
@@ -3080,7 +3080,7 @@ class App {
       }
 
       // Update camera orientation based on device orientation data, if enabled
-      if (Sensors.isOrientationEnabled) {
+      if (Sensors.isOrientationEnabled && Sensors.orientationData.alpha && Sensors.orientationData.beta && Sensors.orientationData.gamma) {
         this.updateCameraOrientation()
       }
 
