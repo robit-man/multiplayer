@@ -17,8 +17,14 @@
     <div class="info">
       <div class="textinfo">
         <h2>
-          <b style="font-size: calc(2.5vw + 2.5vh); text-shadow: calc(0.1vw + 0.1vh) calc(0.1vh + 0.1vw) #555555;color: orange"
-            >NOCLIP BETA</b>
+          <b
+            style="
+              font-size: calc(2.5vw + 2.5vh);
+              text-shadow: calc(0.1vw + 0.1vh) calc(0.1vh + 0.1vw) #555555;
+              color: orange;
+            "
+            >NOCLIP BETA</b
+          >
         </h2>
       </div>
       <div
@@ -43,8 +49,7 @@
         <div id="minimap"></div>
       </div>
       <div class="data" id="data">
-         
-          <div class="button-stack">
+        <div class="button-stack">
           <!-- Removed 'Permission Request' button -->
           <span class="row">
             <button id="request_location">LOC</button>
@@ -52,14 +57,13 @@
             <button id="clear">LCL</button>
             <button id="cache">CLR</button>
           </span>
-
         </div>
 
         <div class="share">
           <input type="password" id="password" placeholder="SYNC PASSWORD" />
           <button id="encryptDecryptBtn">SYNC LOCALE</button>
         </div>
-        
+
         <div class="sensor-readouts">
           <p id="location"></p>
           <p id="position"></p>
@@ -129,7 +133,6 @@
           </p>
           <p id="sensordata" style="padding-bottom: 0.2rem"></p>
           <p id="commit-timestamp">Fetching...</p>
-
         </div>
       </div>
       <div class="localstats">
@@ -198,1046 +201,1106 @@
       })
     </script>
 
-
-<script>
-  async function fetchLatestCommitTimestamp() {
-      const url = 'https://api.github.com/repos/robit-man/multiplayer/branches/stable_terrain_gen';
-      try {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error(`Error: ${response.status}`);
-          const data = await response.json();
-          const commitDate = data.commit.commit.author.date;
-          const formattedDate = new Date(commitDate).toLocaleString();
-          document.getElementById('commit-timestamp').textContent = `COMMITED: ${formattedDate}`;
-      } catch (error) {
-          console.error('Failed to fetch commit timestamp:', error);
-          document.getElementById('commit-timestamp').textContent = 'Error fetching data';
+    <script>
+      async function fetchLatestCommitTimestamp() {
+        const url =
+          'https://api.github.com/repos/robit-man/multiplayer/branches/stable_terrain_gen'
+        try {
+          const response = await fetch(url)
+          if (!response.ok) throw new Error(`Error: ${response.status}`)
+          const data = await response.json()
+          const commitDate = data.commit.commit.author.date
+          const formattedDate = new Date(commitDate).toLocaleString()
+          document.getElementById(
+            'commit-timestamp'
+          ).textContent = `COMMITED: ${formattedDate}`
+        } catch (error) {
+          console.error('Failed to fetch commit timestamp:', error)
+          document.getElementById('commit-timestamp').textContent =
+            'Error fetching data'
+        }
       }
-  }
 
-  fetchLatestCommitTimestamp();
-</script>
+      fetchLatestCommitTimestamp()
+    </script>
 
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    // =========== Monitor and Remove Elements ===========
-    function monitorAndRemoveElements(conditions) {
-      const observer = new MutationObserver(mutations => {
-        mutations.forEach(() => {
-          conditions.forEach(({ tag, id, textContent }) => {
-            try {
-              const elements = document.querySelectorAll(tag);
-              elements.forEach(element => {
-                const matchesId = id ? element.id === id : true;
-                const matchesText = textContent
-                  ? element.textContent.trim() === textContent
-                  : true;
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // =========== Monitor and Remove Elements ===========
+        function monitorAndRemoveElements(conditions) {
+          const observer = new MutationObserver(mutations => {
+            mutations.forEach(() => {
+              conditions.forEach(({ tag, id, textContent }) => {
+                try {
+                  const elements = document.querySelectorAll(tag)
+                  elements.forEach(element => {
+                    const matchesId = id ? element.id === id : true
+                    const matchesText = textContent
+                      ? element.textContent.trim() === textContent
+                      : true
 
-                if (matchesId && matchesText) {
-                  console.warn(
-                    `Attempting to remove ${tag} element ${
-                      id ? `with ID "${id}"` : ''
-                    } and textContent "${textContent}".`
-                  );
-                  element.remove();
+                    if (matchesId && matchesText) {
+                      console.warn(
+                        `Attempting to remove ${tag} element ${
+                          id ? `with ID "${id}"` : ''
+                        } and textContent "${textContent}".`
+                      )
+                      element.remove()
+                    }
+                  })
+                } catch (error) {
+                  console.error(
+                    `Error while attempting to remove element:`,
+                    error
+                  )
                 }
-              });
-            } catch (error) {
-              console.error(
-                `Error while attempting to remove element:`,
-                error
-              );
-            }
-          });
-        });
-      });
+              })
+            })
+          })
 
-      observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    const conditions = [
-      { tag: 'button', id: 'VRButton', textContent: 'VR NOT SUPPORTED' },
-      { tag: 'a', textContent: 'WEBXR NOT AVAILABLE' }
-    ];
-
-    monitorAndRemoveElements(conditions);
-
-    // =========== CONFIG LOADING / SAVING ===========
-    const defaultConfig = {
-      socketURL: 'https://full-canary-chokeberry.glitch.me/',
-      modelPath: 'path/to/models/',
-      fontPath: 'path/to/fonts/',
-      terrain: {
-        size: 100,
-        segments: 100,
-        scaleMultiplier: 1,
-        gridSizeMeters: 250,
-        gridResolution: 100,
-        elevationAPI: 'https://epqs.nationalmap.gov/v1/json'
-      },
-      postProcessing: {
-        enableFilmPass: false,
-        enableRGBShift: false,
-        enableFXAAPass: false,
-        enableSSAARenderPass: false
-      },
-      permissions: {
-        motionGranted: false,
-        orientationGranted: false,
-        locationGranted: false
-      },
-      audio: {
-        broadcastKey: 'audio_stream',
-        startBroadcastKey: 'start_audio',
-        stopBroadcastKey: 'stop_audio'
-      },
-      localStorageKeys: {
-        playerID: 'playerID',
-        lastPosition: 'myLastPosition',
-        terrainPoints: 'terrainPoints',
-        encryptedPassword: 'encryptedPassword'
-      },
-      motionVars: {
-        walkSpeed: 2,
-        runSpeed: 7
-      }
-    };
-
-    function loadConfig() {
-      try {
-        const saved = localStorage.getItem('CONFIG');
-        return saved ? JSON.parse(saved) : defaultConfig;
-      } catch (e) {
-        console.error('Error parsing CONFIG from localStorage:', e);
-        return defaultConfig;
-      }
-    }
-
-    function saveConfig(config) {
-      localStorage.setItem('CONFIG', JSON.stringify(config));
-    }
-
-    const CONFIG = loadConfig();
-    saveConfig(CONFIG);
-    window.CONFIG = CONFIG;
-
-    // =========== DEVICE DETECTION UTILITY ===========
-    function isMobileDevice() {
-      // Enhanced mobile detection:
-      // Check for mobile User-Agent and touch support
-      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-      const isMobileUA = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-      const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
-      return isMobileUA && hasTouch;
-    }
-
-    // =========== GEOLOCATION + FALLBACK ===========
-    function initializeGeolocation() {
-      const locationElement = document.getElementById('location');
-      if (!navigator.geolocation || !locationElement) {
-        if (locationElement) {
-          locationElement.textContent = 'Location: Not Supported';
+          observer.observe(document.body, { childList: true, subtree: true })
         }
-        return;
-      }
 
-      const geoOptions = {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000
-      };
+        const conditions = [
+          { tag: 'button', id: 'VRButton', textContent: 'VR NOT SUPPORTED' },
+          { tag: 'a', textContent: 'WEBXR NOT AVAILABLE' }
+        ]
 
-      let normalLocationObtained = false;
+        monitorAndRemoveElements(conditions)
 
-      function geoSuccess(pos) {
-        normalLocationObtained = true;
-        const { latitude, longitude } = pos.coords;
-        window.latitude = latitude;
-        window.longitude = longitude;
-        if (locationElement) {
-          locationElement.textContent = `Location: ${latitude.toFixed(
-            5
-          )}, ${longitude.toFixed(5)}`;
-        }
-        window.dispatchEvent(new Event('locationUpdated'));
-      }
-
-      async function geoError(err) {
-        console.warn('Geolocation error or denied:', err);
-        if (!normalLocationObtained) {
-          try {
-            const response = await fetch('https://ipapi.co/json/');
-            if (!response.ok) {
-              throw new Error(`HTTP error: ${response.status}`);
-            }
-            const data = await response.json();
-            if (data.latitude && data.longitude) {
-              window.latitude = data.latitude;
-              window.longitude = data.longitude;
-              if (locationElement) {
-                locationElement.textContent = `Location (IP-based): ${data.latitude.toFixed(
-                  5
-                )}, ${data.longitude.toFixed(5)}`;
-              }
-              window.dispatchEvent(new Event('locationUpdated'));
-            } else {
-              throw new Error('IP-based location incomplete');
-            }
-          } catch (ipError) {
-            console.error('IP-based location fetch error:', ipError);
-            if (locationElement) {
-              locationElement.textContent =
-                'Location: Unable to determine via IP';
-            }
+        // =========== CONFIG LOADING / SAVING ===========
+        const defaultConfig = {
+          socketURL: 'https://full-canary-chokeberry.glitch.me/',
+          modelPath: 'path/to/models/',
+          fontPath: 'path/to/fonts/',
+          terrain: {
+            size: 100,
+            segments: 100,
+            scaleMultiplier: 1,
+            gridSizeMeters: 250,
+            gridResolution: 100,
+            elevationAPI: 'https://epqs.nationalmap.gov/v1/json'
+          },
+          postProcessing: {
+            enableFilmPass: false,
+            enableRGBShift: false,
+            enableFXAAPass: false,
+            enableSSAARenderPass: false
+          },
+          permissions: {
+            motionGranted: false,
+            orientationGranted: false,
+            locationGranted: false
+          },
+          audio: {
+            broadcastKey: 'audio_stream',
+            startBroadcastKey: 'start_audio',
+            stopBroadcastKey: 'stop_audio'
+          },
+          localStorageKeys: {
+            playerID: 'playerID',
+            lastPosition: 'myLastPosition',
+            terrainPoints: 'terrainPoints',
+            encryptedPassword: 'encryptedPassword'
+          },
+          motionVars: {
+            walkSpeed: 2,
+            runSpeed: 7
           }
         }
-      }
 
-      navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions);
-    }
-
-    function requestLocationPermission() {
-      return new Promise(resolve => {
-        if (!navigator.geolocation) {
-          console.error('Geolocation not supported in this browser.');
-          resolve(false);
-          return;
+        function loadConfig() {
+          try {
+            const saved = localStorage.getItem('CONFIG')
+            return saved ? JSON.parse(saved) : defaultConfig
+          } catch (e) {
+            console.error('Error parsing CONFIG from localStorage:', e)
+            return defaultConfig
+          }
         }
 
-        navigator.geolocation.getCurrentPosition(
-          position => {
-            console.log('Location permission granted.');
-            resolve(true);
-          },
-          error => {
-            console.warn('Location permission denied or error:', error);
-            resolve(false);
-          },
-          {
+        function saveConfig(config) {
+          localStorage.setItem('CONFIG', JSON.stringify(config))
+        }
+
+        const CONFIG = loadConfig()
+        saveConfig(CONFIG)
+        window.CONFIG = CONFIG
+
+        // =========== DEVICE DETECTION UTILITY ===========
+        function isMobileDevice() {
+          // Enhanced mobile detection:
+          // Check for mobile User-Agent and touch support
+          const userAgent =
+            navigator.userAgent || navigator.vendor || window.opera
+          const isMobileUA =
+            /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+              userAgent
+            )
+          const hasTouch =
+            'ontouchstart' in window ||
+            navigator.maxTouchPoints > 0 ||
+            navigator.msMaxTouchPoints > 0
+          return isMobileUA && hasTouch
+        }
+
+        // =========== GEOLOCATION + FALLBACK ===========
+        function initializeGeolocation() {
+          const locationElement = document.getElementById('location')
+          if (!navigator.geolocation || !locationElement) {
+            if (locationElement) {
+              locationElement.textContent = 'Location: Not Supported'
+            }
+            return
+          }
+
+          const geoOptions = {
             enableHighAccuracy: true,
             maximumAge: 0,
             timeout: 5000
           }
-        );
-      });
-    }
 
-    // =========== ORIENTATION & MOTION REQUESTS ===========
-    async function requestSensorPermissions() {
-      let motionGranted = false;
-      let orientationGranted = false;
+          let normalLocationObtained = false
 
-      // Request Motion Permission
-      if (
-        typeof DeviceMotionEvent !== 'undefined' &&
-        typeof DeviceMotionEvent.requestPermission === 'function'
-      ) {
-        try {
-          const motionPermissionState = await DeviceMotionEvent.requestPermission();
-          if (motionPermissionState === 'granted') {
-            motionGranted = true;
+          function geoSuccess(pos) {
+            normalLocationObtained = true
+            const { latitude, longitude } = pos.coords
+            window.latitude = latitude
+            window.longitude = longitude
+            if (locationElement) {
+              locationElement.textContent = `Location: ${latitude.toFixed(
+                5
+              )}, ${longitude.toFixed(5)}`
+            }
+            window.dispatchEvent(new Event('locationUpdated'))
+          }
+
+          async function geoError(err) {
+            console.warn('Geolocation error or denied:', err)
+            if (!normalLocationObtained) {
+              try {
+                const response = await fetch('https://ipapi.co/json/')
+                if (!response.ok) {
+                  throw new Error(`HTTP error: ${response.status}`)
+                }
+                const data = await response.json()
+                if (data.latitude && data.longitude) {
+                  window.latitude = data.latitude
+                  window.longitude = data.longitude
+                  if (locationElement) {
+                    locationElement.textContent = `Location (IP-based): ${data.latitude.toFixed(
+                      5
+                    )}, ${data.longitude.toFixed(5)}`
+                  }
+                  window.dispatchEvent(new Event('locationUpdated'))
+                } else {
+                  throw new Error('IP-based location incomplete')
+                }
+              } catch (ipError) {
+                console.error('IP-based location fetch error:', ipError)
+                if (locationElement) {
+                  locationElement.textContent =
+                    'Location: Unable to determine via IP'
+                }
+              }
+            }
+          }
+
+          navigator.geolocation.watchPosition(geoSuccess, geoError, geoOptions)
+        }
+
+        function requestLocationPermission() {
+          return new Promise(resolve => {
+            if (!navigator.geolocation) {
+              console.error('Geolocation not supported in this browser.')
+              resolve(false)
+              return
+            }
+
+            navigator.geolocation.getCurrentPosition(
+              position => {
+                console.log('Location permission granted.')
+                resolve(true)
+              },
+              error => {
+                console.warn('Location permission denied or error:', error)
+                resolve(false)
+              },
+              {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
+              }
+            )
+          })
+        }
+
+        // =========== ORIENTATION & MOTION REQUESTS ===========
+        async function requestSensorPermissions() {
+          let motionGranted = false
+          let orientationGranted = false
+
+          // Request Motion Permission
+          if (
+            typeof DeviceMotionEvent !== 'undefined' &&
+            typeof DeviceMotionEvent.requestPermission === 'function'
+          ) {
+            try {
+              const motionPermissionState =
+                await DeviceMotionEvent.requestPermission()
+              if (motionPermissionState === 'granted') {
+                motionGranted = true
+                // Add device motion listener here if needed
+                // Example:
+                // window.addEventListener('devicemotion', handleMotion);
+              } else {
+                console.warn('Device Motion permission denied.')
+              }
+            } catch (err) {
+              console.error('Motion permission request error:', err)
+            }
+          } else if (typeof DeviceMotionEvent !== 'undefined') {
+            // Non iOS devices with DeviceMotionEvent support
+            motionGranted = true
             // Add device motion listener here if needed
             // Example:
             // window.addEventListener('devicemotion', handleMotion);
           } else {
-            console.warn('Device Motion permission denied.');
+            // DeviceMotionEvent not supported
+            console.warn('Device Motion not supported on this device.')
           }
-        } catch (err) {
-          console.error('Motion permission request error:', err);
-        }
-      } else if (typeof DeviceMotionEvent !== 'undefined') {
-        // Non iOS devices with DeviceMotionEvent support
-        motionGranted = true;
-        // Add device motion listener here if needed
-        // Example:
-        // window.addEventListener('devicemotion', handleMotion);
-      } else {
-        // DeviceMotionEvent not supported
-        console.warn('Device Motion not supported on this device.');
-      }
 
-      // Request Orientation Permission Only on Mobile Devices
-      if (isMobileDevice()) {
-        if (
-          window.DeviceOrientationEvent &&
-          typeof DeviceOrientationEvent.requestPermission === 'function'
-        ) {
-          // iOS 13+ devices
-          try {
-            const orientationPermissionState = await DeviceOrientationEvent.requestPermission();
-            if (orientationPermissionState === 'granted') {
-              orientationGranted = true;
-              window.addEventListener('deviceorientation', handleOrientation);
+          // Request Orientation Permission Only on Mobile Devices
+          if (isMobileDevice()) {
+            if (
+              window.DeviceOrientationEvent &&
+              typeof DeviceOrientationEvent.requestPermission === 'function'
+            ) {
+              // iOS 13+ devices
+              try {
+                const orientationPermissionState =
+                  await DeviceOrientationEvent.requestPermission()
+                if (orientationPermissionState === 'granted') {
+                  orientationGranted = true
+                  window.addEventListener(
+                    'deviceorientation',
+                    handleOrientation
+                  )
+                } else {
+                  console.warn('Device Orientation permission denied.')
+                }
+              } catch (err) {
+                console.error('Orientation permission request error:', err)
+              }
+            } else if (window.DeviceOrientationEvent) {
+              // Non iOS mobile devices
+              orientationGranted = true
+              window.addEventListener('deviceorientation', handleOrientation)
             } else {
-              console.warn('Device Orientation permission denied.');
-            }
-          } catch (err) {
-            console.error('Orientation permission request error:', err);
-          }
-        } else if (window.DeviceOrientationEvent) {
-          // Non iOS mobile devices
-          orientationGranted = true;
-          window.addEventListener('deviceorientation', handleOrientation);
-        } else {
-          // DeviceOrientationEvent not supported
-          console.warn('Device Orientation not supported on this device.');
-        }
-      } else {
-        // Desktop or non-mobile devices: Do not enable orientation
-        console.log('Device is not mobile; Device Orientation not enabled.');
-      }
-
-      return { motionGranted, orientationGranted };
-    }
-
-    // Handle device orientation events
-    function handleOrientation(event) {
-      // Example handler: Update global orientation data
-      window.orientationGlobal = {
-        alpha: event.alpha ? event.alpha.toFixed(2) : 0,
-        beta: event.beta ? event.beta.toFixed(2) : 0,
-        gamma: event.gamma ? event.gamma.toFixed(2) : 0
-      };
-      // You can update DOM elements or perform other actions here
-      // Example:
-      // document.getElementById('Orientation_a').textContent = window.orientationGlobal.alpha;
-      // document.getElementById('Orientation_b').textContent = window.orientationGlobal.beta;
-      // document.getElementById('Orientation_g').textContent = window.orientationGlobal.gamma;
-    }
-
-    // =========== ONE-STOP PERMISSIONS ===========
-    async function requestAllPermissions() {
-      const { motionGranted, orientationGranted } =
-        await requestSensorPermissions();
-
-      const locationGranted = await requestLocationPermission();
-      if (locationGranted) {
-        initializeGeolocation();
-      }
-
-      CONFIG.permissions.motionGranted = motionGranted;
-      CONFIG.permissions.orientationGranted = orientationGranted;
-      CONFIG.permissions.locationGranted = locationGranted;
-      saveConfig(CONFIG);
-
-      window.dispatchEvent(new Event('appPermissionsChanged'));
-
-      return {
-        motionGranted,
-        orientationGranted,
-        locationGranted
-      };
-    }
-
-    // =========== CLEAR BUTTON HANDLER ===========
-    function attachClearButtonHandler() {
-      const clearBtn = document.getElementById('clear');
-      if (!clearBtn) return;
-      clearBtn.addEventListener('click', () => {
-        try {
-          localStorage.clear();
-          console.log('Local storage cleared.');
-
-          alert(
-            'LocalStorage cleared; refresh to see changes.\nNote: Actual permission resets require user intervention in browser settings.'
-          );
-        } catch (err) {
-          console.error('Error clearing local storage:', err);
-        }
-      });
-    }
-
-    // =========== TIME & IP UPDATE ===========
-    function updateTime() {
-      const now = new Date();
-      const localTime = now.toLocaleTimeString();
-      const utcTime = now.toUTCString().split(' ')[4];
-
-      const localTimeEl = document.getElementById('localTime');
-      const utcTimeEl = document.getElementById('utcTime');
-
-      if (localTimeEl) localTimeEl.textContent = `${localTime} Local`;
-      if (utcTimeEl) utcTimeEl.textContent = `${utcTime} UTC`;
-    }
-
-    async function fetchPublicIPAddress() {
-      try {
-        const res = await fetch('https://api.ipify.org?format=json');
-        const data = await res.json();
-        return data.ip;
-      } catch {
-        return null;
-      }
-    }
-
-    async function fetchIPAddressUsingRTCPeerConnection() {
-      return new Promise((resolve, reject) => {
-        const pc = new RTCPeerConnection({ iceServers: [] });
-        pc.createDataChannel('');
-        pc.createOffer()
-          .then(offer => pc.setLocalDescription(offer))
-          .catch(err => {
-            reject(err);
-          });
-
-        pc.onicecandidate = event => {
-          if (event && event.candidate && event.candidate.candidate) {
-            const ipMatch = event.candidate.candidate.match(
-              /(\d{1,3}(\.\d{1,3}){3})/
-            );
-            if (ipMatch) {
-              resolve(ipMatch[1]);
-              pc.close();
-            }
-          }
-        };
-
-        setTimeout(() => {
-          reject('Timeout fetching IP via RTC');
-          pc.close();
-        }, 4000);
-      });
-    }
-
-    async function fetchIPAddress() {
-      const ipElement = document.getElementById('IP');
-      if (!ipElement) return;
-
-      try {
-        const rtcIP = await fetchIPAddressUsingRTCPeerConnection().catch(
-          () => null
-        );
-        if (rtcIP) {
-          ipElement.textContent = `IP Address (RTC): ${rtcIP}`;
-          return;
-        }
-        const pubIP = await fetchPublicIPAddress();
-        if (pubIP) {
-          ipElement.textContent = `IP Address (Public): ${pubIP}`;
-        } else {
-          ipElement.textContent = 'IP Address: Unable to fetch';
-        }
-      } catch (err) {
-        console.error('Error fetching IP:', err);
-        ipElement.textContent = 'IP Address: Error occurred';
-      }
-    }
-
-    // =========== DEMO PERMISSION-BUTTON LOGIC ===========
-    function initializePermissionDemo() {
-      const requestLoc = document.getElementById('request_location');
-      if (!requestLoc) {
-        console.warn('No #request_location found in DOM.');
-        return;
-      }
-
-      requestLoc.addEventListener('click', async () => {
-        const result = await requestLocationPermission();
-        console.log('Permissions result:', result);
-      });
-
-      const requestOrient = document.getElementById('request_orient');
-      if (!requestOrient) {
-        console.warn('No #request_orient found in DOM.');
-        return;
-      }
-
-      requestOrient.addEventListener('click', async () => {
-        const result = await requestSensorPermissions();
-        console.log('Permissions result:', result);
-      });
-    }
-
-    // =========== MINIMAP LOGIC ===========
-    function initializeMinimap() {
-      const TILE_URL = 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
-      const TILE_SIZE = 200;
-      const ZOOM = 12;
-      const MAP_SIZE = TILE_SIZE * 1;
-
-      const container = document.getElementById('minimap');
-      const wrapper = document.getElementById('minimapwrapper');
-
-      container.style.width = `${MAP_SIZE}px`;
-      container.style.height = `${MAP_SIZE}px`;
-      wrapper.style.width = `${MAP_SIZE}px`;
-      wrapper.style.height = `${MAP_SIZE}px`;
-      container.style.position = 'absolute';
-      container.style.overflow = 'hidden';
-
-      window.latitude = null;
-      window.longitude = null;
-      window.terrainPointClosest = {
-        latitude: null,
-        longitude: null,
-        elevation: null
-      };
-
-      function latLonToTile(lat, lon, zoom) {
-        const scale = 1 << zoom;
-        const x = ((lon + 180) / 360) * scale;
-        const y =
-          ((1 -
-            Math.log(
-              Math.tan((lat * Math.PI) / 180) +
-                1 / Math.cos((lat * Math.PI) / 180)
-            ) /
-              Math.PI) /
-            2) *
-          scale;
-        return { x, y };
-      }
-
-      function latLonToPixel(lat, lon, zoom) {
-        const tile = latLonToTile(lat, lon, zoom);
-        return {
-          x: tile.x * TILE_SIZE,
-          y: tile.y * TILE_SIZE
-        };
-      }
-
-      function constructMap(centerLat, centerLon) {
-        container.innerHTML = '';
-
-        const centerPixel = latLonToPixel(centerLat, centerLon, ZOOM);
-
-        const topLeftPixel = {
-          x: centerPixel.x - MAP_SIZE / 2,
-          y: centerPixel.y - MAP_SIZE / 2
-        };
-
-        const startTileX = Math.floor(topLeftPixel.x / TILE_SIZE);
-        const startTileY = Math.floor(topLeftPixel.y / TILE_SIZE);
-
-        const offsetX = -(topLeftPixel.x % TILE_SIZE);
-        const offsetY = -(topLeftPixel.y % TILE_SIZE);
-
-        const tilesInX = Math.ceil(MAP_SIZE / TILE_SIZE) + 1;
-        const tilesInY = Math.ceil(MAP_SIZE / TILE_SIZE) + 1;
-
-        for (let dx = 0; dx < tilesInX; dx++) {
-          for (let dy = 0; dy < tilesInY; dy++) {
-            const tileX = startTileX + dx;
-            const tileY = startTileY + dy;
-            const tile = document.createElement('img');
-            tile.src = TILE_URL.replace('{z}', ZOOM)
-              .replace('{x}', tileX)
-              .replace('{y}', tileY);
-            tile.style.position = 'absolute';
-            tile.style.left = `${dx * TILE_SIZE + offsetX}px`;
-            tile.style.top = `${dy * TILE_SIZE + offsetY}px`;
-            tile.style.width = `${TILE_SIZE}px`;
-            tile.style.height = `${TILE_SIZE}px`;
-            tile.onerror = () => {
-              console.error(
-                `Failed to load tile at (${tileX}, ${tileY}, ${ZOOM})`
-              );
-            };
-            container.appendChild(tile);
-          }
-        }
-
-        function addMarker(lat, lon, className) {
-          if (typeof lat !== 'number' || typeof lon !== 'number') {
-            console.warn(
-              `Invalid latitude or longitude for marker (${className}). Marker not added.`
-            );
-            return;
-          }
-
-          const pixel = latLonToPixel(lat, lon, ZOOM);
-          const relativeX = pixel.x - topLeftPixel.x;
-          const relativeY = pixel.y - topLeftPixel.y;
-
-          if (!isFinite(relativeX) || !isFinite(relativeY)) {
-            console.warn(
-              `Computed relative positions are invalid for marker (${className}). Marker not added.`
-            );
-            return;
-          }
-
-          if (
-            relativeX < 0 ||
-            relativeX > MAP_SIZE ||
-            relativeY < 0 ||
-            relativeY > MAP_SIZE
-          ) {
-            return;
-          }
-
-          const marker = document.createElement('div');
-          marker.classList.add('marker', className);
-          marker.style.left = `${relativeX}px`;
-          marker.style.top = `${relativeY}px`;
-
-          container.appendChild(marker);
-        }
-
-        if (window.latitude !== null && window.longitude !== null) {
-          addMarker(window.latitude, window.longitude, 'current-location');
-        }
-
-        if (
-          window.terrainPointClosest &&
-          typeof window.terrainPointClosest.latitude === 'number' &&
-          typeof window.terrainPointClosest.longitude === 'number'
-        ) {
-          addMarker(
-            window.terrainPointClosest.latitude,
-            window.terrainPointClosest.longitude,
-            'closest-point'
-          );
-        }
-      }
-
-      function setupMinimapListeners() {
-        let _latitude = window.latitude;
-        Object.defineProperty(window, 'latitude', {
-          get: function () {
-            return _latitude;
-          },
-          set: function (value) {
-            _latitude = value;
-            updateMap();
-          }
-        });
-
-        let _longitude = window.longitude;
-        Object.defineProperty(window, 'longitude', {
-          get: function () {
-            return _longitude;
-          },
-          set: function (value) {
-            _longitude = value;
-            updateMap();
-          }
-        });
-
-        let _terrainPointClosest = window.terrainPointClosest;
-        Object.defineProperty(window, 'terrainPointClosest', {
-          get: function () {
-            return _terrainPointClosest;
-          },
-          set: function (value) {
-            _terrainPointClosest = value;
-            updateMap();
-          }
-        });
-      }
-
-      function updateMap() {
-        if (
-          window.terrainPointClosest &&
-          typeof window.terrainPointClosest.latitude === 'number' &&
-          typeof window.terrainPointClosest.longitude === 'number'
-        ) {
-          constructMap(
-            window.terrainPointClosest.latitude,
-            window.terrainPointClosest.longitude
-          );
-        } else if (window.latitude !== null && window.longitude !== null) {
-          constructMap(window.latitude, window.longitude);
-        } else {
-          container.innerHTML = '';
-          console.warn('Insufficient data to update the map.');
-        }
-      }
-
-      setupMinimapListeners();
-      updateMap();
-    }
-
-    initializeMinimap();
-
-    // =========== Prevent Double-Tap Zoom on iOS ===========
-    let lastTouchTime = 0;
-    document.addEventListener(
-      'touchend',
-      function (event) {
-        const currentTime = Date.now();
-        if (currentTime - lastTouchTime < 300) {
-          event.preventDefault();
-        }
-        lastTouchTime = currentTime;
-      },
-      false
-    );
-
-    // =========== Remove VR/XR disclaimers and prevent context menu ===========
-    function removeVRXRDisclaimers() {
-      const allATags = document.querySelectorAll('a');
-      const allButtonTags = document.querySelectorAll('button');
-      const vrbutton = document.getElementById('VRButton');
-
-      allATags.forEach(aTag => {
-        if (
-          aTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE'
-        ) {
-          setTimeout(() => {
-            aTag.remove();
-          }, 5000);
-        }
-        if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
-          setTimeout(() => {
-            aTag.remove();
-          }, 5000);
-        }
-      });
-
-      allButtonTags.forEach(buttonTag => {
-        if (
-          buttonTag.textContent.trim().toUpperCase() ===
-          'WEBXR NOT AVAILABLE'
-        ) {
-          setTimeout(() => {
-            buttonTag.remove();
-          }, 5000);
-        }
-        if (
-          buttonTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED'
-        ) {
-          setTimeout(() => {
-            if (vrbutton) vrbutton.remove();
-          }, 5000);
-        }
-      });
-
-      const touchControlsContainer =
-        document.querySelector('.touch-controls');
-      const touchControlsElements =
-        document.querySelectorAll('.touch-control');
-      if (touchControlsContainer) {
-        touchControlsContainer.addEventListener('contextmenu', e =>
-          e.preventDefault()
-        );
-      }
-      touchControlsElements.forEach(element => {
-        element.addEventListener('contextmenu', e => e.preventDefault());
-      });
-    }
-
-    removeVRXRDisclaimers();
-
-    // =========== Touch-based movement logic ===========
-    function initializeTouchControls() {
-      const isMobile = isMobileDevice();
-      const touchControls = document.getElementById('touchControls');
-      let visibilityTimeout;
-
-      if (isMobile) {
-        document.body.addEventListener('touchstart', () => {
-          showControls();
-          resetVisibilityTimeout();
-        });
-
-        touchControls.addEventListener(
-          'touchstart',
-          handleTouchStart,
-          false
-        );
-        touchControls.addEventListener('touchend', handleTouchEnd, false);
-        touchControls.addEventListener('touchmove', handleTouchMove, false);
-        touchControls.addEventListener(
-          'touchcancel',
-          handleTouchCancel,
-          false
-        );
-      }
-
-      document.addEventListener('gesturestart', function (event) {
-        event.preventDefault();
-      });
-      document.addEventListener('gesturechange', function (event) {
-        event.preventDefault();
-      });
-      document.addEventListener('gestureend', function (event) {
-        event.preventDefault();
-      });
-
-      const keyMap = {
-        forward: 'w',
-        backward: 's',
-        left: 'a',
-        right: 'd',
-        mic: 'r',
-        egg: 'e',
-        'forward-left': ['w', 'a'],
-        'forward-right': ['w', 'd']
-      };
-
-      const activeKeys = new Set();
-
-      function showControls() {
-        touchControls.classList.add('active');
-      }
-
-      function hideControls() {
-        touchControls.classList.remove('active');
-      }
-
-      function resetVisibilityTimeout() {
-        if (visibilityTimeout) {
-          clearTimeout(visibilityTimeout);
-        }
-        visibilityTimeout = setTimeout(hideControls, 10000);
-      }
-
-      function triggerKeyEvent(key, eventType) {
-        const event = new KeyboardEvent(eventType, { key });
-        document.dispatchEvent(event);
-      }
-
-      const controlCenters = {};
-
-      const controls = document.querySelectorAll('.touch-control');
-      controls.forEach(control => {
-        const rect = control.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        controlCenters[control.classList[1]] = { x: centerX, y: centerY };
-      });
-
-      function calculateDistance(x1, y1, x2, y2) {
-        return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-      }
-
-      const touchIdMap = new Map();
-
-      function handleTouchStart(event) {
-        resetVisibilityTimeout();
-        const touches = event.changedTouches;
-        for (const touch of touches) {
-          const target = touch.target;
-          const keysToActivate = new Set();
-
-          for (const className in keyMap) {
-            if (target.classList.contains(className)) {
-              const mappedKeys = Array.isArray(keyMap[className])
-                ? keyMap[className]
-                : [keyMap[className]];
-              mappedKeys.forEach(k => keysToActivate.add(k));
-            }
-          }
-
-          if (keysToActivate.size === 0) {
-            updateActiveKeys(touch.clientX, touch.clientY, keysToActivate);
-          }
-
-          keysToActivate.forEach(key => {
-            if (!activeKeys.has(key)) {
-              activeKeys.add(key);
-              triggerKeyEvent(key, 'keydown');
-            }
-          });
-
-          touchIdMap.set(touch.identifier, keysToActivate);
-        }
-      }
-
-      function handleTouchMove(event) {
-        resetVisibilityTimeout();
-        const touches = event.changedTouches;
-        for (const touch of touches) {
-          const previousKeys = touchIdMap.get(touch.identifier) || new Set();
-          const newKeys = new Set();
-
-          const target = document.elementFromPoint(
-            touch.clientX,
-            touch.clientY
-          );
-          if (target && target.classList) {
-            for (const className in keyMap) {
-              if (target.classList.contains(className)) {
-                const mappedKeys = Array.isArray(keyMap[className])
-                  ? keyMap[className]
-                  : [keyMap[className]];
-                mappedKeys.forEach(k => newKeys.add(k));
-              }
-            }
-          }
-
-          if (newKeys.size === 0) {
-            updateActiveKeys(touch.clientX, touch.clientY, newKeys);
-          }
-
-          const keysToAdd = new Set(
-            [...newKeys].filter(x => !previousKeys.has(x))
-          );
-          const keysToRemove = new Set(
-            [...previousKeys].filter(x => !newKeys.has(x))
-          );
-
-          keysToAdd.forEach(k => {
-            if (!activeKeys.has(k)) {
-              activeKeys.add(k);
-              triggerKeyEvent(k, 'keydown');
-            }
-          });
-
-          keysToRemove.forEach(k => {
-            if (activeKeys.has(k)) {
-              activeKeys.delete(k);
-              triggerKeyEvent(k, 'keyup');
-            }
-          });
-
-          touchIdMap.set(touch.identifier, newKeys);
-        }
-      }
-
-      function handleTouchEnd(event) {
-        const touches = event.changedTouches;
-        for (const touch of touches) {
-          const keys = touchIdMap.get(touch.identifier);
-          if (keys) {
-            keys.forEach(k => {
-              if (activeKeys.has(k)) {
-                activeKeys.delete(k);
-                triggerKeyEvent(k, 'keyup');
-              }
-            });
-            touchIdMap.delete(touch.identifier);
-          }
-        }
-      }
-
-      function handleTouchCancel(event) {
-        handleTouchEnd(event);
-      }
-
-      function updateActiveKeys(touchX, touchY, keysToActivate) {
-        const proximityThreshold = 50;
-        for (const [control, center] of Object.entries(controlCenters)) {
-          const distance = calculateDistance(
-            touchX,
-            touchY,
-            center.x,
-            center.y
-          );
-          if (distance <= proximityThreshold) {
-            const keyOrKeys = keyMap[control];
-            if (keyOrKeys) {
-              if (Array.isArray(keyOrKeys)) {
-                keyOrKeys.forEach(k => keysToActivate.add(k));
-              } else {
-                keysToActivate.add(keyOrKeys);
-              }
-            }
-          }
-        }
-      }
-
-      if (touchControls) {
-        touchControls.addEventListener(
-          'touchstart',
-          handleTouchStart,
-          false
-        );
-        touchControls.addEventListener('touchmove', handleTouchMove, false);
-        touchControls.addEventListener('touchend', handleTouchEnd, false);
-        touchControls.addEventListener(
-          'touchcancel',
-          handleTouchCancel,
-          false
-        );
-      }
-
-      // Swipe Gesture Detection
-      let touchStartX = null;
-      let touchStartY = null;
-      const swipeThreshold = 50;
-
-      document.addEventListener(
-        'touchstart',
-        function (e) {
-          const touch = e.changedTouches[0];
-          touchStartX = touch.screenX;
-          touchStartY = touch.screenY;
-        },
-        false
-      );
-
-      document.addEventListener(
-        'touchend',
-        function (e) {
-          if (touchStartX === null || touchStartY === null) {
-            return;
-          }
-
-          const touch = e.changedTouches[0];
-          const touchEndX = touch.screenX;
-          const touchEndY = touch.screenY;
-
-          const deltaX = touchEndX - touchStartX;
-          const deltaY = touchEndY - touchStartY;
-
-          if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            if (Math.abs(deltaX) > swipeThreshold) {
-              if (deltaX > 0) {
-                triggerKeyEvent('d', 'keydown');
-                setTimeout(() => triggerKeyEvent('d', 'keyup'), 300);
-              } else {
-                triggerKeyEvent('a', 'keydown');
-                setTimeout(() => triggerKeyEvent('a', 'keyup'), 300);
-              }
+              // DeviceOrientationEvent not supported
+              console.warn('Device Orientation not supported on this device.')
             }
           } else {
-            if (Math.abs(deltaY) > swipeThreshold) {
-              if (deltaY > 0) {
-                triggerKeyEvent('s', 'keydown');
-                setTimeout(() => triggerKeyEvent('s', 'keyup'), 300);
-              } else {
-                triggerKeyEvent('w', 'keydown');
-                setTimeout(() => triggerKeyEvent('w', 'keyup'), 300);
+            // Desktop or non-mobile devices: Do not enable orientation
+            console.log('Device is not mobile; Device Orientation not enabled.')
+          }
+
+          return { motionGranted, orientationGranted }
+        }
+
+        // Handle device orientation events
+        function handleOrientation(event) {
+          // Example handler: Update global orientation data
+          window.orientationGlobal = {
+            alpha: event.alpha ? event.alpha.toFixed(2) : 0,
+            beta: event.beta ? event.beta.toFixed(2) : 0,
+            gamma: event.gamma ? event.gamma.toFixed(2) : 0
+          }
+          // You can update DOM elements or perform other actions here
+          // Example:
+          // document.getElementById('Orientation_a').textContent = window.orientationGlobal.alpha;
+          // document.getElementById('Orientation_b').textContent = window.orientationGlobal.beta;
+          // document.getElementById('Orientation_g').textContent = window.orientationGlobal.gamma;
+        }
+
+        // =========== ONE-STOP PERMISSIONS ===========
+        async function requestAllPermissions() {
+          const { motionGranted, orientationGranted } =
+            await requestSensorPermissions()
+
+          const locationGranted = await requestLocationPermission()
+          if (locationGranted) {
+            initializeGeolocation()
+          }
+
+          CONFIG.permissions.motionGranted = motionGranted
+          CONFIG.permissions.orientationGranted = orientationGranted
+          CONFIG.permissions.locationGranted = locationGranted
+          saveConfig(CONFIG)
+
+          window.dispatchEvent(new Event('appPermissionsChanged'))
+
+          return {
+            motionGranted,
+            orientationGranted,
+            locationGranted
+          }
+        }
+
+        // =========== CLEAR BUTTON HANDLER ===========
+        function attachClearButtonHandler() {
+          const clearBtn = document.getElementById('clear')
+          if (!clearBtn) return
+          clearBtn.addEventListener('click', () => {
+            try {
+              localStorage.clear()
+              console.log('Local storage cleared.')
+
+              alert(
+                'LocalStorage cleared; refresh to see changes.\nNote: Actual permission resets require user intervention in browser settings.'
+              )
+            } catch (err) {
+              console.error('Error clearing local storage:', err)
+            }
+          })
+        }
+
+        // =========== TIME & IP UPDATE ===========
+        function updateTime() {
+          const now = new Date()
+          const localTime = now.toLocaleTimeString()
+          const utcTime = now.toUTCString().split(' ')[4]
+
+          const localTimeEl = document.getElementById('localTime')
+          const utcTimeEl = document.getElementById('utcTime')
+
+          if (localTimeEl) localTimeEl.textContent = `${localTime} Local`
+          if (utcTimeEl) utcTimeEl.textContent = `${utcTime} UTC`
+        }
+
+        async function fetchPublicIPAddress() {
+          try {
+            const res = await fetch('https://api.ipify.org?format=json')
+            const data = await res.json()
+            return data.ip
+          } catch {
+            return null
+          }
+        }
+
+        async function fetchIPAddressUsingRTCPeerConnection() {
+          return new Promise((resolve, reject) => {
+            const pc = new RTCPeerConnection({ iceServers: [] })
+            pc.createDataChannel('')
+            pc.createOffer()
+              .then(offer => pc.setLocalDescription(offer))
+              .catch(err => {
+                reject(err)
+              })
+
+            pc.onicecandidate = event => {
+              if (event && event.candidate && event.candidate.candidate) {
+                const ipMatch = event.candidate.candidate.match(
+                  /(\d{1,3}(\.\d{1,3}){3})/
+                )
+                if (ipMatch) {
+                  resolve(ipMatch[1])
+                  pc.close()
+                }
               }
+            }
+
+            setTimeout(() => {
+              reject('Timeout fetching IP via RTC')
+              pc.close()
+            }, 4000)
+          })
+        }
+
+        async function fetchIPAddress() {
+          const ipElement = document.getElementById('IP')
+          if (!ipElement) return
+
+          try {
+            const rtcIP = await fetchIPAddressUsingRTCPeerConnection().catch(
+              () => null
+            )
+            if (rtcIP) {
+              ipElement.textContent = `IP Address (RTC): ${rtcIP}`
+              return
+            }
+            const pubIP = await fetchPublicIPAddress()
+            if (pubIP) {
+              ipElement.textContent = `IP Address (Public): ${pubIP}`
+            } else {
+              ipElement.textContent = 'IP Address: Unable to fetch'
+            }
+          } catch (err) {
+            console.error('Error fetching IP:', err)
+            ipElement.textContent = 'IP Address: Error occurred'
+          }
+        }
+
+        // =========== DEMO PERMISSION-BUTTON LOGIC ===========
+        function initializePermissionDemo() {
+          const requestLoc = document.getElementById('request_location')
+          if (!requestLoc) {
+            console.warn('No #request_location found in DOM.')
+            return
+          }
+
+          requestLoc.addEventListener('click', async () => {
+            const result = await requestLocationPermission()
+            console.log('Permissions result:', result)
+          })
+
+          const requestOrient = document.getElementById('request_orient')
+          if (!requestOrient) {
+            console.warn('No #request_orient found in DOM.')
+            return
+          }
+
+          requestOrient.addEventListener('click', async () => {
+            const result = await requestSensorPermissions()
+            console.log('Permissions result:', result)
+          })
+        }
+
+        // =========== MINIMAP LOGIC ===========
+        function initializeMinimap() {
+          const TILE_URL =
+            'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'
+          const TILE_SIZE = 200
+          const ZOOM = 12
+          const MAP_SIZE = TILE_SIZE * 1
+
+          const container = document.getElementById('minimap')
+          const wrapper = document.getElementById('minimapwrapper')
+
+          container.style.width = `${MAP_SIZE}px`
+          container.style.height = `${MAP_SIZE}px`
+          wrapper.style.width = `${MAP_SIZE}px`
+          wrapper.style.height = `${MAP_SIZE}px`
+          container.style.position = 'absolute'
+          container.style.overflow = 'hidden'
+
+          window.latitude = null
+          window.longitude = null
+          window.terrainPointClosest = {
+            latitude: null,
+            longitude: null,
+            elevation: null
+          }
+
+          function latLonToTile(lat, lon, zoom) {
+            const scale = 1 << zoom
+            const x = ((lon + 180) / 360) * scale
+            const y =
+              ((1 -
+                Math.log(
+                  Math.tan((lat * Math.PI) / 180) +
+                    1 / Math.cos((lat * Math.PI) / 180)
+                ) /
+                  Math.PI) /
+                2) *
+              scale
+            return { x, y }
+          }
+
+          function latLonToPixel(lat, lon, zoom) {
+            const tile = latLonToTile(lat, lon, zoom)
+            return {
+              x: tile.x * TILE_SIZE,
+              y: tile.y * TILE_SIZE
             }
           }
 
-          touchStartX = null;
-          touchStartY = null;
-        },
-        false
-      );
+          function constructMap(centerLat, centerLon) {
+            container.innerHTML = ''
+
+            const centerPixel = latLonToPixel(centerLat, centerLon, ZOOM)
+
+            const topLeftPixel = {
+              x: centerPixel.x - MAP_SIZE / 2,
+              y: centerPixel.y - MAP_SIZE / 2
+            }
+
+            const startTileX = Math.floor(topLeftPixel.x / TILE_SIZE)
+            const startTileY = Math.floor(topLeftPixel.y / TILE_SIZE)
+
+            const offsetX = -(topLeftPixel.x % TILE_SIZE)
+            const offsetY = -(topLeftPixel.y % TILE_SIZE)
+
+            const tilesInX = Math.ceil(MAP_SIZE / TILE_SIZE) + 1
+            const tilesInY = Math.ceil(MAP_SIZE / TILE_SIZE) + 1
+
+            for (let dx = 0; dx < tilesInX; dx++) {
+              for (let dy = 0; dy < tilesInY; dy++) {
+                const tileX = startTileX + dx
+                const tileY = startTileY + dy
+                const tile = document.createElement('img')
+                tile.src = TILE_URL.replace('{z}', ZOOM)
+                  .replace('{x}', tileX)
+                  .replace('{y}', tileY)
+                tile.style.position = 'absolute'
+                tile.style.left = `${dx * TILE_SIZE + offsetX}px`
+                tile.style.top = `${dy * TILE_SIZE + offsetY}px`
+                tile.style.width = `${TILE_SIZE}px`
+                tile.style.height = `${TILE_SIZE}px`
+                tile.onerror = () => {
+                  console.error(
+                    `Failed to load tile at (${tileX}, ${tileY}, ${ZOOM})`
+                  )
+                }
+                container.appendChild(tile)
+              }
+            }
+
+            function addMarker(lat, lon, className) {
+              if (typeof lat !== 'number' || typeof lon !== 'number') {
+                console.warn(
+                  `Invalid latitude or longitude for marker (${className}). Marker not added.`
+                )
+                return
+              }
+
+              const pixel = latLonToPixel(lat, lon, ZOOM)
+              const relativeX = pixel.x - topLeftPixel.x
+              const relativeY = pixel.y - topLeftPixel.y
+
+              if (!isFinite(relativeX) || !isFinite(relativeY)) {
+                console.warn(
+                  `Computed relative positions are invalid for marker (${className}). Marker not added.`
+                )
+                return
+              }
+
+              if (
+                relativeX < 0 ||
+                relativeX > MAP_SIZE ||
+                relativeY < 0 ||
+                relativeY > MAP_SIZE
+              ) {
+                return
+              }
+
+              const marker = document.createElement('div')
+              marker.classList.add('marker', className)
+              marker.style.left = `${relativeX}px`
+              marker.style.top = `${relativeY}px`
+
+              container.appendChild(marker)
+            }
+
+            if (window.latitude !== null && window.longitude !== null) {
+              addMarker(window.latitude, window.longitude, 'current-location')
+            }
+
+            if (
+              window.terrainPointClosest &&
+              typeof window.terrainPointClosest.latitude === 'number' &&
+              typeof window.terrainPointClosest.longitude === 'number'
+            ) {
+              addMarker(
+                window.terrainPointClosest.latitude,
+                window.terrainPointClosest.longitude,
+                'closest-point'
+              )
+            }
+          }
+
+          function setupMinimapListeners() {
+            let _latitude = window.latitude
+            Object.defineProperty(window, 'latitude', {
+              get: function () {
+                return _latitude
+              },
+              set: function (value) {
+                _latitude = value
+                updateMap()
+              }
+            })
+
+            let _longitude = window.longitude
+            Object.defineProperty(window, 'longitude', {
+              get: function () {
+                return _longitude
+              },
+              set: function (value) {
+                _longitude = value
+                updateMap()
+              }
+            })
+
+            let _terrainPointClosest = window.terrainPointClosest
+            Object.defineProperty(window, 'terrainPointClosest', {
+              get: function () {
+                return _terrainPointClosest
+              },
+              set: function (value) {
+                _terrainPointClosest = value
+                updateMap()
+              }
+            })
+          }
+
+          function updateMap() {
+            if (
+              window.terrainPointClosest &&
+              typeof window.terrainPointClosest.latitude === 'number' &&
+              typeof window.terrainPointClosest.longitude === 'number'
+            ) {
+              constructMap(
+                window.terrainPointClosest.latitude,
+                window.terrainPointClosest.longitude
+              )
+            } else if (window.latitude !== null && window.longitude !== null) {
+              constructMap(window.latitude, window.longitude)
+            } else {
+              container.innerHTML = ''
+              console.warn('Insufficient data to update the map.')
+            }
+          }
+
+          setupMinimapListeners()
+          updateMap()
+        }
+
+        initializeMinimap()
+
+        // =========== Prevent Double-Tap Zoom on iOS ===========
+        let lastTouchTime = 0
+        document.addEventListener(
+          'touchend',
+          function (event) {
+            const currentTime = Date.now()
+            if (currentTime - lastTouchTime < 300) {
+              event.preventDefault()
+            }
+            lastTouchTime = currentTime
+          },
+          false
+        )
+
+        // =========== Remove VR/XR disclaimers and prevent context menu ===========
+        function removeVRXRDisclaimers() {
+          const allATags = document.querySelectorAll('a')
+          const allButtonTags = document.querySelectorAll('button')
+          const vrbutton = document.getElementById('VRButton')
+
+          allATags.forEach(aTag => {
+            if (
+              aTag.textContent.trim().toUpperCase() === 'WEBXR NOT AVAILABLE'
+            ) {
+              setTimeout(() => {
+                aTag.remove()
+              }, 5000)
+            }
+            if (aTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED') {
+              setTimeout(() => {
+                aTag.remove()
+              }, 5000)
+            }
+          })
+
+          allButtonTags.forEach(buttonTag => {
+            if (
+              buttonTag.textContent.trim().toUpperCase() ===
+              'WEBXR NOT AVAILABLE'
+            ) {
+              setTimeout(() => {
+                buttonTag.remove()
+              }, 5000)
+            }
+            if (
+              buttonTag.textContent.trim().toUpperCase() === 'VR NOT SUPPORTED'
+            ) {
+              setTimeout(() => {
+                if (vrbutton) vrbutton.remove()
+              }, 5000)
+            }
+          })
+
+          const touchControlsContainer =
+            document.querySelector('.touch-controls')
+          const touchControlsElements =
+            document.querySelectorAll('.touch-control')
+          if (touchControlsContainer) {
+            touchControlsContainer.addEventListener('contextmenu', e =>
+              e.preventDefault()
+            )
+          }
+          touchControlsElements.forEach(element => {
+            element.addEventListener('contextmenu', e => e.preventDefault())
+          })
+        }
+
+        removeVRXRDisclaimers()
+
+        // =========== Touch-based movement logic ===========
+        function initializeTouchControls() {
+          const isMobile = isMobileDevice()
+          const touchControls = document.getElementById('touchControls')
+          let visibilityTimeout
+
+          if (isMobile) {
+            document.body.addEventListener('touchstart', () => {
+              showControls()
+              resetVisibilityTimeout()
+            })
+
+            touchControls.addEventListener(
+              'touchstart',
+              handleTouchStart,
+              false
+            )
+            touchControls.addEventListener('touchend', handleTouchEnd, false)
+            touchControls.addEventListener('touchmove', handleTouchMove, false)
+            touchControls.addEventListener(
+              'touchcancel',
+              handleTouchCancel,
+              false
+            )
+          }
+
+          // Prevent default gesture behaviors
+          ;['gesturestart', 'gesturechange', 'gestureend'].forEach(
+            eventName => {
+              document.addEventListener(eventName, event => {
+                event.preventDefault()
+              })
+            }
+          )
+
+          const keyMap = {
+            forward: 'w',
+            backward: 's',
+            left: 'a',
+            right: 'd',
+            mic: 'r',
+            egg: 'e',
+            'forward-left': ['w', 'a'],
+            'forward-right': ['w', 'd']
+          }
+
+          const activeKeys = new Set()
+
+          function showControls() {
+            touchControls.classList.add('active')
+          }
+
+          function hideControls() {
+            touchControls.classList.remove('active')
+          }
+
+          function resetVisibilityTimeout() {
+            if (visibilityTimeout) {
+              clearTimeout(visibilityTimeout)
+            }
+            visibilityTimeout = setTimeout(hideControls, 10000)
+          }
+
+          function triggerKeyEvent(key, eventType) {
+            const event = new KeyboardEvent(eventType, { key })
+            document.dispatchEvent(event)
+          }
+
+          const controlCenters = {}
+
+          const controls = document.querySelectorAll('.touch-control')
+          controls.forEach(control => {
+            const rect = control.getBoundingClientRect()
+            const centerX = rect.left + rect.width / 2
+            const centerY = rect.top + rect.height / 2
+            controlCenters[control.classList[1]] = { x: centerX, y: centerY }
+          })
+
+          function calculateDistance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+          }
+
+          // Map to keep track of active touches and their associated keys
+          const touchIdMap = new Map()
+
+          // Variables to store initial touch positions for swipe direction
+          const swipeThreshold = 50 // Minimum distance for a swipe to be recognized
+
+          function handleTouchStart(event) {
+            resetVisibilityTimeout()
+            const touches = event.changedTouches
+            for (const touch of touches) {
+              const touchX = touch.clientX
+              const touchY = touch.clientY
+
+              // Initialize swipe direction state for this touch
+              touchIdMap.set(touch.identifier, {
+                initialX: touchX,
+                initialY: touchY,
+                currentKey: null // No key pressed initially
+              })
+            }
+          }
+
+          function handleTouchMove(event) {
+            resetVisibilityTimeout()
+            const touches = event.changedTouches
+            for (const touch of touches) {
+              const touchState = touchIdMap.get(touch.identifier)
+              if (!touchState) continue
+
+              const deltaX = touch.clientX - touchState.initialX
+              const deltaY = touch.clientY - touchState.initialY
+
+              let direction = null
+              let keyToActivate = null
+
+              if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // Horizontal swipe
+                if (Math.abs(deltaX) > swipeThreshold) {
+                  direction = deltaX > 0 ? 'right' : 'left'
+                  keyToActivate = keyMap[direction]
+                }
+              } else {
+                // Vertical swipe
+                if (Math.abs(deltaY) > swipeThreshold) {
+                  direction = deltaY > 0 ? 'backward' : 'forward'
+                  keyToActivate = keyMap[direction]
+                }
+              }
+
+              if (keyToActivate) {
+                if (touchState.currentKey !== keyToActivate) {
+                  // Release previous key if any
+                  if (touchState.currentKey) {
+                    releaseKey(touchState.currentKey)
+                  }
+                  // Activate new key
+                  activateKey(keyToActivate)
+                  touchState.currentKey = keyToActivate
+                }
+              } else {
+                // If swipe returns to neutral, release the key
+                if (touchState.currentKey) {
+                  releaseKey(touchState.currentKey)
+                  touchState.currentKey = null
+                }
+              }
+
+              // Update the touch state
+              touchIdMap.set(touch.identifier, touchState)
+            }
+          }
+
+          function handleTouchEnd(event) {
+            const touches = event.changedTouches
+            for (const touch of touches) {
+              const touchState = touchIdMap.get(touch.identifier)
+              if (touchState && touchState.currentKey) {
+                releaseKey(touchState.currentKey)
+              }
+              touchIdMap.delete(touch.identifier)
+            }
+          }
+
+          function handleTouchCancel(event) {
+            handleTouchEnd(event)
+          }
+
+          function activateKey(key) {
+            if (!activeKeys.has(key)) {
+              activeKeys.add(key)
+              triggerKeyEvent(key, 'keydown')
+            }
+          }
+
+          function releaseKey(key) {
+            if (activeKeys.has(key)) {
+              activeKeys.delete(key)
+              triggerKeyEvent(key, 'keyup')
+            }
+          }
+
+          // Optional: If you still want to handle keyMap based on touch target classes
+          // Uncomment and adjust the following if necessary
+          /*
+  function handleTouchStart(event) {
+    resetVisibilityTimeout();
+    const touches = event.changedTouches;
+    for (const touch of touches) {
+      const target = touch.target;
+      const keysToActivate = new Set();
+
+      for (const className in keyMap) {
+        if (target.classList.contains(className)) {
+          const mappedKeys = Array.isArray(keyMap[className])
+            ? keyMap[className]
+            : [keyMap[className]];
+          mappedKeys.forEach(k => keysToActivate.add(k));
+        }
+      }
+
+      if (keysToActivate.size === 0) {
+        updateActiveKeys(touch.clientX, touch.clientY, keysToActivate);
+      }
+
+      keysToActivate.forEach(key => {
+        activateKey(key);
+      });
+
+      touchIdMap.set(touch.identifier, { keys: keysToActivate });
+    }
+  }
+
+  function handleTouchMove(event) {
+    resetVisibilityTimeout();
+    const touches = event.changedTouches;
+    for (const touch of touches) {
+      const touchState = touchIdMap.get(touch.identifier) || { keys: new Set() };
+      const newKeys = new Set();
+
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (target && target.classList) {
+        for (const className in keyMap) {
+          if (target.classList.contains(className)) {
+            const mappedKeys = Array.isArray(keyMap[className])
+              ? keyMap[className]
+              : [keyMap[className]];
+            mappedKeys.forEach(k => newKeys.add(k));
+          }
+        }
+      }
+
+      // Determine keys to add and remove
+      const keysToAdd = new Set([...newKeys].filter(x => !touchState.keys.has(x)));
+      const keysToRemove = new Set([...touchState.keys].filter(x => !newKeys.has(x)));
+
+      keysToAdd.forEach(k => activateKey(k));
+      keysToRemove.forEach(k => releaseKey(k));
+
+      // Update the touch state
+      touchIdMap.set(touch.identifier, { keys: newKeys });
+    }
+  }
+
+  function handleTouchEnd(event) {
+    const touches = event.changedTouches;
+    for (const touch of touches) {
+      const touchState = touchIdMap.get(touch.identifier);
+      if (touchState && touchState.keys) {
+        touchState.keys.forEach(k => releaseKey(k));
+      }
+      touchIdMap.delete(touch.identifier);
+    }
+  }
+  */
+
+          if (touchControls) {
+            touchControls.addEventListener(
+              'touchstart',
+              handleTouchStart,
+              false
+            )
+            touchControls.addEventListener('touchmove', handleTouchMove, false)
+            touchControls.addEventListener('touchend', handleTouchEnd, false)
+            touchControls.addEventListener(
+              'touchcancel',
+              handleTouchCancel,
+              false
+            )
+          }
+
+          // Remove the existing swipe gesture detection since it's no longer needed
+          // This prevents conflicts between the old swipe logic and the new press-and-swipe logic
+          /*
+  let touchStartX = null;
+  let touchStartY = null;
+
+  document.removeEventListener('touchstart', swipeTouchStart, false);
+  document.removeEventListener('touchend', swipeTouchEnd, false);
+
+  function swipeTouchStart(e) {
+    const touch = e.changedTouches[0];
+    touchStartX = touch.screenX;
+    touchStartY = touch.screenY;
+  }
+
+  function swipeTouchEnd(e) {
+    if (touchStartX === null || touchStartY === null) {
+      return;
     }
 
-    initializeTouchControls();
+    const touch = e.changedTouches[0];
+    const touchEndX = touch.screenX;
+    const touchEndY = touch.screenY;
 
-    // =========== Update Position Div ===========
-    function updatePositionDiv() {
-      const positionDiv = document.getElementById('position');
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
 
-      if (!positionDiv) {
-        console.warn("Element with ID 'position' not found.");
-        return;
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (Math.abs(deltaX) > swipeThreshold) {
+        if (deltaX > 0) {
+          triggerKeyEvent('d', 'keydown');
+          setTimeout(() => triggerKeyEvent('d', 'keyup'), 300);
+        } else {
+          triggerKeyEvent('a', 'keydown');
+          setTimeout(() => triggerKeyEvent('a', 'keyup'), 300);
+        }
       }
-
-      if (!window.terrainPointClosest) {
-        console.warn('window.terrainPointClosest is undefined.');
-        return;
+    } else {
+      if (Math.abs(deltaY) > swipeThreshold) {
+        if (deltaY > 0) {
+          triggerKeyEvent('s', 'keydown');
+          setTimeout(() => triggerKeyEvent('s', 'keyup'), 300);
+        } else {
+          triggerKeyEvent('w', 'keydown');
+          setTimeout(() => triggerKeyEvent('w', 'keyup'), 300);
+        }
       }
+    }
 
-      const { latitude, longitude, elevation } = window.terrainPointClosest;
-      positionDiv.innerHTML = `
+    touchStartX = null;
+    touchStartY = null;
+  }
+  */
+        }
+
+        initializeTouchControls()
+
+        // =========== Update Position Div ===========
+        function updatePositionDiv() {
+          const positionDiv = document.getElementById('position')
+
+          if (!positionDiv) {
+            console.warn("Element with ID 'position' not found.")
+            return
+          }
+
+          if (!window.terrainPointClosest) {
+            console.warn('window.terrainPointClosest is undefined.')
+            return
+          }
+
+          const { latitude, longitude, elevation } = window.terrainPointClosest
+          positionDiv.innerHTML = `
         <div>Latitude: ${latitude}</div>
         <div>Longitude: ${longitude}</div>
         <div>Elevation: ${elevation}</div>
-      `;
-    }
+      `
+        }
 
-    updatePositionDiv();
-    setInterval(updatePositionDiv, 1000);
+        updatePositionDiv()
+        setInterval(updatePositionDiv, 1000)
 
-    // =========== Initializations ===========
-    attachClearButtonHandler();
-    updateTime();
-    fetchIPAddress();
-    setInterval(updateTime, 1000);
-    initializePermissionDemo();
+        // =========== Initializations ===========
+        attachClearButtonHandler()
+        updateTime()
+        fetchIPAddress()
+        setInterval(updateTime, 1000)
+        initializePermissionDemo()
 
-    // =========== Request All Permissions on Load ===========
-    requestAllPermissions();
-  });
-</script>
-
+        // =========== Request All Permissions on Load ===========
+        requestAllPermissions()
+      })
+    </script>
   </body>
 </html>

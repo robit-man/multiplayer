@@ -2953,7 +2953,7 @@ class App {
    */
 
   updateCameraOrientation() {
-    // 1. Pull orientation data from window.orientationGlobal if available
+    // Pull orientation data from window.orientationGlobal if available
     if (
       window.orientationGlobal &&
       typeof window.orientationGlobal === 'object'
@@ -2966,27 +2966,27 @@ class App {
         parseFloat(window.orientationGlobal.gamma) || 0; // -90..90 degrees
     }
   
-    // 2. Access orientation data directly from Sensors.orientationData
+    // Access orientation data directly from Sensors.orientationData
     const alphaDeg = Sensors.orientationData.alpha || 0; // 0..360 degrees
     const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
     const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
   
-    // 3. Fix decimal places for UI display
+    // Fix decimal places for UI display
     const alphaConstraint = alphaDeg.toFixed(2);
     const betaConstraint = betaDeg.toFixed(2);
     const gammaConstraint = gammaDeg.toFixed(2);
   
-    // 4. Update UI fields with orientation data
+    // Update UI fields with orientation data
     UI.updateField('Orientation_a', alphaConstraint);
     UI.updateField('Orientation_b', betaConstraint);
     UI.updateField('Orientation_g', gammaConstraint);
   
-    // 5. Optional: Replace alerts with console logs for debugging
+    // Optional: Replace alerts with console logs for debugging
     console.log(
       `Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`
     );
   
-    // 6. Check if compass data is available and accurate
+    // Check if compass data is available and accurate
     const hasCompass =
       Sensors.orientationData.webkitCompassHeading !== undefined &&
       Sensors.orientationData.webkitCompassAccuracy !== undefined &&
@@ -2995,28 +2995,28 @@ class App {
     let yawDeg;
   
     if (hasCompass) {
-      // 6.a. Use compass heading as yaw
+      // Use compass heading as yaw
       yawDeg = Sensors.orientationData.webkitCompassHeading;
       console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
     } else {
-      // 6.b. Fallback: Calculate yaw using alpha
+      // Fallback: Calculate yaw using alpha
       yawDeg = alphaDeg;
       console.log(`Using alpha for yaw: ${yawDeg} degrees`);
     }
   
-    // 7. Convert degrees to radians
+    // Convert degrees to radians
     const yawRad = THREE.MathUtils.degToRad(yawDeg);
     const pitchRad = THREE.MathUtils.degToRad(betaDeg);
     const rollRad = THREE.MathUtils.degToRad(gammaDeg);
   
-    // 8. Determine the screen orientation (0, 90, 180, 270 degrees)
+    // Determine the screen orientation (0, 90, 180, 270 degrees)
     const screenOrientationDeg = window.orientation || 0;
     const screenOrientationRad = THREE.MathUtils.degToRad(screenOrientationDeg);
   
-    // 9. Adjust yaw based on screen orientation
+    // Adjust yaw based on screen orientation
     const adjustedYawRad = yawRad - screenOrientationRad;
   
-    // 10. Create quaternions for each rotation
+    // Create quaternions for each rotation
     const quaternionYaw = new THREE.Quaternion().setFromAxisAngle(
       new THREE.Vector3(0, 1, 0), // Y-axis
       adjustedYawRad
@@ -3030,24 +3030,24 @@ class App {
       -rollRad
     );
   
-    // 11. Combine the quaternions: Yaw * Pitch * Roll
+    // Combine the quaternions: Yaw * Pitch * Roll
     const deviceQuaternion = new THREE.Quaternion()
       .multiply(quaternionYaw)
       .multiply(quaternionPitch)
       .multiply(quaternionRoll);
   
-    // 12. Reference Quaternion: Rotate -90 degrees around X-axis to align device frame with Three.js frame
+    // Reference Quaternion: Rotate -90 degrees around X-axis to align device frame with Three.js frame
     const referenceQuaternion = new THREE.Quaternion().setFromEuler(
       new THREE.Euler(-Math.PI / 2, 0, 0, 'YXZ') // -90 degrees around X-axis
     );
   
-    // 13. Combine Device Quaternion with Reference Quaternion
+    // Combine Device Quaternion with Reference Quaternion
     const finalQuaternion = deviceQuaternion.multiply(referenceQuaternion);
   
-    // 14. Apply the final quaternion to the camera
+    // Apply the final quaternion to the camera
     this.camera.quaternion.copy(finalQuaternion);
   
-    // 15. Optional: Log final quaternion for debugging
+    // Optional: Log final quaternion for debugging
     console.log(`Final Quaternion: ${finalQuaternion.x}, ${finalQuaternion.y}, ${finalQuaternion.z}, ${finalQuaternion.w}`);
   }
   
