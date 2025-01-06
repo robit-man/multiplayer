@@ -3015,8 +3015,8 @@ class App {
     //     - Device's gammaRad (roll) becomes camera's yaw
     //     - Device's alphaRad (compass heading) becomes camera's roll
     //     - Invert the roll angle to correct the direction
-    const cameraYawRad = gammaRad;
-    const cameraRollRad = alphaRad;
+    const cameraYawRad = alphaRad;
+    const cameraRollRad = gammaRad;
   
     // 11. Create Euler angles with the order 'YXZ' to handle rotations properly, including swapped yaw and roll
     const euler = new THREE.Euler(betaRad, cameraYawRad, -cameraRollRad, 'YXZ');
