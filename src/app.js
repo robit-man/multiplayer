@@ -3087,7 +3087,7 @@ class App {
       }
 
       // Update camera orientation based on device orientation data, if enabled
-      if (Sensors.isOrientationEnabled && this.isTouchDevice()) {
+      if (Sensors.isOrientationEnabled) {
         this.updateCameraOrientation()
         UI.updateField('Orientation_a', Sensors.orientationData.alpha);
         UI.updateField('Orientation_a', Sensors.orientationData.beta);
