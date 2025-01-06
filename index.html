@@ -597,23 +597,27 @@
         function initializePermissionDemo() {
           const requestLoc = document.getElementById('request_location')
           if (!requestLoc) {
-            console.warn('No #request_button found in DOM.')
+            console.warn('No #request_location found in DOM.')
             return
           }
 
           requestLoc.addEventListener('click', async () => {
-            const result = await requestLocationPermissions()
+            const result = await requestLocationPermission()
+            alert(result)
+
             console.log('Permissions result:', result)
+            
           })
 
-        const requestOrient = document.getElementById('request_location')
+        const requestOrient = document.getElementById('request_orient')
           if (!requestOrient) {
-            console.warn('No #request_button found in DOM.')
+            console.warn('No #request_orient found in DOM.')
             return
           }
 
           requestOrient.addEventListener('click', async () => {
             const result = await requestSensorPermissions()
+            alert(result.motionGranted, result.orientationGranted )
             console.log('Permissions result:', result)
           })
 
