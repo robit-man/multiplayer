@@ -909,7 +909,7 @@ class Terrain {
     })
 
     this.terrainPointCloud = new THREE.Points(this.terrainGeometry, this.terrainMaterial)
-    //this.scene.add(this.terrainPointCloud)
+    this.scene.add(this.terrainPointCloud)
     this.currentPointCount = 0
   }
 
@@ -3062,6 +3062,13 @@ class App {
     )
   }
 
+  isTouchDevice() {
+    return (('ontouchstart' in window) ||
+       (navigator.maxTouchPoints > 0) ||
+       (navigator.msMaxTouchPoints > 0));
+  }
+  
+
   /**
    * Initializes the render loop.
    */
@@ -3080,8 +3087,11 @@ class App {
       }
 
       // Update camera orientation based on device orientation data, if enabled
-      if (Sensors.isOrientationEnabled && Sensors.orientationData.alpha && Sensors.orientationData.beta && Sensors.orientationData.gamma) {
+      if (Sensors.isOrientationEnabled && this.isTouchDevice()) {
         this.updateCameraOrientation()
+        UI.updateField('Orientation_a', Sensors.orientationData.alpha);
+        UI.updateField('Orientation_a', Sensors.orientationData.beta);
+        UI.updateField('Orientation_a', Sensors.orientationData.gamma);
       }
 
       // Update day-night cycle
@@ -3115,6 +3125,7 @@ class App {
 
     console.log('Render loop started.')
   }
+  
 }
 
 // ------------------------------
