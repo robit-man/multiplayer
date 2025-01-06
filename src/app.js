@@ -348,7 +348,7 @@ class Sensors {
 
       if (!Sensors.isMobileDevice()) {
         console.log('Non-mobile device detected. Device Orientation and Motion not enabled.');
-        alert('Device Orientation and Motion features are disabled on non-mobile devices.');
+        //alert('Device Orientation and Motion features are disabled on non-mobile devices.');
         return;
       }
 
@@ -535,7 +535,7 @@ class Sensors {
 // Initialize Sensors when a user interacts with the page
 // For example, attach to an existing button's click event
 document.addEventListener('DOMContentLoaded', () => {
-  const startSensorsButton = document.getElementById('startSensors');
+  const startSensorsButton = document.getElementById('request_orient');
   if (startSensorsButton) {
     startSensorsButton.addEventListener('click', () => {
       Sensors.initialize();
