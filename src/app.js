@@ -2994,8 +2994,8 @@ class App {
       console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
     } else {
       // 6.b. Fallback: Calculate yaw using alpha
-      yawDeg = alphaDeg;
-      console.log(`Using alpha for yaw: ${yawDeg} degrees`);
+      yawDeg = gammaDeg;
+      console.log(`Using alpha for yaw: ${gammaDeg} degrees`);
     }
   
     // 7. Convert degrees to radians
@@ -3015,11 +3015,11 @@ class App {
     //     - Device's gammaRad (roll) becomes camera's yaw
     //     - Device's alphaRad (compass heading) becomes camera's roll
     //     - Invert the roll angle to correct the direction
-    const cameraYawRad = alphaRad;
-    const cameraRollRad = gammaRad;
+    const cameraYawRad = gammaRad;
+    const cameraRollRad = alphaRad;
   
     // 11. Create Euler angles with the order 'YXZ' to handle rotations properly, including swapped yaw and roll
-    const euler = new THREE.Euler(betaRad, cameraYawRad, -cameraRollRad, 'YXZ');
+    const euler = new THREE.Euler(betaRad, cameraYawRad, -cameraRollRad, 'XYZ');
   
     // 12. Create device quaternion from Euler angles
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(euler);
