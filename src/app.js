@@ -3086,12 +3086,13 @@ class App {
         this.localMixer.update(delta)
       }
 
+      UI.updateField('Orientation_a', Sensors.orientationData.alpha);
+      UI.updateField('Orientation_b', Sensors.orientationData.beta);
+      UI.updateField('Orientation_g', Sensors.orientationData.gamma);
+
       // Update camera orientation based on device orientation data, if enabled
       if (Sensors.isOrientationEnabled) {
         this.updateCameraOrientation()
-        UI.updateField('Orientation_a', Sensors.orientationData.alpha);
-        UI.updateField('Orientation_a', Sensors.orientationData.beta);
-        UI.updateField('Orientation_a', Sensors.orientationData.gamma);
       }
 
       // Update day-night cycle
