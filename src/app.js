@@ -3011,7 +3011,8 @@ class App {
     const adjustedYawRad = yawRad - screenOrientationRad;
   
     // 10. Create Euler angles with the order 'YXZ' to handle rotations properly, including roll
-    const euler = new THREE.Euler(betaRad, adjustedYawRad, gammaRad, 'YXZ');
+    //    Invert the roll angle to correct the roll direction
+    const euler = new THREE.Euler(betaRad, adjustedYawRad, -gammaRad, 'YXZ');
   
     // 11. Create device quaternion from Euler angles
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(euler);
@@ -3021,9 +3022,9 @@ class App {
       new THREE.Euler(-Math.PI / 2, 0, 0, 'YXZ') // -90 degrees around X-axis
     );
   
-    // 13. Combine Device Quaternion with Reference Quaternion
-    // Quaternion multiplication order is important: device * reference
-    const finalQuaternion = deviceQuaternion.clone().multiply(referenceQuaternion);
+    // 13. Combine Reference Quaternion with Device Quaternion
+    //     Quaternion multiplication order is important: reference * device
+    const finalQuaternion = referenceQuaternion.clone().multiply(deviceQuaternion);
   
     // 14. Normalize the final quaternion to prevent errors over time
     finalQuaternion.normalize();
