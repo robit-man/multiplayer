@@ -2954,9 +2954,9 @@ class App {
   updateCameraOrientation() {
     // 1. Pull orientation data from window.orientationGlobal if available
     if (window.orientationGlobal && typeof window.orientationGlobal === 'object') {
-      Sensors.orientationData.alpha = parseFloat(window.orientationGlobal.alpha) || 0; // 0..360 degrees
-      Sensors.orientationData.beta = parseFloat(window.orientationGlobal.beta) || 0;   // -180..180 degrees
-      Sensors.orientationData.gamma = parseFloat(window.orientationGlobal.gamma) || 0; // -90..90 degrees
+      Sensors.orientationData.alpha = parseFloat(window.orientationGlobal.alpha) || 0;   // Yaw: 0..360 degrees
+      Sensors.orientationData.beta = parseFloat(window.orientationGlobal.beta) || 0;     // Pitch: -180..180 degrees
+      Sensors.orientationData.gamma = parseFloat(window.orientationGlobal.gamma) || 0;   // Roll: -90..90 degrees
     }
   
     // 2. Access orientation data directly from Sensors.orientationData
@@ -3013,7 +3013,10 @@ class App {
   
     // 12. Combine Reference Quaternion with Device Quaternion and Screen Orientation
     //     Order: reference * device * screen
-    const finalQuaternion = referenceQuaternion.clone().multiply(deviceQuaternion).multiply(screenOrientationQuaternion);
+    const finalQuaternion = new THREE.Quaternion()
+      .copy(referenceQuaternion)
+      .multiply(deviceQuaternion)
+      .multiply(screenOrientationQuaternion);
   
     // 13. Normalize the final quaternion to prevent errors over time
     finalQuaternion.normalize();
