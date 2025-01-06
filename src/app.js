@@ -2952,67 +2952,97 @@ class App {
    * Updates the camera's orientation based on device sensors.
    */
 
-  updateCameraOrientation () {
-    // Pull orientation data from window.orientationGlobal if available
+  updateCameraOrientation() {
+    // 1. Pull orientation data from window.orientationGlobal if available
     if (
       window.orientationGlobal &&
       typeof window.orientationGlobal === 'object'
     ) {
       Sensors.orientationData.alpha =
-        parseFloat(window.orientationGlobal.alpha) // || 0 // 0..360 degrees
+        parseFloat(window.orientationGlobal.alpha) || 0; // 0..360 degrees
       Sensors.orientationData.beta =
-        parseFloat(window.orientationGlobal.beta)// || 0 // -180..180 degrees
+        parseFloat(window.orientationGlobal.beta) || 0; // -180..180 degrees
       Sensors.orientationData.gamma =
-        parseFloat(window.orientationGlobal.gamma)// || 0 // -90..90 degrees
+        parseFloat(window.orientationGlobal.gamma) || 0; // -90..90 degrees
     }
-
-    // Access orientation data directly from Sensors.orientationData
-    const alphaDeg = Sensors.orientationData.alpha || 0 // 0..360 degrees
-    const betaDeg = Sensors.orientationData.beta || 0 // -180..180 degrees
-    const gammaDeg = Sensors.orientationData.gamma || 0 // -90..90 degrees
-
-    UI.updateField('Orientation_a', alphaDeg)
-    UI.updateField('Orientation_b', betaDeg)
-    UI.updateField('Orientation_g', gammaDeg)
-
-    // Optional: Replace alerts with console logs for debugging
+  
+    // 2. Access orientation data directly from Sensors.orientationData
+    const alphaDeg = Sensors.orientationData.alpha || 0; // 0..360 degrees
+    const betaDeg = Sensors.orientationData.beta || 0; // -180..180 degrees
+    const gammaDeg = Sensors.orientationData.gamma || 0; // -90..90 degrees
+  
+    // 3. Fix decimal places for UI display
+    const alphaConstraint = alphaDeg.toFixed(2);
+    const betaConstraint = betaDeg.toFixed(2);
+    const gammaConstraint = gammaDeg.toFixed(2);
+  
+    // 4. Update UI fields with orientation data
+    UI.updateField('Orientation_a', alphaConstraint);
+    UI.updateField('Orientation_b', betaConstraint);
+    UI.updateField('Orientation_g', gammaConstraint);
+  
+    // 5. Optional: Replace alerts with console logs for debugging
     console.log(
       `Orientation Data - Alpha: ${alphaDeg}, Beta: ${betaDeg}, Gamma: ${gammaDeg}`
-    )
-
-    // Check if compass data is available and accurate
+    );
+  
+    // 6. Check if compass data is available and accurate
     const hasCompass =
       Sensors.orientationData.webkitCompassHeading !== undefined &&
       Sensors.orientationData.webkitCompassAccuracy !== undefined &&
-      Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10 // Adjust threshold as needed
-
-    let yawDeg
-
+      Math.abs(Sensors.orientationData.webkitCompassAccuracy) <= 10; // Adjust threshold as needed
+  
+    let yawDeg;
+  
     if (hasCompass) {
-      // Use compass heading as yaw
-      yawDeg = Sensors.orientationData.webkitCompassHeading
+      // 6.a. Use compass heading as yaw
+      yawDeg = Sensors.orientationData.webkitCompassHeading;
+      console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
     } else {
-      // Fallback: Calculate yaw using alpha
-      yawDeg = alphaDeg
+      // 6.b. Fallback: Calculate yaw using alpha
+      yawDeg = alphaDeg;
+      console.log(`Using alpha for yaw: ${yawDeg} degrees`);
     }
-
-    // Convert degrees to radians
-    const yawRad = THREE.MathUtils.degToRad(yawDeg)
-    const betaRad = THREE.MathUtils.degToRad(betaDeg)
-    const alphaRad = THREE.MathUtils.degToRad(alphaDeg)
-
-    // Calculate pitch based on beta
-    const pitchAngle = THREE.MathUtils.clamp(
-      betaRad - Math.PI / 2,
-      this.movement.pitchMin,
-      this.movement.pitchMax
-    )
-
-    // Update camera rotation using quaternions for smoothness
-    const euler = new THREE.Euler(pitchAngle, yawRad, 0, 'YXZ')
-    const quaternion = new THREE.Quaternion().setFromEuler(euler)
-    this.camera.quaternion.copy(quaternion)
+  
+    // 7. Convert degrees to radians
+    const yawRad = THREE.MathUtils.degToRad(yawDeg);
+    const pitchRad = THREE.MathUtils.degToRad(betaDeg);
+    const rollRad = THREE.MathUtils.degToRad(gammaDeg);
+  
+    // 8. Determine the screen orientation (0, 90, 180, 270 degrees)
+    const screenOrientationDeg = window.orientation || 0;
+    const screenOrientationRad = THREE.MathUtils.degToRad(screenOrientationDeg);
+  
+    // 9. Adjust yaw based on screen orientation
+    const adjustedYawRad = yawRad - screenOrientationRad;
+  
+    // 10. Create Euler angles with the order 'YXZ' to handle rotations properly
+    const euler = new THREE.Euler(pitchRad, adjustedYawRad, rollRad, 'YXZ');
+  
+    // 11. Create device quaternion from Euler angles
+    const deviceQuaternion = new THREE.Quaternion().setFromEuler(euler);
+  
+    // 12. Reference Quaternion: Rotate -90 degrees around Z-axis to align device frame with Three.js frame
+    const referenceQuaternion = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(0, 0, -Math.PI / 2, 'YXZ') // -90 degrees around Z-axis
+    );
+  
+    // 13. Combine Reference Quaternion with Device Quaternion
+    // Quaternion multiplication order is important: reference * device
+    const finalQuaternion = referenceQuaternion.clone().multiply(deviceQuaternion);
+  
+    // 14. Normalize the final quaternion to prevent errors over time
+    finalQuaternion.normalize();
+  
+    // 15. Apply the final quaternion to the camera
+    this.camera.quaternion.copy(finalQuaternion);
+  
+    // 16. Optional: Log final quaternion for debugging
+    console.log(
+      `Final Quaternion: x=${finalQuaternion.x.toFixed(4)}, y=${finalQuaternion.y.toFixed(4)}, z=${finalQuaternion.z.toFixed(4)}, w=${finalQuaternion.w.toFixed(4)}`
+    );
   }
+  
 
   /**
    * Handles window resize events.
