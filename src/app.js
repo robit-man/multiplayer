@@ -326,7 +326,6 @@ class Storage {
   }
 }
 
-
 class Sensors {
   static orientationData = {
     alpha: null,
@@ -341,7 +340,7 @@ class Sensors {
 
   /**
    * Initializes sensor event listeners based on device type and permissions.
-   * If permissions are not granted, it requests them.
+   * This method should be called in response to a user interaction (e.g., button click).
    */
   static async initialize() {
     try {
@@ -397,156 +396,58 @@ class Sensors {
 
   /**
    * Requests device orientation permission (required for iOS 13+).
-   * Displays a temporary button for user interaction if permission is required.
+   * This method should be called in response to a user interaction.
    * @returns {Promise<boolean>} - Resolves to true if permission is granted, false otherwise.
    */
-  static requestOrientationPermission() {
-    return new Promise((resolve) => {
-      // Check if permission is needed (iOS 13+)
-      if (
-        typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function'
-      ) {
-        // Create a temporary button to request permission
-        Sensors.createPermissionButton(
-          'Request Device Orientation Permission',
-          async () => {
-            try {
-              const response = await DeviceOrientationEvent.requestPermission();
-              if (response === 'granted') {
-                resolve(true);
-              } else {
-                resolve(false);
-              }
-            } catch (error) {
-              console.error('Error requesting DeviceOrientation permission:', error);
-              resolve(false);
-            }
-          },
-          () => {
-            // User dismissed the permission request
-            resolve(false);
-          }
-        );
-      } else {
-        // Permission not required
-        resolve(true);
+  static async requestOrientationPermission() {
+    // Check if permission is needed (iOS 13+)
+    if (
+      typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function'
+    ) {
+      try {
+        const response = await DeviceOrientationEvent.requestPermission();
+        if (response === 'granted') {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (error) {
+        console.error('Error requesting DeviceOrientation permission:', error);
+        return false;
       }
-    });
+    } else {
+      // Permission not required
+      return true;
+    }
   }
 
   /**
    * Requests device motion permission (required for iOS 13+).
-   * Displays a temporary button for user interaction if permission is required.
+   * This method should be called in response to a user interaction.
    * @returns {Promise<boolean>} - Resolves to true if permission is granted, false otherwise.
    */
-  static requestMotionPermission() {
-    return new Promise((resolve) => {
-      // Check if permission is needed (iOS 13+)
-      if (
-        typeof DeviceMotionEvent !== 'undefined' &&
-        typeof DeviceMotionEvent.requestPermission === 'function'
-      ) {
-        // Create a temporary button to request permission
-        Sensors.createPermissionButton(
-          'Request Device Motion Permission',
-          async () => {
-            try {
-              const response = await DeviceMotionEvent.requestPermission();
-              if (response === 'granted') {
-                resolve(true);
-              } else {
-                resolve(false);
-              }
-            } catch (error) {
-              console.error('Error requesting DeviceMotion permission:', error);
-              resolve(false);
-            }
-          },
-          () => {
-            // User dismissed the permission request
-            resolve(false);
-          }
-        );
-      } else {
-        // Permission not required
-        resolve(true);
+  static async requestMotionPermission() {
+    // Check if permission is needed (iOS 13+)
+    if (
+      typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function'
+    ) {
+      try {
+        const response = await DeviceMotionEvent.requestPermission();
+        if (response === 'granted') {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (error) {
+        console.error('Error requesting DeviceMotion permission:', error);
+        return false;
       }
-    });
-  }
-
-  /**
-   * Creates and displays a temporary permission request button.
-   * @param {string} buttonText - The text to display on the button.
-   * @param {Function} onClick - The callback function to execute on button click.
-   * @param {Function} onDismiss - The callback function to execute if the user dismisses the permission.
-   */
-  static createPermissionButton(buttonText, onClick, onDismiss) {
-    // Create a modal overlay
-    const modal = document.createElement('div');
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    modal.style.display = 'flex';
-    modal.style.alignItems = 'center';
-    modal.style.justifyContent = 'center';
-    modal.style.zIndex = '1000';
-
-    // Create the button container
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.backgroundColor = '#fff';
-    buttonContainer.style.padding = '20px';
-    buttonContainer.style.borderRadius = '8px';
-    buttonContainer.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-    buttonContainer.style.textAlign = 'center';
-
-    // Create the button
-    const button = document.createElement('button');
-    button.textContent = buttonText;
-    button.style.padding = '10px 20px';
-    button.style.fontSize = '16px';
-    button.style.cursor = 'pointer';
-    button.style.border = 'none';
-    button.style.borderRadius = '4px';
-    button.style.backgroundColor = '#007BFF';
-    button.style.color = '#fff';
-
-    // Create the cancel button
-    const cancelButton = document.createElement('button');
-    cancelButton.textContent = 'Cancel';
-    cancelButton.style.padding = '10px 20px';
-    cancelButton.style.fontSize = '16px';
-    cancelButton.style.cursor = 'pointer';
-    cancelButton.style.border = 'none';
-    cancelButton.style.borderRadius = '4px';
-    cancelButton.style.backgroundColor = '#6c757d';
-    cancelButton.style.color = '#fff';
-    cancelButton.style.marginLeft = '10px';
-
-    // Append buttons to container
-    buttonContainer.appendChild(button);
-    buttonContainer.appendChild(cancelButton);
-
-    // Append container to modal
-    modal.appendChild(buttonContainer);
-
-    // Append modal to body
-    document.body.appendChild(modal);
-
-    // Button click handler
-    button.addEventListener('click', () => {
-      onClick();
-      document.body.removeChild(modal);
-    });
-
-    // Cancel button handler
-    cancelButton.addEventListener('click', () => {
-      if (onDismiss) onDismiss();
-      document.body.removeChild(modal);
-    });
+    } else {
+      // Permission not required
+      return true;
+    }
   }
 
   /**
@@ -631,10 +532,21 @@ class Sensors {
   }
 }
 
-// Initialize Sensors when the DOM is fully loaded
+// Initialize Sensors when a user interacts with the page
+// For example, attach to an existing button's click event
 document.addEventListener('DOMContentLoaded', () => {
-  Sensors.initialize();
+  const startSensorsButton = document.getElementById('startSensors');
+  if (startSensorsButton) {
+    startSensorsButton.addEventListener('click', () => {
+      Sensors.initialize();
+    });
+  } else {
+    // If there's no existing button, you might need to create one or prompt the user to interact
+    console.warn('No element with ID "startSensors" found. Sensors will not initialize automatically.');
+    alert('Please click the "Start Sensors" button to enable Device Orientation and Motion features.');
+  }
 });
+
 
 
 // ------------------------------
