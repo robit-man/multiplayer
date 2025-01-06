@@ -2995,7 +2995,7 @@ class App {
       console.log(`Using compass heading for yaw: ${yawDeg} degrees`);
     } else {
       // 6.b. Fallback: Calculate yaw using alpha
-      yawDeg = alphaDeg;
+      yawDeg = gammaDeg;
       console.log(`Using alpha for yaw: ${yawDeg} degrees`);
     }
   
@@ -3012,36 +3012,39 @@ class App {
     // 9. Adjust yaw based on screen orientation
     const adjustedYawRad = yawRad - screenOrientationRad;
   
-    // 10. Create Euler angles with the order 'YXZ' to handle rotations properly
-    //     - Yaw (gammaRad) around Y-axis
-    //     - Pitch (betaRad) around X-axis
-    //     - Roll (alphaRad) around Z-axis
-    const euler = new THREE.Euler(betaRad, adjustedYawRad, alphaRad, 'YXZ');
+    // 10. Swap yaw and roll:
+    //     - Device's gammaRad (roll) becomes camera's yaw
+    //     - Device's alphaRad (compass heading) becomes camera's roll
+    //     - Invert the roll angle to correct the direction
+    const cameraYawRad = gammaRad;
+    const cameraRollRad = alphaRad;
   
-    // 11. Create device quaternion from Euler angles
+    // 11. Create Euler angles with the order 'YXZ' to handle rotations properly, including swapped yaw and roll
+    const euler = new THREE.Euler(betaRad, cameraYawRad, -cameraRollRad, 'YXZ');
+  
+    // 12. Create device quaternion from Euler angles
     const deviceQuaternion = new THREE.Quaternion().setFromEuler(euler);
   
-    // 12. Reference Quaternion: Rotate -90 degrees around Z-axis to align device frame with Three.js frame
+    // 13. Reference Quaternion: Rotate -90 degrees around X-axis to align device frame with Three.js frame
     const referenceQuaternion = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(0, 0, -Math.PI / 2, 'YXZ') // -90 degrees around Z-axis
+      new THREE.Euler(-Math.PI / 2, 0, 0, 'YXZ') // -90 degrees around X-axis
     );
   
-    // 13. Combine Reference Quaternion with Device Quaternion
+    // 14. Combine Reference Quaternion with Device Quaternion
     //     Quaternion multiplication order is important: reference * device
     const finalQuaternion = referenceQuaternion.clone().multiply(deviceQuaternion);
   
-    // 14. Normalize the final quaternion to prevent errors over time
+    // 15. Normalize the final quaternion to prevent errors over time
     finalQuaternion.normalize();
   
-    // 15. Apply the final quaternion to the camera
+    // 16. Apply the final quaternion to the camera
     this.camera.quaternion.copy(finalQuaternion);
   
-    // 16. Optional: Log final quaternion for debugging
+    // 17. Optional: Log final quaternion for debugging
     console.log(
       `Final Quaternion: x=${finalQuaternion.x.toFixed(4)}, y=${finalQuaternion.y.toFixed(4)}, z=${finalQuaternion.z.toFixed(4)}, w=${finalQuaternion.w.toFixed(4)}`
     );
   }
-  
   
   
   
